@@ -310,9 +310,12 @@ def test_web_back_uses_real_alt_left_keycode(controller, monkeypatch):
     controller.native_key.assert_awaited_once_with(105, modifiers=8)
 
 
-def test_activation_prefers_original_window_over_popup(controller):
+@pytest.mark.parametrize("marked_popup", [False, True])
+def test_activation_prefers_original_window_over_popup(controller, marked_popup):
     original, popup = window("browser", 50), window("browser", 51)
     original["marks"] = ["orgm-home-browser"]
+    if marked_popup:
+        popup["marks"] = ["orgm-home-browser"]
     controller.tree = AsyncMock(return_value={"nodes": [popup, original]})
     assert run(controller.find(controller.apps["browser"]))["id"] == 50
 

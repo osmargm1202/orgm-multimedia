@@ -151,9 +151,10 @@ class Controller:
         matches = [w for w in windows(await self.tree()) if self.identify(w) == app]
         # A popup may precede its opener in Sway's tree. Keep activation tied
         # to the original marked window rather than replacing it with an ad.
-        return next(
-            (w for w in matches if f"orgm-home-{app.id}" in w.get("marks", [])),
-            next(iter(matches), None),
+        return min(
+            matches,
+            key=lambda w: (f"orgm-home-{app.id}" not in w.get("marks", []), w["id"]),
+            default=None,
         )
 
     async def spawn(self, args):
