@@ -1,4 +1,5 @@
 """Bounded JSON lines over a Unix socket, limited to the media user's UID."""
+
 from __future__ import annotations
 
 import asyncio
@@ -29,10 +30,15 @@ class AgentClient:
             raw = await asyncio.wait_for(reader.readline(), 30)
             result = json.loads(raw)
             if not result.get("ok"):
-                raise ControlError(result.get("error", "No se pudo completar la acción"), result.get("status", 503))
+                raise ControlError(
+                    result.get("error", "No se pudo completar la acción"),
+                    result.get("status", 503),
+                )
             return result["data"]
         except (OSError, TimeoutError, ValueError) as exc:
-            raise ControlError("La sesión multimedia todavía no está disponible") from exc
+            raise ControlError(
+                "La sesión multimedia todavía no está disponible"
+            ) from exc
         finally:
             if writer:
                 writer.close()

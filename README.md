@@ -53,7 +53,7 @@ El backend exige cookie firmada, token CSRF y Origin exacto para mutaciones; apl
 - VacuumTube y Spotify se instalan desde Flathub con reintento systemd. Los commits Flatpak no están fijados; Chrome y las dependencias Python sí siguen la revisión nixpkgs del perfil.
 - Netflix, Max y Crunchyroll usan Chrome con perfiles independientes. El inicio de sesión comercial es manual; DRM, resolución y reproducción requieren aceptación en el hardware real.
 - El agente busca marcas/app_id/clase en el árbol Sway, reutiliza ventanas y conserva workspaces. Home no las cierra. Cerrar termina solo la ventana seleccionada.
-- `wtype` introduce teclas/texto. Spotify usa MPRIS; mpv su socket propio. Chrome usa teclas de mejor esfuerzo, sin inventar estado de reproducción.
+- `wtype` introduce teclas/texto. El perfil NixOS aplica un parche local de keycodes para Chrome ([referencia upstream](https://github.com/atx/wtype/pull/74)). El texto usa una selección Wayland temporal y un atajo con códigos físicos estables; se borra esa selección al terminar. La prueba real verifica acentos, signos, emojis y otros alfabetos sin basarse únicamente en el exit code. Spotify usa MPRIS; mpv su socket propio. Chrome usa teclas de mejor esfuerzo, sin inventar estado de reproducción.
 - Al cambiar se intenta pausar con MPRIS/mpv y silenciar únicamente los streams Pulse que se puedan atribuir a la app anterior. Si no se confirma, se devuelve un aviso. La reanudación de una app pausada es explícita con Play.
 - El puntero remoto está deshabilitado y su endpoint responde 409. No se instala uinput/ydotoold en fase 1.
 - Copiar archivos a `/home/media/Videos`, legibles por media. La lista es plana, limita extensiones/cantidad y rechaza symlinks y rutas arbitrarias.
@@ -80,4 +80,4 @@ La UI mostrará sesión no disponible mientras no exista un agente conectado. Un
 
 ## Estado de aceptación
 
-Las pruebas automatizadas verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados y reutilización de ventanas. No certifican hardware, HDMI hotplug, autologin tras reboot, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.
+Las 43 pruebas unitarias verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados, HDMI y reutilización de ventanas. `tests/browser_smoke.py` prueba la UI con un agente simulado; `tests/session_smoke.py` usa Sway, Chrome y wtype reales en una sesión aislada. El check NixOS `multimedia-boot` verifica greetd autologin, kiosk, nftables, reinicios de servicios y retorno al inicio tras apagar/arrancar una VM. No certifican el hardware de Jarq, HDMI hotplug físico, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.

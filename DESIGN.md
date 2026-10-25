@@ -2,7 +2,7 @@
 
 ## World
 
-A living-room AV receiver: a clear source selector, a central tactile directional control, and a volume strip with persistent feedback. Proposed in the unanswered design consultation; adopted provisionally from the explicit sofa/projector context, not recorded as a permanent user preference.
+A living-room AV receiver: a clear source selector, a central tactile directional control, and a volume strip with persistent feedback. The user confirmed this layout, large controls, Spanish text, and a dark room palette. The user also requested an image reference; rendered desktop and mobile previews were provided before finalizing the design.
 
 ## Tokens
 

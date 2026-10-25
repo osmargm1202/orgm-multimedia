@@ -1,4 +1,5 @@
 """Immutable configuration; HTTP clients never supply executable commands."""
+
 from __future__ import annotations
 
 import json
@@ -60,13 +61,26 @@ class Settings:
     def from_env(cls):
         return cls(
             catalog=Path(os.getenv("ORGM_CATALOG", "/etc/orgm-home/apps.json")),
-            agent_socket=Path(os.getenv("ORGM_AGENT_SOCKET", "/run/orgm-home/agent.sock")),
-            token_file=Path(os.getenv("ORGM_TOKEN_FILE", "/var/lib/orgm-home/control-token")),
-            origins=tuple(x.strip().rstrip("/") for x in os.getenv(
-                "ORGM_ORIGINS", "http://127.0.0.1:8765,http://localhost:8765,https://home.or-gm.com"
-            ).split(",") if x.strip()),
+            agent_socket=Path(
+                os.getenv("ORGM_AGENT_SOCKET", "/run/orgm-home/agent.sock")
+            ),
+            token_file=Path(
+                os.getenv("ORGM_TOKEN_FILE", "/var/lib/orgm-home/control-token")
+            ),
+            origins=tuple(
+                x.strip().rstrip("/")
+                for x in os.getenv(
+                    "ORGM_ORIGINS",
+                    "http://127.0.0.1:8765,http://localhost:8765,https://home.or-gm.com",
+                ).split(",")
+                if x.strip()
+            ),
             public_host=os.getenv("ORGM_PUBLIC_HOST", "home.or-gm.com"),
             access_team=os.getenv("ORGM_ACCESS_TEAM", "").rstrip("/"),
             access_aud=os.getenv("ORGM_ACCESS_AUD", ""),
-            access_emails=tuple(x.strip().lower() for x in os.getenv("ORGM_ACCESS_EMAILS", "").split(",") if x.strip()),
+            access_emails=tuple(
+                x.strip().lower()
+                for x in os.getenv("ORGM_ACCESS_EMAILS", "").split(",")
+                if x.strip()
+            ),
         )

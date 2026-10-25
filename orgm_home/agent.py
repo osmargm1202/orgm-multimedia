@@ -1,4 +1,5 @@
 """Session-owned controller. No shell, arbitrary programs or network listener."""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,19 +14,45 @@ import socket
 import struct
 import time
 
-from .config import App, Settings, load_catalog
+from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
 from .urls import validate_url
 
 LOG = logging.getLogger(__name__)
-KEYS = {"up": "Up", "down": "Down", "left": "Left", "right": "Right", "ok": "Return", "back": "Escape", "backspace": "BackSpace", "tab": "Tab", "space": "space"}
+KEYS = {
+    "up": "Up",
+    "down": "Down",
+    "left": "Left",
+    "right": "Right",
+    "ok": "Return",
+    "back": "Escape",
+    "backspace": "BackSpace",
+    "tab": "Tab",
+    "space": "space",
+}
 
 
-async def command(*args: str, timeout: float = 8, check: bool = True):
+async def command(
+    *args: str,
+    timeout: float = 8,
+    check: bool = True,
+    input_text: str | None = None,
+    capture: bool = True,
+):
     try:
-        proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdin=asyncio.subprocess.PIPE if input_text is not None else None,
+            stdout=asyncio.subprocess.PIPE if capture else asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE if capture else asyncio.subprocess.DEVNULL,
+        )
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(
+                    input_text.encode() if input_text is not None else None
+                ),
+                timeout,
+            )
         except BaseException:
             with contextlib.suppress(ProcessLookupError):
                 proc.kill()
@@ -34,13 +61,20 @@ async def command(*args: str, timeout: float = 8, check: bool = True):
     except (OSError, TimeoutError) as exc:
         raise ControlError("No respondió una herramienta de la sesión") from exc
     if check and proc.returncode:
-        LOG.warning("%s exited %s: %s", args[0], proc.returncode, stderr.decode(errors="replace")[:300])
+        LOG.warning(
+            "%s exited %s: %s",
+            args[0],
+            proc.returncode,
+            (stderr or b"").decode(errors="replace")[:300],
+        )
         raise ControlError("La aplicación no pudo completar la acción")
-    return stdout.decode(errors="replace")
+    return (stdout or b"").decode(errors="replace")
 
 
 def windows(tree):
-    if tree.get("type") in {"con", "floating_con"} and (tree.get("app_id") or tree.get("window")):
+    if tree.get("type") in {"con", "floating_con"} and (
+        tree.get("app_id") or tree.get("window")
+    ):
         yield tree
     for node in tree.get("nodes", []) + tree.get("floating_nodes", []):
         yield from windows(node)
@@ -51,7 +85,10 @@ class Controller:
         self.settings = settings
         self.apps = load_catalog(settings.catalog)
         self.lock = asyncio.Lock()
-        self.state_dir = Path(os.getenv("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "orgm-home"
+        self.state_dir = (
+            Path(os.getenv("XDG_STATE_HOME", str(Path.home() / ".local/state")))
+            / "orgm-home"
+        )
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.children = set()
         self.active = "home"
@@ -82,25 +119,44 @@ class Controller:
         return None
 
     async def find(self, app):
-        return next((w for w in windows(await self.tree()) if self.identify(w) == app), None)
+        return next(
+            (w for w in windows(await self.tree()) if self.identify(w) == app), None
+        )
 
     async def spawn(self, args):
         log = (self.state_dir / "applications.log").open("ab")
         try:
-            proc = await asyncio.create_subprocess_exec(*args, stdout=log, stderr=log, start_new_session=True)
+            proc = await asyncio.create_subprocess_exec(
+                *args, stdout=log, stderr=log, start_new_session=True
+            )
         finally:
             log.close()
         self.children.add(proc)
+
         async def reap():
             await proc.wait()
             self.children.discard(proc)
+
         asyncio.create_task(reap())
         return proc
 
-    def chrome_args(self, app, url):
+    def chrome_args(self, app, url, new_window=True):
         profile = Path.home() / ".local/share/orgm-home/chrome" / app.id
         profile.mkdir(parents=True, exist_ok=True)
-        return ["google-chrome-stable", "--ozone-platform=wayland", "--no-first-run", "--no-default-browser-check", "--password-store=basic", f"--class=orgm-home-{app.id}", f"--user-data-dir={profile}", *(["--new-window", url] if app.id == "browser" else [f"--app={url}"])]
+        return [
+            "google-chrome-stable",
+            "--ozone-platform=wayland",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--password-store=basic",
+            f"--class=orgm-home-{app.id}",
+            f"--user-data-dir={profile}",
+            *(
+                [*(["--new-window"] if new_window else []), url]
+                if app.id == "browser"
+                else [f"--app={url}"]
+            ),
+        ]
 
     async def mute_application(self, app, muted):
         """Mute only matching Pulse streams; never mute every application."""
@@ -110,7 +166,11 @@ class Controller:
         except ValueError:
             return False
         matched = False
-        owned_pids = {str(w.get("pid")) for w in windows(await self.tree()) if self.identify(w) == app}
+        owned_pids = {
+            str(w.get("pid"))
+            for w in windows(await self.tree())
+            if self.identify(w) == app
+        }
         for stream in streams:
             props = stream.get("properties", {})
             app_name = props.get("application.name", "")
@@ -122,18 +182,28 @@ class Controller:
                     break
                 try:
                     stat = Path(f"/proc/{int(ancestor)}/stat").read_text()
-                    ancestor = stat[stat.rindex(")") + 2:].split()[1]
+                    ancestor = stat[stat.rindex(")") + 2 :].split()[1]
                 except (ValueError, OSError, IndexError):
                     ancestor = ""
                     break
-            flatpak_match = app.type == "flatpak" and app_name.lower() in {app.name.lower(), app.appId.rsplit(".", 1)[-1].lower()}
+            flatpak_match = app.type == "flatpak" and app_name.lower() in {
+                app.name.lower(),
+                app.appId.rsplit(".", 1)[-1].lower(),
+            }
             if ancestor in owned_pids or flatpak_match:
-                await command("pactl", "set-sink-input-mute", str(int(stream["index"])), "1" if muted else "0")
+                await command(
+                    "pactl",
+                    "set-sink-input-mute",
+                    str(int(stream["index"])),
+                    "1" if muted else "0",
+                )
                 matched = True
         return matched
 
     async def mpv(self, payload):
-        reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(str(self.state_dir / "mpv.sock")), 2)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_unix_connection(str(self.state_dir / "mpv.sock")), 2
+        )
         try:
             writer.write(json.dumps({"command": payload}).encode() + b"\n")
             await writer.drain()
@@ -155,7 +225,9 @@ class Controller:
             return
         paused = False
         if previous.player:
-            await command("playerctl", f"--player={previous.player}", "pause", check=False)
+            await command(
+                "playerctl", f"--player={previous.player}", "pause", check=False
+            )
             # A matching Pulse stream below also covers an unsupported MPRIS player.
         if previous.type == "mpv":
             with contextlib.suppress(OSError, TimeoutError, ControlError):
@@ -163,7 +235,50 @@ class Controller:
                 paused = True
         muted = await self.mute_application(previous, True)
         if not paused and not muted:
-            self.warning = f"No se pudo confirmar la pausa de {previous.name}. Comprueba su audio."
+            self.warning = (
+                f"No se pudo confirmar la pausa de {previous.name}. Comprueba su audio."
+            )
+
+    async def enter_text(self, value, navigate=False):
+        # The profile patch starts at evdev 30 (A). Register a stable US
+        # printable row so Chromium sees both logical and physical L/V.
+        physical = [
+            "a",
+            "s",
+            "d",
+            "f",
+            "g",
+            "h",
+            "j",
+            "k",
+            "l",
+            "semicolon",
+            "apostrophe",
+            "grave",
+            "Shift_L",
+            "backslash",
+            "z",
+            "x",
+            "c",
+            "v",
+        ]
+        prefix = [arg for name in physical for arg in ("-p", name)]
+        keys = ["wtype", *prefix, "-s", "150"]
+        if navigate:
+            keys += ["-M", "ctrl", "-k", "l", "-m", "ctrl", "-s", "150"]
+        keys += ["-M", "ctrl", "-k", "v", "-m", "ctrl", "-s", "250"]
+        if navigate:
+            keys += ["-k", "Return", "-s", "150"]
+        # One virtual keyboard/keymap spans focus, paste and Enter: switching
+        # keymaps while Chrome's address bar is focused can discard the URL.
+        await command(
+            "wl-copy", "--type", "text/plain", input_text=value, capture=False
+        )
+        try:
+            await command(*keys)
+            await asyncio.sleep(0.25)
+        finally:
+            await command("wl-copy", "--clear", capture=False)
 
     async def activate(self, app_id, url=None):
         if app_id not in self.apps:
@@ -178,14 +293,27 @@ class Controller:
             await self.sway(f"workspace number {app.workspace}")
             if app.type == "internal":
                 # Kiosk has its own restarting systemd user service.
-                await command("systemctl", "--user", "restart", "orgm-home-kiosk.service")
+                await command(
+                    "systemctl", "--user", "restart", "orgm-home-kiosk.service"
+                )
             elif app.type == "flatpak":
                 proc = await self.spawn(["flatpak", "run", app.appId])
                 self.processes[app.id] = proc
             elif app.type == "chrome":
-                self.processes[app.id] = await self.spawn(self.chrome_args(app, url or app.url))
+                self.processes[app.id] = await self.spawn(
+                    self.chrome_args(app, url or app.url)
+                )
             elif app.type == "mpv":
-                self.processes[app.id] = await self.spawn(["mpv", "--idle=yes", "--force-window=yes", "--fullscreen", "--title=ORGM Videos", f"--input-ipc-server={self.state_dir / 'mpv.sock'}"])
+                self.processes[app.id] = await self.spawn(
+                    [
+                        "mpv",
+                        "--idle=yes",
+                        "--force-window=yes",
+                        "--fullscreen",
+                        "--title=ORGM Videos",
+                        f"--input-ipc-server={self.state_dir / 'mpv.sock'}",
+                    ]
+                )
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 window = await self.find(app)
@@ -193,19 +321,22 @@ class Controller:
                     break
                 proc = self.processes.get(app.id)
                 if proc and proc.returncode is not None and proc.returncode != 0:
-                    raise ControlError(f"No arrancó {app.name}. Comprueba que esté instalada.")
-                await asyncio.sleep(.2)
+                    raise ControlError(
+                        f"No arrancó {app.name}. Comprueba que esté instalada."
+                    )
+                await asyncio.sleep(0.2)
             if not window:
                 raise ControlError(f"No apareció la ventana de {app.name}", 504)
         con_id = int(window["id"])
         await self.sway(f"[con_id={con_id}] mark --add orgm-home-{app.id}")
-        await self.sway(f"[con_id={con_id}] move container to workspace number {app.workspace}")
+        await self.sway(
+            f"[con_id={con_id}] move container to workspace number {app.workspace}"
+        )
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
         if navigate_existing and app.id == "browser":
-            await command("wtype", "-M", "ctrl", "-k", "l", "-m", "ctrl")
-            await command("wtype", "-d", "10", "-s", "150", "--", url, timeout=25)
-            await command("wtype", "-k", "Return")
+            # Chrome forwards this URL as a tab to the same profile/window.
+            await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
         await self.mute_application(app, False)
         return {"app": app.id, "warning": self.warning}
@@ -216,11 +347,29 @@ class Controller:
         app = self.identify(focused) if focused else None
         if app:
             self.active = app.id
-        volume_raw = await command("wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@", check=False)
+        volume_raw = await command(
+            "wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@", check=False
+        )
         match = re.search(r"Volume: ([0-9.]+)", volume_raw)
-        opened = list(dict.fromkeys(a.id for w in windows(tree) if (a := self.identify(w))))
-        return {"session": True, "app": app.id if app else None, "title": (focused or {}).get("name", ""), "volume": round(float(match[1]) * 100) if match else None, "muted": "MUTED" in volume_raw, "open": opened, "warning": self.warning,
-                "capabilities": {"keys": bool(app and app.id != "home"), "text": bool(app and app.control not in {"internal", "mpv"}), "pointer": False, "play": bool(app and app.id != "home"), "close": bool(app and app.id != "home")}}
+        opened = list(
+            dict.fromkeys(a.id for w in windows(tree) if (a := self.identify(w)))
+        )
+        return {
+            "session": True,
+            "app": app.id if app else None,
+            "title": (focused or {}).get("name", ""),
+            "volume": round(float(match[1]) * 100) if match else None,
+            "muted": "MUTED" in volume_raw,
+            "open": opened,
+            "warning": self.warning,
+            "capabilities": {
+                "keys": bool(app and app.id != "home"),
+                "text": bool(app and app.control not in {"internal", "mpv"}),
+                "pointer": False,
+                "play": bool(app and app.id != "home"),
+                "close": bool(app and app.id != "home"),
+            },
+        }
 
     async def dispatch(self, request):
         action = request.get("action")
@@ -232,18 +381,24 @@ class Controller:
             if action == "home":
                 return await self.activate("home")
             if action == "open-url":
-                return await self.activate("browser", await validate_url(request.get("url", "")))
+                return await self.activate(
+                    "browser", await validate_url(request.get("url", ""))
+                )
             if action == "key":
                 key = request.get("key")
                 current = await self.status()
                 app = self.apps.get(current["app"])
                 if not app or app.id == "home":
-                    raise ControlError("Selecciona una aplicación para usar el mando", 409)
+                    raise ControlError(
+                        "Selecciona una aplicación para usar el mando", 409
+                    )
                 if key == "play":
                     if app.type == "mpv":
                         await self.mpv(["cycle", "pause"])
                     elif app.player:
-                        await command("playerctl", f"--player={app.player}", "play-pause")
+                        await command(
+                            "playerctl", f"--player={app.player}", "play-pause"
+                        )
                     else:
                         await command("wtype", "-s", "100", "-k", "space")
                 elif key in KEYS:
@@ -253,19 +408,44 @@ class Controller:
                 return {"sent": key}
             if action == "text":
                 value = request.get("text")
-                if not isinstance(value, str) or not 1 <= len(value) <= 1000 or any(ord(c) < 32 or ord(c) == 127 for c in value):
-                    raise ControlError("Texto inválido: máximo 1000 caracteres sin controles", 422)
+                if (
+                    not isinstance(value, str)
+                    or not 1 <= len(value) <= 1000
+                    or any(ord(c) < 32 or ord(c) == 127 for c in value)
+                ):
+                    raise ControlError(
+                        "Texto inválido: máximo 1000 caracteres sin controles", 422
+                    )
                 if not (await self.status())["capabilities"]["text"]:
                     raise ControlError("Esta aplicación no acepta texto", 409)
-                await command("wtype", "-d", "20", "-s", "150", "--", value, timeout=25)
+                await self.enter_text(value)
                 return {"sent": True}
             if action == "volume":
                 value = request.get("value")
                 delta = request.get("delta")
-                if isinstance(value, (float, int)) and not isinstance(value, bool) and 0 <= value <= 100 and delta is None:
-                    await command("wpctl", "set-volume", "--limit", "1", "@DEFAULT_AUDIO_SINK@", f"{value}%")
+                if (
+                    isinstance(value, (float, int))
+                    and not isinstance(value, bool)
+                    and 0 <= value <= 100
+                    and delta is None
+                ):
+                    await command(
+                        "wpctl",
+                        "set-volume",
+                        "--limit",
+                        "1",
+                        "@DEFAULT_AUDIO_SINK@",
+                        f"{value}%",
+                    )
                 elif delta in {-5, 5} and value is None:
-                    await command("wpctl", "set-volume", "--limit", "1", "@DEFAULT_AUDIO_SINK@", f"5%{'+' if delta > 0 else '-'}")
+                    await command(
+                        "wpctl",
+                        "set-volume",
+                        "--limit",
+                        "1",
+                        "@DEFAULT_AUDIO_SINK@",
+                        f"5%{'+' if delta > 0 else '-'}",
+                    )
                 else:
                     raise ControlError("Volumen fuera de rango", 422)
                 return {"updated": True}
@@ -285,7 +465,10 @@ class Controller:
                 return await self.list_files()
             if action == "play-file":
                 name = request.get("name")
-                if not isinstance(name, str) or name not in (await self.list_files())["files"]:
+                if (
+                    not isinstance(name, str)
+                    or name not in (await self.list_files())["files"]
+                ):
                     raise ControlError("Archivo desconocido", 404)
                 path = Path.home() / "Videos" / name
                 await self.activate("videos")
@@ -297,7 +480,16 @@ class Controller:
     async def list_files(self):
         root = Path.home() / "Videos"
         root.mkdir(exist_ok=True)
-        return {"files": sorted(p.name for p in root.iterdir() if p.is_file() and not p.is_symlink() and p.suffix.lower() in {".mp4", ".mkv", ".webm", ".avi", ".mp3", ".flac", ".ogg", ".mov"})[:200]}
+        return {
+            "files": sorted(
+                p.name
+                for p in root.iterdir()
+                if p.is_file()
+                and not p.is_symlink()
+                and p.suffix.lower()
+                in {".mp4", ".mkv", ".webm", ".avi", ".mp3", ".flac", ".ogg", ".mov"}
+            )[:200]
+        }
 
 
 async def serve():
@@ -320,7 +512,9 @@ async def serve():
 
     async def handle(reader, writer):
         try:
-            peer = writer.get_extra_info("socket").getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
+            peer = writer.get_extra_info("socket").getsockopt(
+                socket.SOL_SOCKET, socket.SO_PEERCRED, 12
+            )
             _, uid, _ = struct.unpack("3i", peer)
             if uid != os.getuid():
                 raise ControlError("Peer UID denied", 403)
@@ -336,7 +530,11 @@ async def serve():
             result = {"ok": False, "error": str(exc), "status": exc.status}
         except Exception:
             LOG.exception("Session command failed")
-            result = {"ok": False, "error": "Falló el controlador de sesión", "status": 503}
+            result = {
+                "ok": False,
+                "error": "Falló el controlador de sesión",
+                "status": 503,
+            }
         try:
             writer.write(json.dumps(result).encode() + b"\n")
             await writer.drain()

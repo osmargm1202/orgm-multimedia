@@ -36,7 +36,7 @@ Plan original en docs/phase1-plan.md. El repositorio NixOS conserva configuraci�
 
 ## Open Decisions
 
-La consulta sobre idioma/distribución y construcción visual sigue pendiente. Mientras se responde se adopta español a partir del idioma del plan; es una suposición de esta entrega.
+El usuario confirma seguir el plan, resolver el diseño y usar botones grandes y texto en español. No se ha establecido una preferencia permanente de flujo visual.
 
 ## Product Principles
 

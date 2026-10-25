@@ -1,6 +1,6 @@
 """Follow HDMI hotplug and select its audio without suspending the appliance."""
+
 import asyncio
-import contextlib
 import json
 import logging
 import re
@@ -20,20 +20,35 @@ async def update():
             continue
         enabled = output in hdmi or not hdmi
         if bool(output.get("active")) != enabled:
-            await command("swaymsg", f"output {name} {'enable' if enabled else 'disable'}")
+            await command(
+                "swaymsg", f"output {name} {'enable' if enabled else 'disable'}"
+            )
     if not hdmi:
         return
     # The analog card profile may otherwise prevent an HDMI sink from existing.
     cards = json.loads(await command("pactl", "-f", "json", "list", "cards"))
     for card in cards:
         profiles = card.get("profiles", {})
-        candidates = [name for name, profile in profiles.items() if "output:hdmi-stereo" in name and profile.get("available") in (True, "yes")]
+        candidates = [
+            name
+            for name, profile in profiles.items()
+            if "output:hdmi-stereo" in name
+            and profile.get("available") in (True, "yes")
+        ]
         if candidates and card.get("active_profile") not in candidates:
-            await command("pactl", "set-card-profile", str(card["index"]), sorted(candidates, key=lambda name: ("extra" in name, len(name)))[0])
+            await command(
+                "pactl",
+                "set-card-profile",
+                str(card["index"]),
+                sorted(candidates, key=lambda name: ("extra" in name, len(name)))[0],
+            )
     graph = json.loads(await command("pw-dump"))
     for node in graph:
         props = node.get("info", {}).get("props", {})
-        if props.get("media.class") == "Audio/Sink" and "hdmi" in props.get("node.name", "").lower():
+        if (
+            props.get("media.class") == "Audio/Sink"
+            and "hdmi" in props.get("node.name", "").lower()
+        ):
             await command("wpctl", "set-default", str(int(node["id"])))
             break
 

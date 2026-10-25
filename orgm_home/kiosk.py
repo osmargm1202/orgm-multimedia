@@ -1,4 +1,5 @@
 """Bounded HTTP readiness check and kiosk launch; systemd handles retries."""
+
 import json
 import os
 from pathlib import Path
@@ -19,7 +20,24 @@ def main():
         time.sleep(1)
     else:
         raise SystemExit("ORGM Home API did not become ready")
-    token = Path(os.getenv("ORGM_TOKEN_FILE", "/var/lib/orgm-home/control-token")).read_text().strip()
+    token = (
+        Path(os.getenv("ORGM_TOKEN_FILE", "/var/lib/orgm-home/control-token"))
+        .read_text()
+        .strip()
+    )
     profile = Path.home() / ".local/share/orgm-home/chrome/home"
     profile.mkdir(parents=True, exist_ok=True)
-    os.execvp("google-chrome-stable", ["google-chrome-stable", "--ozone-platform=wayland", "--no-first-run", "--no-default-browser-check", "--password-store=basic", "--class=orgm-home-home", f"--user-data-dir={profile}", "--kiosk", f"{url}/#pair={token}"])
+    os.execvp(
+        "google-chrome-stable",
+        [
+            "google-chrome-stable",
+            "--ozone-platform=wayland",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--password-store=basic",
+            "--class=orgm-home-home",
+            f"--user-data-dir={profile}",
+            "--kiosk",
+            f"{url}/#pair={token}",
+        ],
+    )
