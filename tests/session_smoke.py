@@ -10,6 +10,8 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
+import re
 import signal
 import subprocess
 import sys
@@ -60,7 +62,19 @@ token.chmod(0o600)
 env = {
     k: v
     for k, v in os.environ.items()
-    if k not in {"SWAYSOCK", "DISPLAY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS"}
+    if k
+    not in {
+        "SWAYSOCK",
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "QS_CONFIG_PATH",
+        "QS_CONFIG_NAME",
+        "WAYLAND_SOCKET",
+        "HYPRLAND_INSTANCE_SIGNATURE",
+    }
 }
 env.update(
     HOME=str(home),
@@ -107,7 +121,7 @@ def wait_for(predicate, timeout=25):
             result = predicate()
             if result:
                 return result
-        except (OSError, ValueError, httpx.HTTPError):
+        except (OSError, ValueError, httpx.HTTPError, subprocess.SubprocessError):
             pass
         time.sleep(0.15)
     raise AssertionError("Timeout waiting for test session; logs: " + str(root))
@@ -288,6 +302,35 @@ try:
             pointer.button(False)
             time.sleep(0.12)
         wait_for(lambda: page.locator("#target").input_value() == "café")
+        wait_for(
+            lambda: any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
+        )
+        if shutil.which("grim"):
+            time.sleep(0.5)
+            for output, name in [
+                ("HEADLESS-1", "touch-source"),
+                ("HEADLESS-2", "mirror-target"),
+            ]:
+                subprocess.check_call(
+                    ["grim", "-o", output, str(root / (name + ".png"))], env=env
+                )
+            if shutil.which("magick"):
+                comparison = subprocess.run(
+                    [
+                        "magick",
+                        "compare",
+                        "-metric",
+                        "MAE",
+                        str(root / "touch-source.png"),
+                        str(root / "mirror-target.png"),
+                        "null:",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                match = re.search(r"\(([0-9.eE+-]+)\)", comparison.stderr)
+                assert match and float(match[1]) < 0.03, comparison.stderr
+
         subprocess.check_call(
             [
                 str(bin_dir / "qs"),

@@ -38,7 +38,12 @@ class DisplayManager:
         outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs"))
         source = next((o for o in outputs if o["name"] == self.source), None)
         target = next(
-            (o for o in outputs if o["name"] == self.target and o.get("modes")), None
+            (
+                o
+                for o in outputs
+                if o["name"] == self.target and (o.get("modes") or o.get("active"))
+            ),
+            None,
         )
         if source is None:
             return  # Do not commandeer an unrelated output.
