@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import jwt
@@ -25,6 +25,7 @@ from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .urls import validate_url
 from .preferences import gallery
+from .previews import directory as preview_directory
 
 ROOT = Path(__file__).parent
 LOG = logging.getLogger(__name__)
@@ -252,9 +253,33 @@ def create_app(settings=None, agent=None):
             },
         )
 
+    @app.get("/airplay", response_class=HTMLResponse)
+    async def airplay(request: Request):
+        return templates.TemplateResponse(
+            request=request, name="airplay.html",
+            context={"receiver": os.getenv("ORGM_AIRPLAY_NAME", "ORGM Jarq")},
+        )
+
     @app.get("/api/health")
     async def health():
         return {"ok": True}
+
+    @app.post("/api/wifi/open")
+    async def wifi_open():
+        return await client.call("wifi-open")
+
+    @app.get("/api/previews/{app_id}")
+    async def preview(app_id: str):
+        if app_id not in apps or app_id == "home":
+            raise ControlError("Aplicación desconocida", 404)
+        path = preview_directory()/f'{app_id}.jpg'
+        if not path.is_file():
+            raise ControlError("Todavía no hay captura", 404)
+        return FileResponse(path, media_type="image/jpeg")
+
+    @app.post("/api/spotify/toggle")
+    async def spotify_toggle():
+        return await client.call("spotify-toggle")
 
     @app.post("/api/session")
     async def login(request: Request, payload: Login):

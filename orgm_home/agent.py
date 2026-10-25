@@ -15,11 +15,14 @@ import socket
 import struct
 import subprocess
 import time
+import shutil
 
 from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
 from .urls import validate_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
+from .wifi import Wifi
+from .previews import capture, versions
 
 LOG = logging.getLogger(__name__)
 KEYS = {
@@ -99,6 +102,32 @@ class Controller:
         self.processes = {}
         self.keyboard = None
         self.known_windows = None
+        self.spotify_interrupted = False
+        self.audio_app = None
+        self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
+        self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
+
+    async def refresh_media(self):
+        views = list(windows(await self.tree()))
+        for app in self.apps.values():
+            if app.id == "home":
+                continue
+            matches = [w for w in views if self.identify(w) == app]
+            if matches:
+                item = min(matches, key=lambda w: (f"orgm-home-{app.id}" not in w.get("marks", []), w["id"]))
+                if app.type == "airplay":
+                    item = max(matches, key=lambda w: ("uxplay" in (w.get("app_id") or "").lower(), w["id"]))
+                with contextlib.suppress(ControlError, OSError):
+                    await capture(app.id, item.get("foreign_toplevel_identifier"), command)
+
+    async def refresh_spotify(self):
+        status = (await command("playerctl", "--player=spotify", "status", check=False)).strip()
+        if status not in {"Playing", "Paused", "Stopped"}:
+            self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
+            return
+        metadata = await command("playerctl", "--player=spotify", "metadata", "--format", "{{artist}}\n{{title}}", check=False)
+        parts = metadata.splitlines()
+        self.spotify = {"available": True, "playing": status == "Playing", "artist": (parts[0] if parts else "")[:256], "title": (parts[1] if len(parts)>1 else "")[:256]}
 
     async def sway(self, value):
         raw = await command("swaymsg", "-r", value)
@@ -140,8 +169,10 @@ class Controller:
                     ]
                 except ValueError:
                     return None
+            if args and Path(os.fsdecode(args[0])).name.lstrip(".") in {"uxplay", "uxplay-wrapped"}:
+                return next((app for app in self.apps.values() if app.type == "airplay"), None)
             for app in self.apps.values():
-                if app.type == "chrome":
+                if app.type in {"chrome", "airplay"}:
                     profile = Path.home() / ".local/share/orgm-home/chrome" / app.id
                     if os.fsencode(f"--user-data-dir={profile}") in args:
                         return app
@@ -149,6 +180,10 @@ class Controller:
 
     async def find(self, app):
         matches = [w for w in windows(await self.tree()) if self.identify(w) == app]
+        if app.type == "airplay":
+            stream = next((w for w in matches if "uxplay" in (w.get("app_id") or "").lower()), None)
+            if stream:
+                return stream
         # A popup may precede its opener in Sway's tree. Keep activation tied
         # to the original marked window rather than replacing it with an ad.
         return min(
@@ -229,6 +264,10 @@ class Controller:
             )
         }
         for app in self.apps.values():
+            if app.type == "airplay" and identifiers.intersection(
+                {"uxplay", "orgm airplay", "orgm-home-airplay"}
+            ):
+                return app
             if app.type == "flatpak" and identifiers.intersection(
                 {
                     app.name.lower(),
@@ -257,8 +296,8 @@ class Controller:
         return matched
 
     async def reconcile_audio(self):
-        # Pulse restores mute by application name; separate Chrome profiles share
-        # that name. Reconcile late-created streams against the actual focused app.
+        # Spotify retains audio on Home and quiet apps. Only an uncorked stream
+        # from the selected media app takes audio focus away from the music.
         views = list(windows(await self.tree()))
         focused = next((w for w in views if w.get("focused")), None)
         active = self.identify(focused) if focused else self.apps.get(self.active)
@@ -267,10 +306,21 @@ class Controller:
         streams = json.loads(
             await command("pactl", "-f", "json", "list", "sink-inputs")
         )
-        for stream in streams:
-            owner = self.stream_app(stream, views)
+        owned = [(stream, self.stream_app(stream, views)) for stream in streams]
+        interrupts_music = bool(
+            active and active.id not in {"home", "spotify"}
+            and any(owner == active and not stream.get("corked", True) for stream, owner in owned)
+        )
+        if interrupts_music and not self.spotify_interrupted and "spotify" in self.apps:
+            with contextlib.suppress(ControlError):
+                await command("playerctl", "--player=spotify", "pause", check=False)
+        self.spotify_interrupted = interrupts_music
+        self.audio_app = None
+        for stream, owner in owned:
             if owner:
-                muted = owner != active
+                muted = interrupts_music if owner.id == "spotify" else owner != active
+                if not muted and not stream.get("corked", True):
+                    self.audio_app = owner.id
                 if bool(stream.get("mute")) != muted:
                     await command(
                         "pactl",
@@ -294,7 +344,7 @@ class Controller:
             w for w in views
             if w["id"] not in previous
             and (owner := self.identify(w))
-            and owner.type == "chrome" and owner == active
+            and owner.type in {"chrome", "airplay"} and owner == active
         ]
         if fresh:
             popup = max(fresh, key=lambda w: w["id"])
@@ -377,7 +427,8 @@ class Controller:
         self.warning = None
         if previous is None or previous.id in {"home", app.id}:
             return
-        paused = False
+        if previous.id == "spotify":
+            return
         if previous.player:
             await command(
                 "playerctl", f"--player={previous.player}", "pause", check=False
@@ -386,14 +437,11 @@ class Controller:
         if previous.type == "mpv":
             with contextlib.suppress(OSError, TimeoutError, ControlError):
                 await self.mpv(["set_property", "pause", True])
-                paused = True
-        muted = await self.mute_application(previous, True)
-        if not paused and not muted:
-            self.warning = (
-                f"No se pudo confirmar la pausa de {previous.name}. Comprueba su audio."
-            )
+        await self.mute_application(previous, True)
+        # A quiet web page or terminal has no stream to pause. The continuous
+        # audio policy also catches streams created after changing sources.
 
-    async def enter_text(self, value, navigate=False):
+    async def enter_text(self, value, navigate=False, terminal=False):
         await command(
             "wl-copy", "--type", "text/plain", input_text=value, capture=False
         )
@@ -401,7 +449,7 @@ class Controller:
             if navigate:
                 await self.native_key(38, modifiers=4)  # Ctrl+L
                 await asyncio.sleep(0.15)
-            await self.native_key(47, modifiers=4)  # Ctrl+V, native physical layout
+            await self.native_key(47, modifiers=5 if terminal else 4)
             await asyncio.sleep(0.25)
             if navigate:
                 await self.native_key(28)
@@ -412,6 +460,8 @@ class Controller:
         if app_id not in self.apps:
             raise ControlError("Aplicación desconocida", 404)
         app = self.apps[app_id]
+        if app.type == "airplay":
+            await command("systemctl", "--user", "start", "orgm-home-airplay.service")
         window = await self.find(app)
         navigate_existing = window is not None and url is not None
         if url is not None and app.id != "browser":
@@ -426,7 +476,7 @@ class Controller:
             elif app.type == "flatpak":
                 proc = await self.spawn(["flatpak", "run", app.appId])
                 self.processes[app.id] = proc
-            elif app.type == "chrome":
+            elif app.type in {"chrome", "airplay"}:
                 self.processes[app.id] = await self.spawn(
                     self.chrome_args(app, url or app.url)
                 )
@@ -441,6 +491,8 @@ class Controller:
                         f"--input-ipc-server={self.state_dir / 'mpv.sock'}",
                     ]
                 )
+            elif app.type == "terminal":
+                self.processes[app.id] = await self.spawn(["kitty", "--class", f"orgm-home-{app.id}", "--title", app.name])
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 window = await self.find(app)
@@ -502,13 +554,16 @@ class Controller:
             "muted": "MUTED" in volume_raw,
             "brightness": brightness,
             "background": read_background(self.state_dir),
+            "audio_app": self.audio_app,
+            "previews": versions(opened),
+            "spotify": self.spotify,
             "open": opened,
             "warning": self.warning,
             "capabilities": {
-                "keys": bool(app and app.id != "home"),
-                "text": bool(app and app.control not in {"internal", "mpv"}),
+                "keys": bool(app and app.id != "home" and app.type != "airplay"),
+                "text": bool(app and app.control not in {"internal", "mpv"} and app.type != "airplay"),
                 "pointer": False,
-                "play": bool(app and app.id != "home"),
+                "play": bool(app and app.id != "home" and app.type not in {"airplay", "terminal"}),
                 "close": bool(app and app.id != "home"),
                 "stop": bool(app and (app.type == "mpv" or app.id == "spotify")),
                 "next": bool(app and (app.type == "mpv" or app.id == "spotify")),
@@ -517,6 +572,12 @@ class Controller:
 
     async def dispatch(self, request):
         action = request.get("action")
+        if action in {"wifi-status", "wifi-scan"}:
+            return await self.wifi.status(rescan=action == "wifi-scan")
+        if action == "wifi-connect":
+            return await self.wifi.connect(request.get("ssid"), request.get("password", ""))
+        if action == "wifi-reconnect":
+            return await self.wifi.reconnect()
         async with self.lock:
             if action == "status":
                 return await self.status()
@@ -532,7 +593,7 @@ class Controller:
                 key = request.get("key")
                 current = await self.status()
                 app = self.apps.get(current["app"])
-                if not app or app.id == "home":
+                if not app or app.id == "home" or app.type == "airplay":
                     raise ControlError(
                         "Selecciona una aplicación para usar el mando", 409
                     )
@@ -589,9 +650,11 @@ class Controller:
                     raise ControlError(
                         "Texto inválido: máximo 1000 caracteres sin controles", 422
                     )
-                if not (await self.status())["capabilities"]["text"]:
+                current = await self.status()
+                if not current["capabilities"]["text"]:
                     raise ControlError("Esta aplicación no acepta texto", 409)
-                await self.enter_text(value)
+                app = self.apps.get(current.get("app"))
+                await self.enter_text(value, terminal=bool(app and app.type == "terminal"))
                 return {"sent": True}
             if action == "volume":
                 value = request.get("value")
@@ -653,8 +716,22 @@ class Controller:
                 )
                 return {"accepted": True}
             if action == "reboot":
-                await command("systemctl", "reboot", "--no-block")
+                helper = shutil.which("orgm-home-reboot")
+                if not helper:
+                    raise ControlError("No está disponible el reinicio del equipo")
+                await command("systemd-run", "--user", "--collect", "--on-active=1s", "--timer-property=AccuracySec=1s", "--unit=orgm-home-reboot", helper)
                 return {"accepted": True}
+            if action == "wifi-open":
+                ui = Path(__file__).parent / "touch/shell.qml"
+                await command("qs", "--path", str(ui), "ipc", "call", "--", "touch", "wifi")
+                return {"accepted": True}
+            if action == "spotify-toggle":
+                try:
+                    await command("playerctl", "--player=spotify", "play-pause")
+                except ControlError as exc:
+                    raise ControlError("Abre Spotify y elige música primero", 409) from exc
+                await self.refresh_spotify()
+                return {"spotify": self.spotify}
             if action == "rotate":
                 outputs = json.loads(
                     await command("swaymsg", "-r", "-t", "get_outputs")
@@ -677,6 +754,12 @@ class Controller:
                 app = self.identify(focused) if focused else None
                 if not app or app.id == "home":
                     raise ControlError("El inicio permanece abierto", 409)
+                if app.type == "airplay":
+                    await command("systemctl", "--user", "stop", "orgm-home-airplay.service")
+                    for view in list(windows(await self.tree())):
+                        if self.identify(view) == app:
+                            await self.sway(f"[con_id={int(view['id'])}] kill")
+                    return await self.activate("home")
                 con_id = int(focused["id"])
                 await self.sway(f"[con_id={con_id}] kill")
                 # xdg_toplevel.close is asynchronous: wait for this exact
@@ -788,9 +871,26 @@ async def serve():
             await asyncio.sleep(1)
 
     audio_task = asyncio.create_task(audio_policy())
+    async def media_policy():
+        while not stop.is_set():
+            with contextlib.suppress(ControlError, ValueError, OSError):
+                await controller.refresh_media()
+            await asyncio.sleep(10)
+
+    async def music_policy():
+        while not stop.is_set():
+            with contextlib.suppress(ControlError, ValueError, OSError):
+                await controller.refresh_spotify()
+            await asyncio.sleep(2)
+
+    media_task = asyncio.create_task(media_policy())
+    music_task = asyncio.create_task(music_policy())
     async with server:
         await stop.wait()
     audio_task.cancel()
+    media_task.cancel()
+    music_task.cancel()
+    await asyncio.gather(media_task, music_task, return_exceptions=True)
     with contextlib.suppress(asyncio.CancelledError):
         await audio_task
     await controller.close_keyboard()

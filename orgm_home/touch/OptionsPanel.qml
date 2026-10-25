@@ -8,20 +8,21 @@ Rectangle {
     color: "#20293b"
     radius: 18
     Text { x:24; y:22; text:"Opciones"; font.pixelSize:24; font.bold:true; color:"#f2f5fc" }
-    IconButton { anchors { right:parent.right; top:parent.top; margins:12 } icon:"close"; label:"Cerrar opciones"; onClicked:{menu.confirmation="";menu.controller.optionsOpened=false;} }
+    IconButton { anchors { right:parent.right; top:parent.top; margins:12 } icon:"close"; label:"Cerrar opciones"; onClicked:{menu.confirmation="";menu.controller.optionsOpened=false;menu.controller.hide();} }
     Row {
         x:20; y:76; spacing:10
         Repeater {
-            model:[{id:"backgrounds",label:"Fondos"},{id:"admin",label:"Administración"}]
+            model:[{id:"wifi",label:"Wi-Fi"},{id:"backgrounds",label:"Fondos"},{id:"admin",label:"Administración"}]
             delegate: Rectangle {
                 required property var modelData
                 width: modelData.id==="admin"?180:116; height:48; radius:12
                 color:menu.tab===modelData.id?"#3b4b70":"#29354b"
                 Text { anchors.centerIn:parent; text:modelData.label; color:"#f2f5fc"; font.pixelSize:15 }
-                MouseArea { anchors.fill:parent; onClicked:{menu.tab=modelData.id;menu.confirmation="";} }
+                MouseArea { anchors.fill:parent; onClicked:{menu.controller.optionsTab=modelData.id;menu.confirmation="";} }
             }
         }
     }
+    Loader { anchors {left:parent.left;right:parent.right;top:parent.top;bottom:parent.bottom;leftMargin:20;rightMargin:20;topMargin:146;bottomMargin:20} active:menu.tab==="wifi";sourceComponent:WifiPanel {controller:menu.controller} }
     Column {
         x:20; y:146; width:parent.width-40; spacing:12; visible:menu.tab==="backgrounds"
         Text { text:"Elige el ambiente de tu sala."; color:"#b5c2d9"; font.pixelSize:15 }

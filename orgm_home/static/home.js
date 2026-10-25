@@ -5,9 +5,13 @@ let csrf = null;
 let state = {session:false,capabilities:{}};
 let busy = false;
 let panel = 'sources';
+let catalogMode = 'home';
+let category = 'all';
+let sessionSignature = '';
 let feedbackTimer;
 const mobile = matchMedia('(max-width: 720px)');
-const labels = Object.fromEntries($$('[data-app]').map(button => [button.dataset.app, button.querySelector('.app-name').textContent]));
+const labels = Object.fromEntries($$('.app-tile[data-app]').map(button => [button.dataset.app, button.querySelector('.app-name').textContent]));
+const favorites = ['youtube','spotify','netflix','max','crunchyroll','browser'];
 labels.home = 'ORGM Home';
 const fragment = new URLSearchParams(location.hash.slice(1));
 const kiosk = location.hostname === '127.0.0.1' && (fragment.has('pair') || sessionStorage.getItem('orgm-kiosk') === 'yes');
@@ -34,10 +38,26 @@ function showPanel(next) {
   panel=next;
   const paired=Boolean(csrf);
   for (const id of ['sources','remote','typing','settings']) {
-    const visible = paired && (kiosk ? id===(next==='settings'?'settings':'sources') : mobile.matches ? id===next : ['typing','settings'].includes(next) ? id===next : ['sources','remote'].includes(id));
+    const visible = paired && (mobile.matches ? id===next : ['typing','settings','remote'].includes(next) ? id===next : ['sources','remote'].includes(id));
     $(`#${id}`).hidden=!visible;
   }
+  document.body.dataset.panel=next;
+  document.body.dataset.catalog=catalogMode;
+  $('#sessions').hidden=!paired || next!=='sources' || catalogMode!=='home' || category!=='all';
+  $('#music').hidden=!paired || next!=='sources' || !((catalogMode==='home' && category==='all') || category==='music');
+  filterSources();
   $$('[data-panel]').forEach(button => {if (button.dataset.panel===next) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current');});
+}
+function filterSources() {
+  document.body.dataset.category=category;
+  $('.category-tabs button[data-category=all]').textContent=catalogMode==='home'?'Destacadas':'Todas';
+  $('.catalog-link').hidden=catalogMode==='apps';
+  $$('.app-tile').forEach(button=>{
+    button.hidden=category!=='all' ? button.dataset.category!==category : catalogMode==='home' && !favorites.includes(button.dataset.app);
+  });
+  $$('.category-tabs button').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.category===category)));
+  $('.side-nav [data-home]').setAttribute('aria-current',panel==='sources' && catalogMode==='home'?'page':'false');
+  $('.side-nav [data-catalog]').setAttribute('aria-current',panel==='sources' && catalogMode==='apps'?'page':'false');
 }
 function showPairing() { $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
 function render() {
@@ -46,11 +66,20 @@ function render() {
   $('#connection').className=`connection ${online ? 'online' : 'error'}`;
   const active=labels[state.app] || 'Selecciona una aplicación';
   $('#remote-title').textContent=state.app && state.app!=='home' ? active : 'Mando';
-  $('#current-label').textContent=online ? active : 'La sala no está disponible';
-  $('#current-detail').textContent=online ? (state.title || 'Lista para empezar') : (state.warning || 'Comprueba que el equipo esté encendido');
+  const backgroundMusic=state.audio_app==='spotify' && state.app!=='spotify';
+  $('#current-label').textContent=online ? (backgroundMusic ? 'Spotify sigue sonando' : active) : 'La sala no está disponible';
+  $('#current-detail').textContent=online ? (backgroundMusic ? 'La música continúa hasta que otra aplicación reproduzca audio.' : state.app==='home' ? 'Elige una aplicación para empezar.' : state.title || 'Lista para empezar') : (state.warning || 'Comprueba que el equipo esté encendido');
   $('#volume-value').textContent=state.volume===null || state.volume===undefined ? '—' : `${state.volume}%`;
   $('#mute').setAttribute('aria-pressed',String(Boolean(state.muted)));
   $('#mute').setAttribute('aria-label',state.muted ? 'Activar audio' : 'Silenciar audio');
+  const song=state.spotify || {};
+  $('#song-title').textContent=song.title || 'Elige música en Spotify';
+  $('#song-artist').textContent=song.artist || (song.available ? 'Lista para reproducir' : 'Abre Spotify y elige una canción.');
+  $('#music-title').textContent=song.playing ? 'Spotify está sonando' : 'Spotify';
+  $('#spotify-toggle').disabled=!online || busy || !song.available;
+  $('#spotify-toggle').setAttribute('aria-label',song.playing?'Pausar Spotify':'Reproducir Spotify');
+  $('#spotify-glyph').setAttribute('d',song.playing?'M7 4v16M17 4v16':'m8 4 12 8-12 8Z');
+  renderSessions();
   document.body.dataset.background=state.background || 'costa';
   $$('button[data-background]').forEach(button=>{
     button.disabled=!online || busy;
@@ -63,6 +92,8 @@ function render() {
     button.classList.toggle('is-open',(state.open || []).includes(button.dataset.app));
     button.setAttribute('aria-pressed',String(button.dataset.app===state.app));
     button.setAttribute('aria-label',`${labels[button.dataset.app]}${button.dataset.app===state.app ? ', en pantalla' : (state.open || []).includes(button.dataset.app) ? ', abierta' : ''}`);
+    const art=button.querySelector('.app-art');
+    if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : `/static/cards/${id}.png`;if(art.getAttribute('src')!==url)art.src=url;}
   });
   $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='play' ? state.capabilities?.play : state.capabilities?.keys;button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
@@ -70,6 +101,26 @@ function render() {
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
   $('#control-note').textContent=state.app==='home' ? 'Abre una aplicación para usar el mando.' : state.app==='spotify' ? 'Controla la música desde Spotify.' : ['netflix','max','crunchyroll','browser'].includes(state.app) ? 'Las teclas dependen de la página. Usa Teclado para búsquedas.' : 'Los controles dependen de cada aplicación.';
+}
+function renderSessions() {
+  const opened=(state.open || []).filter(id=>id!=='home' && labels[id]);
+  const signature=JSON.stringify(opened);
+  if(signature===sessionSignature){
+    $$('#session-grid [data-app]').forEach(button=>{const id=button.dataset.app;if(state.previews?.[id]){const url=`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`;if(button.querySelector('img').getAttribute('src')!==url)button.querySelector('img').src=url;button.querySelector('.session-hint').textContent='Captura reciente';}});
+    return;
+  }
+  sessionSignature=signature;
+  const grid=$('#session-grid');grid.replaceChildren();
+  $('#sessions-empty').hidden=Boolean(opened.length);
+  $('#session-count').textContent=opened.length ? `${opened.length} abiertas` : '';
+  for(const id of opened){
+    const button=document.createElement('button');button.className='session-card';button.dataset.app=id;
+    const image=document.createElement('img');image.alt='';image.src=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:`/static/cards/${id}.png`;
+    const caption=document.createElement('span');caption.className='session-caption';caption.textContent=labels[id];
+    const hint=document.createElement('span');hint.className='session-hint';hint.textContent=state.previews?.[id]?'Captura reciente':'Abierta';
+    button.append(image,caption,hint);button.setAttribute('aria-label',`Volver a ${labels[id]}`);
+    button.addEventListener('click',()=>selectApp(id,button));grid.append(button);
+  }
 }
 async function refresh() {
   if (!csrf || busy) return;
@@ -82,20 +133,27 @@ async function act(path, body={}, message='') {
   catch(error){feedback(error.message,true);}
   finally{busy=false;await refresh();render();}
 }
-$$('[data-app]').forEach(button=>button.addEventListener('click',async()=>{
+async function selectApp(id,button) {
   button.setAttribute('aria-busy','true');
-  const result=await act(`apps/${button.dataset.app}/activate`,{},`Abriendo ${labels[button.dataset.app]}`);
+  const result=await act(`apps/${id}/activate`,{},`Abriendo ${labels[id]}`);
   button.removeAttribute('aria-busy');
   if(result && !kiosk) {
-    if(button.dataset.app==='videos'){showPanel('typing');$('#load-videos').click();}
+    if(id==='videos'){showPanel('typing');$('#load-videos').click();}
     else showPanel('remote');
   }
-}));
-$$('[data-panel]').forEach(button=>button.addEventListener('click',()=>showPanel(button.dataset.panel)));
+}
+$$('[data-app]').forEach(button=>button.addEventListener('click',()=>selectApp(button.dataset.app,button)));
+$$('[data-catalog]').forEach(button=>button.addEventListener('click',()=>{catalogMode='apps';category='all';showPanel('sources');}));
+$$('.category-tabs button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;showPanel('sources');}));
+$$('.category-tabs button').forEach((button,index)=>button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const tabs=$$('.category-tabs button');const next=tabs[(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];next.focus();next.click();}));
+$$('[data-panel]').forEach(button=>button.addEventListener('click',()=>{if(button.dataset.panel==='sources'){catalogMode='home';category='all';}showPanel(button.dataset.panel);}));
 $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote/key',{key:button.dataset.key})));
-$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');showPanel('sources');}));
+$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');catalogMode='home';category='all';showPanel('sources');}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
-$('#close-app').addEventListener('click',()=>act('remote/close',{},'Aplicación cerrada'));
+$('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
+$('#open-wifi').addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq'));
+$$('[data-wifi]').forEach(button=>button.addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq')));
+$('#spotify-toggle').addEventListener('click',()=>act('spotify/toggle'));
 $$('button[data-background]').forEach(button=>button.addEventListener('click',()=>act('preferences/background',{id:button.dataset.background})));
 $$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
   const action=button.dataset.admin;
@@ -124,6 +182,8 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Home'){event.preventDefault();act('remote/home');showPanel('sources');}
 });
 mobile.addEventListener('change',()=>showPanel(panel));
+function clock(){const now=new Date();$('#clock').textContent=now.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit',hour12:false});$('#calendar').textContent=now.toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short'});}
+clock();setInterval(clock,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 async function start() {
   showPanel('sources');

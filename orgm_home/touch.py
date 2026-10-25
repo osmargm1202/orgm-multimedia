@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 
 from .config import Settings
 from .protocol import AgentClient, ControlError
@@ -27,6 +28,9 @@ def control():
         "restart-launcher": ("restart-launcher", {}),
         "reboot": ("reboot", {}),
         "close": ("close", {}),
+        "wifi-status": ("wifi-status", {}),
+        "wifi-scan": ("wifi-scan", {}),
+        "wifi-reconnect": ("wifi-reconnect", {}),
         "back": ("key", {"key": "back"}),
         "play": ("key", {"key": "play"}),
         "stop": ("key", {"key": "stop"}),
@@ -36,6 +40,14 @@ def control():
         "volume-up": ("volume", {"delta": 5}),
         "volume-down": ("volume", {"delta": -5}),
     }
+    if action == "wifi-connect":
+        try:
+            data = json.loads(sys.stdin.readline(8193))
+            if not isinstance(data, dict) or set(data) - {"ssid", "password"}:
+                raise ValueError()
+            actions[action] = (action, data)
+        except ValueError:
+            raise SystemExit("Invalid Wi-Fi request")
     if action not in actions:
         raise SystemExit("Unsupported local touch action")
     try:
@@ -47,3 +59,10 @@ def control():
     except ControlError as exc:
         print(json.dumps({"ok": False, "error": str(exc)}))
         raise SystemExit(1)
+
+
+def reboot():
+    # This helper lives outside the session target it stops. Quickshell and
+    # portals leave before the compositor disappears during an admin reboot.
+    subprocess.run(["systemctl", "--user", "stop", "orgm-home-session.target", "xdg-desktop-portal-gtk.service", "xdg-desktop-portal-wlr.service"], timeout=25, check=False)
+    subprocess.run(["systemctl", "reboot", "--no-block"], timeout=10, check=True)

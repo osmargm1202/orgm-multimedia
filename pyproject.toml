@@ -19,9 +19,10 @@ orgm-home-kiosk = "orgm_home.kiosk:main"
 orgm-home-display = "orgm_home.display:main"
 orgm-home-touch = "orgm_home.touch:main"
 orgm-home-control = "orgm_home.touch:control"
+orgm-home-reboot = "orgm_home.touch:reboot"
 
 [tool.setuptools.package-data]
-orgm_home = ["templates/*.html", "static/*", "static/fonts/*", "static/icons/*", "touch/*"]
+orgm_home = ["templates/*.html", "static/*", "static/fonts/*", "static/icons/*", "static/cards/*", "touch/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

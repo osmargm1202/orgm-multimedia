@@ -17,6 +17,7 @@ class PreviewAgent:
         self.calls = []
         self.brightness = 35
         self.background = "costa"
+        self.playing = False
 
     async def call(self, action, **data):
         self.calls.append((action, data))
@@ -28,6 +29,8 @@ class PreviewAgent:
             self.brightness = data["value"]
         if action == "background":
             self.background=data["id"]
+        if action == 'spotify-toggle':
+            self.playing = not self.playing
         if action == "status":
             return {
                 "session": True,
@@ -39,6 +42,7 @@ class PreviewAgent:
                 "brightness": self.brightness,
                 "background": self.background,
                 "muted": False,
+                "spotify": {"available": True, "playing": self.playing, "title":"Sesión de prueba", "artist":"Spotify"},
                 "open": ["home", self.active],
                 "capabilities": {
                     "keys": self.active != "home",
@@ -102,8 +106,11 @@ with sync_playwright() as p:
     page.locator("[data-key=up]").click()
     page.wait_for_timeout(100)
     assert ("key", {"key": "up"}) in agent.calls
-    page.locator("[data-home]").click()
+    page.locator(".remote [data-home]").click()
     expect(page.locator("#current-label")).to_have_text("ORGM Home")
+    page.locator('#spotify-toggle').click()
+    expect(page.locator('#spotify-toggle')).to_have_attribute('aria-label','Pausar Spotify')
+    assert ('spotify-toggle',{}) in agent.calls and agent.active=='home'
     page.set_viewport_size({"width": 390, "height": 844})
     page.screenshot(path=str(root / "mobile.png"), full_page=True)
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -125,11 +132,28 @@ with sync_playwright() as p:
     kiosk.goto(f"http://127.0.0.1:{port}/#pair={token.read_text()}")
     expect(kiosk.locator("[data-app=youtube]")).to_be_enabled()
     assert kiosk.evaluate("location.hash") == ""
-    assert kiosk.locator(".remote").is_hidden()
+    assert kiosk.locator(".remote").is_visible()
     kiosk.screenshot(path=str(root / "kiosk.png"), full_page=True)
+    kiosk.locator('.catalog-link').click()
+    for image in kiosk.locator('.app-art').all():
+        image.scroll_into_view_if_needed()
+    kiosk.wait_for_function("[...document.querySelectorAll('.app-art')].every(i=>i.complete && i.naturalWidth>0)")
+    kiosk.screenshot(path=str(root/'catalog.png'),full_page=True)
+    kiosk.locator('.side-nav [data-home]').click()
+    expect(kiosk.locator('body')).to_have_attribute('data-catalog','home')
     for width, height in [(1536, 864), (1280, 720)]:
         kiosk.set_viewport_size({"width": width, "height": height})
-        assert kiosk.evaluate("document.documentElement.scrollHeight <= innerHeight"), (width, height)
+        assert kiosk.evaluate("document.documentElement.scrollHeight <= innerHeight"), (width, height, kiosk.evaluate("[...document.querySelectorAll('body,.masthead,.layout,.sources,.sessions,.music,.remote')].map(e=>[e.className,e.getBoundingClientRect().toJSON()])"))
+        assert kiosk.locator('.masthead').bounding_box()['y'] >= 104
+        assert kiosk.locator('.header-actions [data-panel=settings]').bounding_box()['y'] >= 104
+        assert kiosk.locator('.app-youtube .app-art').bounding_box()['width'] >= 100
+    kiosk.locator('.category-tabs [data-category=connect]').click()
+    expect(kiosk.locator('.app-airplay')).to_be_visible()
+    kiosk.locator('.category-tabs [data-category=tools]').click()
+    expect(kiosk.locator('.app-claude')).to_be_visible()
+    expect(kiosk.locator('.app-kitty')).to_be_visible()
+    kiosk.locator('.category-tabs [data-category=photos]').click()
+    expect(kiosk.locator('.app-immich')).to_be_visible()
     assert kiosk.locator('#brightness').count()==0
     assert kiosk.locator('[data-key=play]').count()==0
     kiosk.locator('.header-actions [data-panel=settings]').click()
@@ -155,6 +179,9 @@ with sync_playwright() as p:
     page.locator('#reboot-cancel').click()
     assert not any(action=='reboot' for action,_ in agent.calls)
     assert not errors, errors
+    page.goto(f'http://127.0.0.1:{port}/airplay')
+    expect(page.locator('.receiver-name')).to_have_text('ORGM Jarq')
+    page.screenshot(path=str(root/'airplay-mobile.png'),full_page=True)
     browser.close()
 server.should_exit = True
 thread.join(timeout=5)

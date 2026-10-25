@@ -390,3 +390,84 @@ def test_restarting_agent_does_not_focus_existing_popups(controller):
     controller.tree = AsyncMock(return_value={"nodes": [original, popup]})
     run(controller.reconcile_windows())
     controller.sway.assert_not_called()
+
+
+def spotify_app(controller):
+    controller.apps['spotify'] = App('spotify', 'flatpak', 'Spotify', '3', appId='com.spotify.Client', player='spotify', match='spotify')
+    return controller.apps['spotify']
+
+
+def test_leaving_spotify_does_not_pause_or_mute_it(controller, monkeypatch):
+    spotify_app(controller)
+    controller.active = 'spotify'
+    command = AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command', command)
+    run(controller.pause_previous(controller.apps['home']))
+    command.assert_not_called()
+    controller.mute_application.assert_not_called()
+
+
+@pytest.mark.parametrize('foreground,has_sound', [('home', False), ('browser', False), ('browser', True)])
+def test_spotify_yields_only_when_selected_app_has_a_running_audio_stream(controller, monkeypatch, foreground, has_sound):
+    spotify_app(controller)
+    view = window(foreground, 80)
+    controller.tree = AsyncMock(return_value={'nodes':[view]})
+    music={'index':1,'mute':False,'corked':False,'properties':{'application.name':'Spotify'}}
+    other={'index':2,'mute':True,'corked':not has_sound,'properties':{}}
+    controller.stream_app = lambda stream, views: controller.apps['spotify' if stream['index']==1 else foreground]
+    command=AsyncMock(return_value=json.dumps([music,other]))
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    run(controller.reconcile_audio())
+    if has_sound:
+        command.assert_any_await('playerctl','--player=spotify','pause',check=False)
+        command.assert_any_await('pactl','set-sink-input-mute','1','1')
+        assert controller.audio_app == foreground
+        command.reset_mock()
+        run(controller.reconcile_audio())
+        assert not any(c.args[0]=='playerctl' for c in command.call_args_list)
+    else:
+        assert not any(c.args[0]=='playerctl' for c in command.call_args_list)
+        assert not any(c.args==('pactl','set-sink-input-mute','1','1') for c in command.call_args_list)
+        assert controller.audio_app == 'spotify'
+    assert not any(c.args[0]=='wpctl' for c in command.call_args_list)
+
+
+def test_airplay_starts_receiver_and_prefers_stream_over_waiting_page(controller, monkeypatch):
+    controller.apps['airplay']=App('airplay','airplay','AirPlay','14',url='http://127.0.0.1:8765/airplay',match='uxplay|orgm-home-airplay',control='receiver')
+    waiting,stream=window('airplay',100),window('airplay',101)
+    waiting['marks']=['orgm-home-airplay']
+    stream['app_id']='uxplay'
+    controller.tree=AsyncMock(return_value={'nodes':[waiting,stream]})
+    command=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    assert run(controller.find(controller.apps['airplay']))['id']==101
+    run(controller.activate('airplay'))
+    command.assert_any_await('systemctl','--user','start','orgm-home-airplay.service')
+    controller.sway.assert_any_await('[con_id=101] focus')
+
+
+def test_reboot_is_scheduled_outside_session_target(controller, monkeypatch):
+    command=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    monkeypatch.setattr('orgm_home.agent.shutil.which',lambda name:'/fixed/bin/orgm-home-reboot')
+    assert run(controller.dispatch({'action':'reboot'}))=={'accepted':True}
+    assert command.call_args.args[0]=='systemd-run'
+    assert command.call_args.args[-1]=='/fixed/bin/orgm-home-reboot'
+
+
+def test_spotify_play_from_home_keeps_home_focused(controller,monkeypatch):
+    command=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    controller.refresh_spotify=AsyncMock()
+    controller.active='home'
+    run(controller.dispatch({'action':'spotify-toggle'}))
+    command.assert_awaited_once_with('playerctl','--player=spotify','play-pause')
+    controller.sway.assert_not_called()
+    assert controller.active=='home'
+
+
+def test_terminal_paste_uses_ctrl_shift_v(controller,monkeypatch):
+    command=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    run(controller.enter_text('texto literal',terminal=True))
+    controller.native_key.assert_awaited_once_with(47,modifiers=5)

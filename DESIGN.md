@@ -1,25 +1,25 @@
-# ORGM Home design
+# ORGM Home — centro multimedia cinematográfico
 
-## World
+Referencia visual suministrada por el usuario: `/home/osmarg/Downloads/Cinematic Dark Media Center Dashboard.png`. Esta dirección sustituye la propuesta anterior de iconos en una cuadrícula.
 
-A living-room AV receiver: a clear source selector, a central tactile directional control, and a volume strip with persistent feedback. The user confirmed this layout, large controls, Spanish text, and a dark room palette. The user also requested an image reference; rendered desktop and mobile previews were provided before finalizing the design.
+## Dirección y jerarquía
 
-## Tokens
+Una sala cinematográfica: navegación lateral, ORGM Home y reloj reales, pestañas por categoría, seis aplicaciones destacadas con imágenes grandes, capturas de ventanas abiertas, música persistente y mando a la derecha. «Ver todas» abre el catálogo completo. No se inventan películas vistas, playlists, tiempos de reproducción ni progreso.
 
-Night #161b27; panel #242d40; control #34415b; ink #f2f5fc; secondary #b5c2d9; signal #b9c9ff. Night values avoid a bright phone lighting the projection room. Signal indicates selection and keyboard focus. Service tiles retain their own restrained identifying colors.
+Las tarjetas usan las 22 portadas raster generadas y empaquetadas en `static/cards/`; el nombre permanece como texto accesible. Una aplicación abierta puede mostrar su captura en la tarjeta y en la fila Abiertas. La captura usa el identificador de ventana, no enfoca la app ni fotografía los controles superpuestos. El estado vacío explica que las apps abiertas aparecerán aquí.
 
-Manrope, locally hosted, is the interface and display typeface. Weight 500 for copy and 700 for source names; 800 only for ORGM Home. Short labels, no decorative numbers or uppercase eyebrows.
+Paleta: noche #161b27, panel #0c1723, control #34415b, texto #f2f5fc, secundario #b5c2d9 y selección #8ec9ff. Manrope conserva la identidad: marca 800, títulos/nombres 600–700, texto 500. Los colores de las portadas identifican servicios, no estados inventados.
 
-## Surface / (Operate)
+## Controles y adaptación
 
-Desktop: source selector on the left, prominent directional control on the right. Mobile: source grid, compact application state, then remote; sticky bottom navigation switches Inicio/Mando/Text input. Kiosk: launcher takes the screen; remote and pairing chrome recede. No invented playback state.
+Home reserva 104 px para la barra nativa situada en y=12–92, por lo que nunca tapa título, Opciones ni Bomba. La barra usa nueve botones SVG de 56 px y volumen; al plegarla queda una flecha gris sobre fondo semitransparente arriba a la izquierda. No hay transporte global ni controles de brillo manual. Se conserva la atenuación 20%/20 s, retroiluminación apagada/60 s y retorno a 100% por actividad.
 
-The physical remote is the memorable element. The source selector is purposeful and directly names services. A single feedback strip announces connectivity, errors and actions. Disabled controls follow actual session capabilities. Keyboard focus, touch targets >=48px, reduced motion and narrow widths are required.
+En 1080p el mando ocupa la columna derecha. En pantallas bajas se priorizan tarjetas, capturas y música; el mando se puede abrir desde la navegación. Móvil usa dos columnas, pestañas desplazables y navegación inferior. Los botones tienen foco visible y se respeta movimiento reducido.
 
-## Direction reasoning
+## Música, conexión y equipo
 
-Grounded candidates: cinema screen, physical remote, jukebox selector, broadcast switcher, AV receiver, television program guide, theater wayfinding. The assigned AV receiver direction carries the fixed sources, directional keys and audio control without administrative UI. The monochrome catalog contributes restraint; sleeve catalog contributes identifiable source typography; reference setting contributes exact alignment; map contributes stable control vocabulary; departure board contributes persistent status; concourse contributes glanceable state. Their literal navigation rituals would obscure the household task and are declined.
+Spotify conserva la reproducción en Inicio y apps silenciosas. La fuente seleccionada interrumpe la música cuando crea un stream de audio activo. El reproductor del inicio muestra metadatos MPRIS reales y Play/Pausa actúa sobre Spotify sin enfocar su ventana.
 
-## Refinamiento solicitado: controles y opciones
+Wi-Fi abre un selector local de NetworkManager, con búsqueda, reconexión y contraseña enmascarada mediante el teclado existente. La contraseña viaja por stdin y un archivo temporal privado, nunca por argumentos de proceso. AirPlay usa una pantalla de espera y UxPlay. Administración conserva rotación y reinicios; el reinicio del menú cierra los controles antes que el compositor.
 
-La barra táctil se superpone arriba y aparece por actividad. Al ocultarla queda una flecha gris, con fondo semitransparente, arriba a la izquierda; permite recuperarla sin desplegar toda la barra por un toque ajeno. Los controles usan SVG consistentes: Inicio, Atrás, Cerrar página, volumen, mute, teclado y opciones. La X cierra únicamente la ventana enfocada y recupera la ventana original de la aplicación si sigue abierta; al cerrar la última vuelve a Inicio. Se retiran transporte y brillo manual. Opciones reutiliza las superficies de Quickshell, con una galería de cinco fondos y Administración para rotación y reinicios. Los cambios de fondo se sincronizan entre el selector táctil y el mando web. Atenuación fija: 20% después de 20 segundos y 0% después de un minuto; actividad restaura 100% sin afectar HDMI.
+Kitty es una terminal del usuario media. Claude es `https://claude.ai`, una webapp independiente, sin instalar Claude Code.

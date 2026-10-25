@@ -24,7 +24,7 @@ class App:
     def __post_init__(self):
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", self.id):
             raise ValueError("Invalid catalog ID")
-        if self.type not in {"internal", "chrome", "flatpak", "mpv"}:
+        if self.type not in {"internal", "chrome", "flatpak", "mpv", "airplay", "terminal"}:
             raise ValueError("Invalid catalog type")
         if not re.fullmatch(r"[1-9][0-9]?", self.workspace):
             raise ValueError("Invalid workspace")
@@ -32,7 +32,8 @@ class App:
             raise ValueError("Invalid Flatpak ID")
 
     def public(self):
-        return {"id": self.id, "name": self.name, "control": self.control}
+        category = {"spotify":"music", "poki":"games", "retroarch":"games", "immich":"photos", "kitty":"tools", "claude":"tools", "chatgpt":"tools", "ubereats":"connect", "browser":"connect", "airplay":"connect", "home-assistant":"connect"}.get(self.id, "video")
+        return {"id": self.id, "name": self.name, "control": self.control, "category": category}
 
 
 def load_catalog(path: Path) -> dict[str, App]:

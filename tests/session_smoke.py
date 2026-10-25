@@ -41,6 +41,24 @@ chrome.write_text(
     + ' --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=0 "$@"\n'
 )
 chrome.chmod(0o700)
+wifi_marker=root/'wifi-connected.json'
+nmcli=wrappers/'nmcli'
+nmcli.write_text(f'''#!{sys.executable}
+import json,sys,stat
+from pathlib import Path
+args=sys.argv[1:]
+marker=Path({str(wifi_marker)!r})
+if args[-2:]==['device','status']:
+ print('wlan-test:wifi:connected:Casa de prueba' if marker.exists() else 'wlan-test:wifi:disconnected:')
+elif 'IN-USE,SSID,SIGNAL,SECURITY' in args:
+ print(('*' if marker.exists() else '')+':Casa de prueba:82:WPA2')
+elif 'passwd-file' in args:
+ path=Path(args[args.index('passwd-file')+1])
+ assert path.read_text()=='802-11-wireless-security.psk:cafepass123\\n'
+ assert stat.S_IMODE(path.stat().st_mode)==0o600
+ marker.write_text(json.dumps({{'file':str(path),'private':True}}))
+''')
+nmcli.chmod(0o700)
 config = root / "sway.conf"
 config.write_text(
     "output * mode 1920x1080\noutput HEADLESS-1 position 0 0\noutput HEADLESS-2 position 1920 0\n"
@@ -408,7 +426,8 @@ try:
             pointer.button(False)
 
         panel = touch_status()['panels'][0]
-        click_at(panel['controls']['x'] + 855, 50)
+        hide_button=panel['controls']['hide']
+        click_at(hide_button['x']+hide_button['width']/2, hide_button['y']+hide_button['height']/2)
         wait_for(lambda: touch_status()['collapsed'] and touch_status()['panels'][0]['handle']['visible'])
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
         assert not touch_status()['controls'], 'Physical wake must respect manual collapse'
@@ -440,11 +459,34 @@ try:
             subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'popup-close-control.png')],env=env)
         panel = touch_status()['panels'][0]
         with popup.expect_event('close'):
-            click_at(panel['controls']['x'] + 140, 50)
+            close_button=panel['controls']['close']
+            click_at(close_button['x']+close_button['width']/2, close_button['y']+close_button['height']/2)
         wait_for(lambda: client.get('/api/status').json()['app'] == 'netflix' and any(w['id'] == app_mode['id'] and w.get('focused') for w in leaves(tree())))
         assert not original_page.is_closed()
         assert all(w['id'] != popup_window['id'] for w in leaves(tree()))
         client.post('/api/apps/browser/activate', json={}).raise_for_status()
+        # Test Wi-Fi entry on the real QML surface; nmcli is a private fixture.
+        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','wifi'],env=env,stdout=subprocess.DEVNULL)
+        time.sleep(1)
+        subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-native.png')],env=env)
+        click_at(1430,369)
+        time.sleep(.3)
+        subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-selected.png')],env=env)
+        click_at(1450,572)
+        wait_for(lambda: touch_status()['open'])
+        subprocess.check_call([str(bin_dir/'wtype'),'cafepass123'],env=env)
+        subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-password.png')],env=env)
+        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','hide'],env=env,stdout=subprocess.DEVNULL)
+        time.sleep(.2)
+        click_at(1500,638)
+        time.sleep(1)
+        subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-result.png')],env=env)
+        wait_for(wifi_marker.exists)
+        secret=json.loads(wifi_marker.read_text())
+        assert secret['private']
+        wait_for(lambda:not Path(secret['file']).exists())
+        click_at(1882,138)
+        wait_for(lambda:not touch_status()['options'])
         destination = "https://example.com/?q=orgm%20home#prueba"
         response = client.post("/api/browser/open-url", json={"url": destination})
         assert response.status_code == 200, response.text
@@ -496,6 +538,16 @@ try:
             status.text
         )
         client.post("/api/remote/home", json={}).raise_for_status()
+        wait_for(lambda: client.get('/api/status').json().get('previews',{}).get('browser'))
+        preview=client.get('/api/previews/browser')
+        assert preview.status_code==200 and preview.content.startswith(b'\xff\xd8')
+        # The real Home header/options must remain below the native controls.
+        kiosk_port_file=home/'.local/share/orgm-home/chrome/home/DevToolsActivePort'
+        kiosk_browser=playwright.chromium.connect_over_cdp('http://127.0.0.1:'+kiosk_port_file.read_text().splitlines()[0])
+        kiosk_page=kiosk_browser.contexts[0].pages[0]
+        kiosk_page.wait_for_selector('.is-kiosk .masthead')
+        native=touch_status()['panels'][0]['controls']
+        assert kiosk_page.locator('.masthead').bounding_box()['y'] >= native['y']+native['height']
         client.close()
         browser.close()
     print(
@@ -512,6 +564,8 @@ try:
                     "API restart retains session",
                     "collapsed arrow restores controls",
                     "native X closes popup and retains original webapp",
+                    "private Wi-Fi credential entry with real QML keyboard focus",
+                    "authenticated per-window preview while Home retains focus",
                 ],
             }
         )

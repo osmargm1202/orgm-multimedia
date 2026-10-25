@@ -2,7 +2,17 @@
 
 Launcher multimedia y mando web para una sesión Sway dedicada. Fase 1 del [plan original](docs/phase1-plan.md).
 
-Un único proceso FastAPI sirve HTML, CSS, JavaScript y la API. Un agente de la sesión `media` ejecuta una lista fija de acciones por socket Unix privado y verifica el UID del cliente. No hay base de datos, panel administrativo, runtime Node ni túnel adicional.
+El inicio actual sigue una referencia cinematográfica del usuario: navegación lateral, pestañas, 22 portadas locales, capturas de ventanas abiertas y Spotify con Play/Pausa sin abandonar el menú. Los prompts de las portadas están en [docs/service-covers.md](docs/service-covers.md).
+
+Spotify continúa en Inicio y en aplicaciones silenciosas; se pausa cuando la fuente seleccionada empieza a reproducir audio. Las capturas se obtienen por identificador de ventana con `grim -T`, incluso si están en otro workspace, sin cambiar el foco. Se almacenan en el directorio privado del servicio y requieren vinculación para descargarlas por la API.
+
+El catálogo añade AirPlay/UxPlay, Kitty, Disney+, Prime Video, Immich en fotos.or-gm.com, Claude en claude.ai, ChatGPT, Uber Eats, Twitch y Kick. Kitty se ejecuta como media; no recibe privilegios de administrador. El pegado usa Ctrl+Shift+V en la terminal. Las cuentas de cada webapp se vinculan manualmente en su perfil independiente.
+
+Opciones permite conectar Wi-Fi desde la pantalla local: buscar redes, reconectar y escribir la contraseña con el teclado táctil. Las claves viajan por el socket local y un archivo temporal modo 0600; no aparecen en argv ni en respuestas de estado. El reinicio de Administración detiene primero el launcher y los portales para que el teclado deje Wayland antes que Sway.
+
+AirPlay se inicia desde su tarjeta y anuncia el nombre configurado por NixOS. Requiere la misma red local; Jarq permite los puertos TCP/UDP 7000–7002 desde 10.0.0.0/24 y usa Avahi para descubrimiento. El receptor se cierra con la X. Referencia del servidor: [FDH2/UxPlay](https://github.com/FDH2/UxPlay).
+
+Un único proceso FastAPI sirve HTML, CSS, JavaScript y la API. Un agente de la sesión `media` ejecuta una lista fija de acciones por socket Unix privado y verifica el UID del cliente. No hay base de datos, runtime Node ni túnel adicional.
 
 ## Instalación NixOS
 
@@ -55,7 +65,7 @@ El backend exige cookie firmada, token CSRF y Origin exacto para mutaciones; apl
 - El agente busca marcas/app_id/clase en el árbol Sway, reutiliza ventanas y conserva workspaces. Home no las cierra. Cerrar termina solo la ventana seleccionada.
 - La barra táctil superior incluye una X para cerrar la página/ventana actual. Al cerrar una ventana adicional se recupera la original de esa webapp; si era la última, se vuelve a Inicio. Las ventanas nuevas de la webapp en uso se muestran en fullscreen. Una página de una aplicación en segundo plano no cambia la fuente seleccionada.
 - Al plegar la barra con la flecha hacia arriba queda una flecha gris hacia abajo, sobre fondo semitransparente arriba a la izquierda. Esa flecha recupera los controles; tocar el contenido no anula el plegado manual.
-- `wtype` introduce teclas/texto. El perfil NixOS aplica un parche local de keycodes para Chrome ([referencia upstream](https://github.com/atx/wtype/pull/74)). El texto usa una selección Wayland temporal y un atajo con códigos físicos estables; se borra esa selección al terminar. La prueba real verifica acentos, signos, emojis y otros alfabetos sin basarse únicamente en el exit code. Spotify usa MPRIS; mpv su socket propio. Chrome usa teclas de mejor esfuerzo, sin inventar estado de reproducción.
+- Un motor Wayland persistente con mapa español introduce las teclas. El perfil conserva el parche local de keycodes para la compatibilidad de wtype con Chrome ([referencia upstream](https://github.com/atx/wtype/pull/74)). El texto usa una selección Wayland temporal y un atajo con códigos físicos estables; se borra esa selección al terminar. La prueba real verifica acentos, signos, emojis y otros alfabetos sin basarse únicamente en el exit code. Spotify usa MPRIS; mpv su socket propio. Chrome usa teclas de mejor esfuerzo, sin inventar estado de reproducción.
 - Al cambiar se intenta pausar con MPRIS/mpv y silenciar únicamente los streams Pulse que se puedan atribuir a la app anterior. Si no se confirma, se devuelve un aviso. La reanudación de una app pausada es explícita con Play.
 - El puntero remoto está deshabilitado y su endpoint responde 409. No se instala uinput/ydotoold en fase 1.
 - Copiar archivos a `/home/media/Videos`, legibles por media. La lista es plana, limita extensiones/cantidad y rechaza symlinks y rutas arbitrarias.
