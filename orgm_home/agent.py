@@ -492,7 +492,7 @@ class Controller:
                     ]
                 )
             elif app.type == "terminal":
-                self.processes[app.id] = await self.spawn(["kitty", "--class", f"orgm-home-{app.id}", "--title", app.name])
+                self.processes[app.id] = await self.spawn(["kitty", "--class", f"orgm-home-{app.id}", "--title", app.name, "--override", "confirm_os_window_close=0"])
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 window = await self.find(app)
