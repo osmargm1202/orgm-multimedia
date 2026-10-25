@@ -534,6 +534,22 @@ def test_airplay_waiting_page_never_steals_focus_from_home(controller):
     controller.sway.assert_not_called()
 
 
+def test_new_airplay_audio_selects_the_receiver_once_but_home_remains_respected(controller, monkeypatch):
+    controller.apps['airplay']=App('airplay','airplay','AirPlay','14',match='uxplay|orgm-home-airplay')
+    controller.tree=AsyncMock(return_value={'nodes':[window('home',1)]})
+    controller.audio_streams=AsyncMock(return_value=[{'index':7,'corked':False,'mute':False,'properties':{'application.id':'orgm-home-airplay'}}])
+    controller.known_airplay_audio=set()
+    controller.activate=AsyncMock()
+    command=AsyncMock(return_value='');monkeypatch.setattr('orgm_home.agent.command',command)
+    run(controller.reconcile_audio())
+    controller.activate.assert_awaited_once_with('airplay')
+    assert controller.audio_app=='airplay'
+    # A later Home selection does not cause the same live stream to reopen.
+    run(controller.reconcile_audio())
+    controller.activate.assert_awaited_once()
+    command.assert_awaited_once_with('pactl','set-sink-input-mute','7','1')
+
+
 def test_reboot_is_scheduled_outside_session_target(controller, monkeypatch):
     command=AsyncMock(return_value='')
     monkeypatch.setattr('orgm_home.agent.command',command)

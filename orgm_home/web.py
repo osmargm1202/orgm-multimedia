@@ -37,7 +37,7 @@ class Payload(BaseModel):
 
 
 class Login(Payload):
-    token: StrictStr = Field(min_length=20, max_length=256)
+    token: StrictStr = Field(min_length=6, max_length=256)
 
 
 class Key(Payload):
@@ -96,6 +96,35 @@ class Sessions:
             return csrf
         except (ValueError, AttributeError):
             return None
+
+
+class PairingCodes:
+    """One invitation at a time, ten guesses maximum, never the room secret."""
+
+    def __init__(self):
+        self.digest = None
+        self.expires = 0
+        self.attempts = 0
+        self.secret = secrets.token_bytes(32)
+
+    def issue(self):
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        self.digest = hmac.digest(self.secret, code.encode(), "sha256")
+        self.expires = time.monotonic() + 120
+        self.attempts = 0
+        return {"code": code, "expires_in": 120}
+
+    def redeem(self, code):
+        if self.digest is None or time.monotonic() >= self.expires:
+            self.digest = None
+            return False
+        if len(code) != 6 or not code.isascii() or not code.isdigit():
+            return False
+        self.attempts += 1
+        valid = hmac.compare_digest(self.digest, hmac.digest(self.secret, code.encode(), "sha256"))
+        if valid or self.attempts >= 10:
+            self.digest = None
+        return valid
 
 
 class RateLimit:
@@ -181,6 +210,7 @@ def create_app(settings=None, agent=None):
     app = FastAPI(title="ORGM Home", docs_url=None, redoc_url=None, openapi_url=None)
     install_pump_routes(app)
     app.state.sessions = sessions
+    app.state.pairing_codes = PairingCodes()
 
     @app.exception_handler(ControlError)
     async def control_error(request, exc):
@@ -290,7 +320,7 @@ def create_app(settings=None, agent=None):
         peer = request.client.host if request.client else "unknown"
         if not limits.allow((peer, "login"), 5, 60):
             raise ControlError("Demasiados intentos; espera un minuto", 429)
-        if not hmac.compare_digest(payload.token.encode(), sessions.token.encode()):
+        if not hmac.compare_digest(payload.token.encode(), sessions.token.encode()) and not app.state.pairing_codes.redeem(payload.token):
             raise ControlError("La clave de vinculación no es válida", 401)
         cookie, csrf = sessions.issue()
         response = JSONResponse({"csrf": csrf})
@@ -304,6 +334,14 @@ def create_app(settings=None, agent=None):
             path="/",
         )
         return response
+
+    @app.post("/api/pairing/code")
+    async def pairing_code(request: Request):
+        origin = urlsplit(request.headers.get("origin", ""))
+        peer = request.client.host if request.client else ""
+        if origin.hostname not in {"127.0.0.1", "localhost"} or peer not in {"127.0.0.1", "::1"}:
+            raise ControlError("Genera el código en la pantalla de Jarq", 403)
+        return app.state.pairing_codes.issue()
 
     @app.get("/api/session")
     async def session(request: Request):

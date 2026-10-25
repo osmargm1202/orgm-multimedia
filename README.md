@@ -70,6 +70,12 @@ Revisar antes el hardware y los cambios de servicios de la máquina concreta. La
 
 ## Vincular un mando
 
+En la pantalla de Jarq: **Opciones → Desde el teléfono → Generar código**.
+Escribir esos seis dígitos en el teléfono. El código dura dos minutos, se usa
+una vez y se invalida tras diez intentos incorrectos o al generar otro. Solo
+la pantalla local ya vinculada puede emitirlo; el mando remoto no expone la
+clave permanente. El registro de un código no modifica las sesiones existentes.
+
 En el equipo, `orgm-home-pair` muestra mediante sudo la clave aleatoria generada en `/var/lib/orgm-home/control-token`. Introducirla en el mando autorizado; dura 12 horas la sesión de ese dispositivo. El kiosk recibe la clave por fragmento de URL (no se envía en rutas ni logs HTTP) y la intercambia por una cookie HttpOnly. La aplicación elimina el fragmento de inmediato.
 
 No reutilizar contraseñas de cuentas. Para revocar todos los mandos: reemplazar el archivo de clave por otro valor aleatorio de al menos 32 caracteres, conservar propietario media y modo 0600, reiniciar API y kiosk. El archivo nunca pertenece al repositorio ni al Nix store.

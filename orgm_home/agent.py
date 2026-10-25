@@ -103,6 +103,7 @@ class Controller:
         self.processes = {}
         self.keyboard = None
         self.known_windows = None
+        self.known_airplay_audio = None
         self.spotify_interrupted = False
         self.audio_app = None
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
@@ -335,6 +336,16 @@ class Controller:
             self.active = active.id
         streams = await self.audio_streams()
         owned = [(stream, self.stream_app(stream, views)) for stream in streams]
+        running_airplay = {str(stream['index']) for stream, owner in owned
+                           if owner and owner.type == 'airplay' and not stream.get('corked', True)}
+        previous_audio, self.known_airplay_audio = self.known_airplay_audio, running_airplay
+        incoming = next((owner for stream, owner in owned
+                         if owner and owner.type == 'airplay' and str(stream['index']) in running_airplay
+                         and previous_audio is not None and str(stream['index']) not in previous_audio), None)
+        if incoming and incoming != active:
+            await self.activate(incoming.id)
+            active = incoming
+            self.active = incoming.id
         interrupts_music = bool(
             active and active.id not in {"home", "spotify"}
             and any(owner == active and not stream.get("corked", True) for stream, owner in owned)

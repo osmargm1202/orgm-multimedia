@@ -104,6 +104,7 @@
       </div>
       <section id="cast-view" class="cast-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
         <h3>Desde el teléfono</h3>
+        <div id="local-pairing" class="cast-service" hidden><h4>Vincular un mando</h4><p class="field-hint">En el teléfono, abre https://home.or-gm.com con Tailscale o http://10.0.0.98 desde el Wi-Fi de casa. Introduce el código que generes aquí.</p><button id="generate-pair-code" class="secondary">Generar código</button><output id="pair-code" aria-label="Código de vinculación" hidden></output><p id="pair-code-time" class="field-hint"></p></div>
         <div class="cast-service"><h4>YouTube</h4><p class="field-hint">Conecta el teléfono al mismo Wi-Fi que Jarq. En YouTube, toca Transmitir y elige «ORGM Jarq · YouTube»; la aplicación se abrirá en la sala.</p><button class="secondary" data-app="youtube">Abrir YouTube</button></div>
         <div class="cast-service"><h4>Max</h4><p class="field-hint">Copia el enlace de una película o episodio y envíalo aquí. Se abrirá con la sesión de Max guardada en Jarq. La transmisión Cast de Max requiere un receptor compatible.</p>
           <form id="max-form"><label for="max-url">Enlace de Max</label><div class="input-row"><input id="max-url" type="url" maxlength="2048" placeholder="https://play.max.com/…" autocomplete="url" required><button type="submit" class="primary">Abrir en Max</button></div></form>
@@ -127,8 +128,8 @@
     </section>
 
     <section id="pairing" class="pairing" aria-labelledby="pairing-title" hidden>
-      <h2 id="pairing-title">Vincula tu mando</h2><p>Introduce la clave de la sala para controlar la pantalla desde este dispositivo.</p>
-      <form id="pair-form"><label for="pair-token">Clave de vinculación</label><input id="pair-token" type="password" autocomplete="off" spellcheck="false" required minlength="20" maxlength="256"><button type="submit" class="primary">Vincular este dispositivo</button></form>
+      <h2 id="pairing-title">Vincula tu mando</h2><p>En la pantalla de Jarq, abre Opciones → Desde el teléfono → Generar código. Escribe los seis dígitos que aparezcan. El código dura dos minutos y se usa una vez.</p>
+      <form id="pair-form"><label for="pair-token">Código de la pantalla</label><input id="pair-token" type="text" inputmode="numeric" autocomplete="one-time-code" spellcheck="false" required minlength="6" maxlength="256"><button type="submit" class="primary">Vincular este dispositivo</button></form>
     </section>
   </main>
   <dialog id="reboot-confirm"><h2>¿Reiniciar Jarq?</h2><p>Las aplicaciones se cerrarán y el equipo volverá al inicio.</p><div class="form-actions"><button id="reboot-cancel">Cancelar</button><button id="reboot-accept" class="primary">Reiniciar</button></div></dialog>

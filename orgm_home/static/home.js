@@ -8,6 +8,7 @@ let panel = 'sources';
 let category = 'all';
 let sessionSignature = '';
 let feedbackTimer;
+let pairingDeadline=0;
 const mobile = matchMedia('(max-width: 720px)');
 const labels = Object.fromEntries($$('.app-tile[data-app]').map(button => [button.dataset.app, button.querySelector('.app-name').textContent]));
 labels.home = 'ORGM Home';
@@ -84,6 +85,8 @@ function render() {
   });
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
   $('#max-form button').disabled=!online || busy;
+  $('#local-pairing').hidden=!kiosk;
+  $('#generate-pair-code').disabled=!online || busy;
   $$('[data-app]').forEach(button=>{
     button.disabled=!online || busy;
     button.classList.toggle('is-active',button.dataset.app===state.app);
@@ -174,6 +177,17 @@ $('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();a
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('sources');});
 $('#max-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('apps/max/open-url',{url:$('#max-url').value},'Enlace abierto en Max')){$('#max-url').value='';showPanel('sources');}});
+$('#generate-pair-code').addEventListener('click',async()=>{
+  const result=await act('pairing/code');
+  if(result){$('#pair-code').textContent=result.code;$('#pair-code').hidden=false;pairingDeadline=Date.now()+result.expires_in*1000;pairingClock();}
+});
+function pairingClock(){
+  if(!pairingDeadline)return;
+  const seconds=Math.max(0,Math.ceil((pairingDeadline-Date.now())/1000));
+  $('#pair-code-time').textContent=seconds?`Caduca en ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}. Se usa una vez.`:'Código vencido. Genera otro.';
+  if(!seconds){pairingDeadline=0;$('#pair-code').textContent='';$('#pair-code').hidden=true;}
+}
+setInterval(pairingClock,1000);
 $('#load-videos').addEventListener('click',async()=>{
   try {const data=await api('videos');$('#video-list').replaceChildren();
     if(!data.files.length){const item=document.createElement('li');item.textContent='Todavía no hay archivos en Videos.';$('#video-list').append(item);}
