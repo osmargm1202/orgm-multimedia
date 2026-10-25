@@ -188,7 +188,6 @@ try:
     )
     agent = start([str(app_bin / "orgm-home-agent")], "agent")
     display_manager = start([str(app_bin / "orgm-home-display")], "display")
-    touch_process = start([str(app_bin / "orgm-home-touch")], "touch")
     ui = next(
         (app_bin / "orgm-home-touch")
         .resolve()
@@ -198,6 +197,7 @@ try:
     if os.getenv("ORGM_TEST_TOUCH_UI"):
         ui = Path(os.environ["ORGM_TEST_TOUCH_UI"])
     assert ui is not None, "Packaged touch QML not found"
+    touch_process = start([str(bin_dir / "qs"), "--path", str(ui)] if os.getenv("ORGM_TEST_TOUCH_UI") else [str(app_bin / "orgm-home-touch")], "touch")
 
     def touch_status():
         return json.loads(
@@ -251,10 +251,11 @@ try:
         browser = playwright.chromium.connect_over_cdp("http://127.0.0.1:" + debug_port)
         page = browser.contexts[0].pages[0]
         page.wait_for_selector("#target")
+        page.locator("#target").click()
         original=page.url
         page.evaluate("history.pushState({}, '', '/second-page')")
         client.post('/api/remote/key',json={'key':'back'}).raise_for_status()
-        wait_for(lambda:page.url==original)
+        page.wait_for_url(original,timeout=5000)
         page.locator('#target').click()
         page.evaluate("document.body.style.minHeight='2000px'")
         page.wait_for_timeout(150)
@@ -386,6 +387,16 @@ try:
             )
         )
         assert client.get("/api/status").json()["app"] == "browser"
+        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','options'],env=env,stdout=subprocess.DEVNULL)
+        wait_for(lambda:touch_status().get('options'))
+        if shutil.which('grim'):
+            time.sleep(.5)
+            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'options-native.png')],env=env)
+        # Native top-right picker: select Bosque without stealing app focus.
+        pointer.move(1740,336,3840,1080);pointer.button(True);pointer.button(False)
+        wait_for(lambda:client.get('/api/preferences').json().get('background')=='bosque')
+        pointer.move(1882,138,3840,1080);pointer.button(True);pointer.button(False)
+        wait_for(lambda:not touch_status().get('options'))
         destination = "https://example.com/?q=orgm%20home#prueba"
         response = client.post("/api/browser/open-url", json={"url": destination})
         assert response.status_code == 200, response.text

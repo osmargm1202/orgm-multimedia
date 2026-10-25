@@ -137,10 +137,16 @@ with sync_playwright() as p:
     expect(kiosk.locator('button[data-background]')).to_have_count(5)
     kiosk.locator('[data-background=bosque]').click()
     expect(kiosk.locator('body')).to_have_attribute('data-background','bosque')
+    for _ in range(50):
+        if kiosk.evaluate("[...document.querySelectorAll('.background-choice img')].every(i=>i.complete && i.naturalWidth>0)"): break
+        kiosk.wait_for_timeout(100)
     kiosk.screenshot(path=str(root/'options-kiosk.png'),full_page=True)
     page.set_viewport_size({'width':390,'height':844})
     page.locator('.header-actions [data-panel=settings]').click()
     expect(page.locator('#settings')).to_be_visible()
+    for _ in range(50):
+        if page.evaluate("[...document.querySelectorAll('.background-choice img')].filter(i=>i.getBoundingClientRect().top<innerHeight).every(i=>i.complete && i.naturalWidth>0)"): break
+        page.wait_for_timeout(100)
     page.screenshot(path=str(root/'options-mobile.png'),full_page=True)
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.locator('.admin-options summary').click()

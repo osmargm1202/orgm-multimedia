@@ -11,6 +11,7 @@ from .protocol import AgentClient, ControlError
 
 
 def main():
+    os.environ["ORGM_ASSET_DIR"] = str(Path(__file__).parent / "static")
     ui = Path(__file__).parent / "touch/shell.qml"
     os.execvp("qs", ["qs", "--no-duplicate", "--path", str(ui)])
 

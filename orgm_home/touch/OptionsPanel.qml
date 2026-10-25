@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 Rectangle {
     id: menu
     required property var controller
@@ -7,7 +8,7 @@ Rectangle {
     color: "#20293b"
     radius: 18
     Text { x:24; y:22; text:"Opciones"; font.pixelSize:24; font.bold:true; color:"#f2f5fc" }
-    IconButton { anchors { right:parent.right; top:parent.top; margins:12 }; icon:"close"; label:"Cerrar opciones"; onClicked:{menu.confirmation="";menu.controller.optionsOpened=false;} }
+    IconButton { anchors { right:parent.right; top:parent.top; margins:12 } icon:"close"; label:"Cerrar opciones"; onClicked:{menu.confirmation="";menu.controller.optionsOpened=false;} }
     Row {
         x:20; y:76; spacing:10
         Repeater {
@@ -32,8 +33,8 @@ Rectangle {
                     required property var modelData
                     width:(menu.width-52)/2; height:120; radius:12
                     color:menu.controller.background===modelData.id?"#b9c9ff":"#34415b"
-                    Image { anchors {fill:parent;margins:3}; source:"../static/"+modelData.file; fillMode:Image.PreserveAspectCrop; asynchronous:true }
-                    Rectangle { anchors {left:parent.left;right:parent.right;bottom:parent.bottom;margins:3}; height:32; color:"#161b27df" }
+                    Image { anchors {fill:parent;margins:3} source:"file://"+(Quickshell.env("ORGM_ASSET_DIR") || Quickshell.shellPath("../static"))+"/"+modelData.file; fillMode:Image.PreserveAspectCrop; asynchronous:true }
+                    Rectangle { anchors {left:parent.left;right:parent.right;bottom:parent.bottom;margins:3} height:32; color:"#161b27df" }
                     Text { x:12; anchors.bottom:parent.bottom; anchors.bottomMargin:11; text:modelData.name; color:"#f2f5fc"; font.pixelSize:14 }
                     MouseArea { anchors.fill:parent; onClicked:menu.controller.act("background",modelData.id) }
                 }
@@ -52,7 +53,7 @@ Rectangle {
             delegate: Rectangle {
                 required property var modelData
                 width:menu.width-40; height:82; radius:12; color:hit.pressed?"#3b4b70":"#29354b"
-                Image { x:18; anchors.verticalCenter:parent.verticalCenter; width:26; height:26; source:"../static/icons/"+modelData.action+".svg" }
+                Image { x:18; anchors.verticalCenter:parent.verticalCenter; width:26; height:26; source:"file://" + (Quickshell.env("ORGM_ASSET_DIR") || Quickshell.shellPath("../static")) + "/icons/"+modelData.action+".svg" }
                 Column { x:62; anchors.verticalCenter:parent.verticalCenter; spacing:7
                     Text { text:menu.confirmation===modelData.action?"Toca de nuevo para reiniciar":modelData.label; color:menu.confirmation===modelData.action?"#ffc0b6":"#f2f5fc"; font.pixelSize:16 }
                     Text { text:modelData.detail; color:"#b5c2d9"; font.pixelSize:13 }

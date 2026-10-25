@@ -88,6 +88,7 @@ Scope {
         function toggle(): void { root.toggle(); }
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
+        function options(): void { root.optionsOpened=true; root.controlsOpened=true; }
         function controls(): void { root.controlsOpened=true; hideControls.restart(); }
         function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,options:root.optionsOpened,panels:root.panels.map(p=>p.snapshot())}); }
     }
