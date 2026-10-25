@@ -9,6 +9,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import socket
 import struct
@@ -126,6 +127,14 @@ class Controller:
                 args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
             except OSError:
                 return None
+            # Chromium rewrites argv into a single display string on Linux.
+            # Tokenize it only for comparison; it is never executed.
+            args = [arg for arg in args if arg]
+            if len(args) == 1:
+                try:
+                    args = [os.fsencode(arg) for arg in shlex.split(os.fsdecode(args[0]))]
+                except ValueError:
+                    return None
             for app in self.apps.values():
                 if app.type == "chrome":
                     profile = Path.home() / ".local/share/orgm-home/chrome" / app.id

@@ -64,7 +64,8 @@ def test_home_preserves_other_windows(controller):
     controller.mute_application.assert_any_await(controller.apps["youtube"], True)
 
 
-def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch):
+@pytest.mark.parametrize("separator", [b"\0", b" "])
+def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch, separator):
     controller.apps["netflix"] = App(
         id="netflix", name="Netflix", type="chrome", workspace="4",
         match="orgm-home-netflix", url="https://www.netflix.com",
@@ -75,7 +76,7 @@ def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch):
     profile = Path.home() / ".local/share/orgm-home/chrome/netflix"
     monkeypatch.setattr(
         Path, "read_bytes",
-        lambda self: b"chrome\0" + str(f"--user-data-dir={profile}").encode() + b"\0",
+        lambda self: separator.join([b"chrome", str(f"--user-data-dir={profile}").encode()]) + b"\0",
     )
     assert controller.identify(item).id == "netflix"
     monkeypatch.setattr(Path, "read_bytes", lambda self: b"chrome\0--user-data-dir=/unmanaged\0")
