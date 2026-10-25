@@ -27,6 +27,11 @@ volumen y silencio. **Inicio** lleva la pantalla real al menú de Jarq; cambiar
 entre las tres vistas del navegador solo cambia la interfaz del mando. Al abrir
 una aplicación desde el catálogo, el navegador vuelve automáticamente a Mando.
 
+En Inicio, las flechas del mando recorren los controles del dashboard de Jarq:
+un borde claro señala la selección y OK la activa. Al volver a Inicio se recupera
+la última aplicación seleccionada; las tarjetas fuera de vista se desplazan
+automáticamente. Las teclas se resuelven en el kiosk sin reenviarlas a la API.
+
 En páginas web, **Siguiente elemento** envía Tab y **Anterior** envía Shift+Tab;
 OK activa el elemento seleccionado. No todas las páginas responden a las
 flechas: estos controles permiten recorrer sus enlaces y campos. Para escribir,

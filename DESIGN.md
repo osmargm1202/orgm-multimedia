@@ -26,6 +26,8 @@ El mando remoto usa una columna centrada de hasta 480 px tanto en escritorio com
 
 La cruceta circular tiene cuatro direcciones con esquinas suaves y un OK central claro, de contraste alto; mide 252 px en escritorio y 224 px en móvil. Inicio y Cambiar app preceden a la cruceta. Atrás y Teclado, navegación web anterior/siguiente y volumen forman filas debajo, con controles de al menos 48 px de alto. El nombre y el estado de la fuente son reales; las indicaciones explican Tab/Shift+Tab y las capacidades de cada aplicación. Abrir una app devuelve el navegador a Mando. Inicio cambia la pantalla de Jarq al dashboard.
 
+El dashboard también recibe las flechas y OK del mando. La selección conserva un borde claro de 3 px, incluso cuando el foco procede de una tecla inyectada. La navegación elige controles en la dirección pulsada y desplaza las tarjetas hasta hacerlas visibles. Volver a Inicio recupera la última aplicación seleccionada y cierra subpaneles; el kiosk consume estas teclas localmente para evitar un bucle de órdenes HTTP.
+
 Cambiar app es un diálogo de hasta 480 px, con filas de miniatura y nombre, selección marcada en azul y una X independiente de 44 px para cerrar cada fuente. Su acceso al catálogo permite abrir otra aplicación. El selector nativo conserva un panel de hasta 640 px, tarjetas en tres columnas y la marca En pantalla. Ambos muestran solo fuentes abiertas y cambian directamente a su ventana; abrir el selector conserva la aplicación actual. La X del panel nativo cierra el panel, mientras la X de su barra cierra la página. Se conservan las portadas existentes y la paleta de selección, sin introducir otra identidad visual.
 
 ## Música, conexión y equipo

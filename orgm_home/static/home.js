@@ -10,6 +10,8 @@ let sessionSignature = '';
 let switcherSignature = '';
 let feedbackTimer;
 let pairingDeadline=0;
+let homeCursor=null;
+let homeAppSelection=null;
 const mobile = matchMedia('(max-width: 720px)');
 const labels = Object.fromEntries($$('.app-tile[data-app]').map(button => [button.dataset.app, button.querySelector('.app-name').textContent]));
 labels.home = 'ORGM Home';
@@ -102,12 +104,54 @@ function render() {
     const art=button.querySelector('.app-art');
     if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : `/static/cards/${id}.png`;if(art.getAttribute('src')!==url)art.src=url;}
   });
-  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='play' ? state.capabilities?.play : state.capabilities?.keys;button.disabled=!online || busy || !capability;});
+  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && key==='backspace');button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],[data-switcher],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
   $('#text-form button[type=submit]').disabled=!online || busy || !state.capabilities?.text;
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
-  $('#control-note').textContent=state.app==='home' ? 'Toca Aplicaciones para abrir una en Jarq.' : state.app==='airplay' ? 'La reproducción se controla desde el dispositivo que transmite.' : 'En páginas web, Siguiente elemento mueve la selección y OK la abre. Usa Teclado para buscar.';
+  $('#control-note').textContent=state.app==='home' ? 'Usa las flechas para elegir en la pantalla de Jarq y OK para abrir.' : state.app==='airplay' ? 'La reproducción se controla desde el dispositivo que transmite.' : 'En páginas web, Siguiente elemento mueve la selección y OK la abre. Usa Teclado para buscar.';
+  if(kiosk && state.app && state.app!=='home')homeAppSelection=state.app;
+}
+function homeControls() {
+  const scope=$('dialog[open]') || document;
+  return [...scope.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')].filter(element=>element.getClientRects().length && getComputedStyle(element).visibility!=='hidden');
+}
+function selectHomeControl(element) {
+  if(!element)return;
+  $$('.home-selected').forEach(item=>item.classList.remove('home-selected'));
+  homeCursor=element;
+  if(element.matches('.app-tile[data-app]'))homeAppSelection=element.dataset.app;
+  element.classList.add('home-selected');
+  element.focus({preventScroll:true});
+  element.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function focusHome(reset=false) {
+  if(!kiosk || !csrf)return;
+  if(reset){
+    $$('dialog[open]').forEach(dialog=>dialog.close());
+    category='all';showPanel('sources');
+  }
+  const controls=homeControls();
+  const remembered=$$('.app-tile[data-app]').find(button=>button.dataset.app===homeAppSelection && controls.includes(button));
+  const target=reset ? remembered : controls.includes(homeCursor)?homeCursor:null;
+  selectHomeControl(target || controls.find(button=>button.classList.contains('app-tile')) || controls[0]);
+}
+function moveHomeSelection(key) {
+  const controls=homeControls();
+  const current=controls.includes(document.activeElement)?document.activeElement:controls.includes(homeCursor)?homeCursor:null;
+  if(!current){focusHome();return;}
+  const from=current.getBoundingClientRect(),horizontal=['ArrowLeft','ArrowRight'].includes(key),sign=['ArrowLeft','ArrowUp'].includes(key)?-1:1;
+  const x=from.x+from.width/2,y=from.y+from.height/2;
+  let next=null,best=Infinity;
+  for(const candidate of controls){
+    if(candidate===current)continue;
+    const rect=candidate.getBoundingClientRect(),dx=rect.x+rect.width/2-x,dy=rect.y+rect.height/2-y;
+    const forward=(horizontal?dx:dy)*sign,cross=Math.abs(horizontal?dy:dx);
+    if(forward<1)continue;
+    const score=forward+cross*2;
+    if(score<best){best=score;next=candidate;}
+  }
+  selectHomeControl(next || current);
 }
 function renderSwitcher() {
   const opened=(state.open || []).filter(id=>id!=='home' && labels[id]);
@@ -202,7 +246,7 @@ $('#switcher-close').addEventListener('click',()=>$('#app-switcher').close());
 $('#switcher-catalog').addEventListener('click',()=>{$('#app-switcher').close();showPanel('sources');});
 $$('[data-settings-view]').forEach(button=>button.addEventListener('click',()=>settingsView(button.dataset.settingsView)));
 $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote/key',{key:button.dataset.key})));
-$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);$('.app-grid').scrollLeft=0;}));
+$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);if(kiosk)focusHome(true);else $('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
 $$('[data-wifi]').forEach(button=>button.addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq')));
@@ -241,18 +285,45 @@ $('#pair-form').addEventListener('submit',async event=>{
   catch(error){feedback(error.message,true);}finally{button.disabled=false;}
 });
 document.addEventListener('keydown',event=>{
-  if(!csrf || busy || $('#app-switcher').open || event.ctrlKey || event.metaKey || event.altKey || ['INPUT','TEXTAREA','BUTTON','A'].includes(event.target.tagName))return;
+  if(kiosk || !csrf || busy || $('#app-switcher').open || event.ctrlKey || event.metaKey || event.altKey || ['INPUT','TEXTAREA','BUTTON','A'].includes(event.target.tagName))return;
   const key={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'ok',Escape:'back'}[event.key];
   if(key && state.capabilities?.keys){event.preventDefault();act('remote/key',{key});}
   if(event.key==='Home'){event.preventDefault();act('remote/home');showPanel(defaultPanel);}
 });
+if(kiosk){
+  $('.app-grid').removeAttribute('tabindex');
+  document.addEventListener('focusin',event=>{
+    if(homeControls().includes(event.target)){
+      $$('.home-selected').forEach(item=>item.classList.remove('home-selected'));
+      homeCursor=event.target;homeCursor.classList.add('home-selected');
+      if(homeCursor.matches('.app-tile[data-app]'))homeAppSelection=homeCursor.dataset.app;
+    }
+  });
+  document.addEventListener('keydown',event=>{
+    if(!csrf || busy || event.ctrlKey || event.metaKey || event.altKey)return;
+    if(event.key==='Home'){event.preventDefault();event.stopImmediatePropagation();focusHome(true);return;}
+    if(event.target.matches('input,textarea,select,[contenteditable=true]'))return;
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)){
+      event.preventDefault();event.stopImmediatePropagation();moveHomeSelection(event.key);
+    }else if(event.key==='Enter'){
+      event.preventDefault();event.stopImmediatePropagation();
+      if(!homeControls().includes(document.activeElement))focusHome();
+      if(document.activeElement instanceof HTMLButtonElement)document.activeElement.click();
+    }else if(event.key==='Escape' && !$('dialog[open]')){
+      event.preventDefault();event.stopImmediatePropagation();
+      if(panel==='settings' && !$('#settings-menu').hidden){focusHome(true);}
+      else if(panel==='settings'){settingsView();selectHomeControl($('#settings-menu button'));}
+      else focusHome(true);
+    }
+  },true);
+}
 mobile.addEventListener('change',()=>showPanel(panel));
 function clock(){const now=new Date();$('#clock').textContent=now.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit',hour12:false});$('#calendar').textContent=now.toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short'});}
 clock();setInterval(clock,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 async function start() {
   showPanel(defaultPanel);
-  try {const token=fragment.get('pair'); const result=token ? await api('session',{token}) : await api('session');fragment.delete('pair');csrf=result.csrf;$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();}
+  try {const token=fragment.get('pair'); const result=token ? await api('session',{token}) : await api('session');fragment.delete('pair');csrf=result.csrf;$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();if(kiosk)focusHome();}
   catch(error){fragment.delete('pair');showPairing();if(kiosk)feedback(error.message,true);}
   setInterval(()=>{if(!document.hidden)refresh();},3000);
 }

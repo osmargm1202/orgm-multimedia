@@ -411,11 +411,9 @@ try:
         mirror_window = next(
             w for w in leaves(tree()) if w.get("app_id") == "at.yrlf.wl_mirror"
         )
-        subprocess.check_call(
-            [str(bin_dir / "swaymsg"), f"[con_id={mirror_window['id']}] kill"],
-            env=env,
-            stdout=subprocess.DEVNULL,
-        )
+        # Closing a Wayland surface need not terminate wl-mirror. Exercise
+        # the client-exit recovery promised here by stopping this fixture PID.
+        os.kill(mirror_window['pid'], signal.SIGTERM)
         wait_for(
             lambda: any(
                 w.get("app_id") == "at.yrlf.wl_mirror"
@@ -571,6 +569,18 @@ try:
         kiosk_page.wait_for_selector('.is-kiosk .masthead')
         native=touch_status()['panels'][0]['controls']
         assert kiosk_page.locator('.masthead').bounding_box()['y'] >= native['y']+native['height']
+        # Home -> visible cursor -> native arrow -> OK -> Home, through HTTP.
+        assert client.get('/api/status').json()['capabilities']['keys']
+        wait_for(lambda:kiosk_page.locator('.home-selected').count()==1)
+        kiosk_page.locator('.app-youtube').focus()
+        client.post('/api/remote/key',json={'key':'right'}).raise_for_status()
+        wait_for(lambda:kiosk_page.locator('.home-selected').get_attribute('data-app')=='netflix')
+        kiosk_page.screenshot(path=str(root/'home-remote-selection.png'))
+        client.post('/api/remote/key',json={'key':'ok'}).raise_for_status()
+        wait_for(lambda:client.get('/api/status').json()['app']=='netflix')
+        client.post('/api/remote/home',json={}).raise_for_status()
+        wait_for(lambda:kiosk_page.locator('.home-selected').get_attribute('data-app')=='netflix')
+        assert client.get('/api/status').json()['app']=='home'
         # Closing a background source from the real dashboard must never
         # activate it first or affect the independently running browser.
         kiosk_page.locator('[data-close-app="netflix"]').click()
@@ -590,6 +600,7 @@ try:
                     "kiosk",
                     "HTTP to Unix socket to wtype",
                     "remote Tab, Shift+Tab and OK select a real web button",
+                    "Home remote arrows retain visible selection and OK opens its source",
                     "Home preserves windows",
                     "agent restart reuses window",
                     "API restart retains session",

@@ -559,6 +559,10 @@ class Controller:
         await self.sway(f"workspace number {app.workspace}")
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
+        if app.id == "home":
+            # Reset the kiosk view and restore its visible selection even if
+            # the browser still remembers a hidden settings field or button.
+            await self.native_key(102)  # Home, handled locally by the kiosk.
         if navigate_existing:
             # Chrome forwards this URL as a tab to the same profile/window.
             await self.spawn(self.chrome_args(app, url, new_window=False))
@@ -605,7 +609,7 @@ class Controller:
             "open": opened,
             "warning": self.warning,
             "capabilities": {
-                "keys": bool(app and app.id != "home" and app.type != "airplay"),
+                "keys": bool(app and app.type != "airplay"),
                 "text": bool(app and app.control not in {"internal", "mpv"} and app.type != "airplay"),
                 "pointer": False,
                 "play": bool(app and app.id != "home" and app.type not in {"airplay", "terminal"}),
@@ -649,10 +653,12 @@ class Controller:
                 key = request.get("key")
                 current = await self.status()
                 app = self.apps.get(current["app"])
-                if not app or app.id == "home" or app.type == "airplay":
+                if not app or app.type == "airplay":
                     raise ControlError(
                         "Selecciona una aplicación para usar el mando", 409
                     )
+                if app.id == "home" and key not in {"up", "down", "left", "right", "ok", "back", "tab", "shift-tab"}:
+                    raise ControlError("Ese control no está disponible en Inicio", 409)
                 if key in {"stop", "next", "previous"}:
                     if not current["capabilities"]["stop" if key == "stop" else "next"]:
                         raise ControlError("Este servicio no ofrece ese control", 409)

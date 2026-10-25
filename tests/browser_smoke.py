@@ -57,7 +57,7 @@ class PreviewAgent:
                 "spotify": {"available": True, "playing": self.playing, "title":"Sesión de prueba", "artist":"Spotify"},
                 "open": sorted(self.opened),
                 "capabilities": {
-                    "keys": self.active != "home",
+                    "keys": True,
                     "text": self.active != "home",
                     "play": self.active != "home",
                     "close": self.active != "home",
@@ -224,7 +224,12 @@ with sync_playwright() as p:
         assert ('key',{'key':key}) in agent.calls
     phone.locator('#remote [data-home]').click()
     expect(phone.locator('#remote-title')).to_have_text('ORGM Home')
-    expect(phone.locator('#remote [data-key=ok]')).to_be_disabled()
+    expect(phone.locator('#remote [data-key=ok]')).to_be_enabled()
+    for key in ['right','down','left','up','ok','back']:
+        checkpoint=len(agent.calls)
+        phone.locator('#remote [data-key='+key+']').click()
+        phone.wait_for_timeout(60)
+        assert ('key',{'key':key}) in agent.calls[checkpoint:]
     phone.locator('#controller-nav [data-panel=sources]').click()
     expect(phone.locator('.app-youtube')).to_be_visible()
     phone.locator('.app-youtube').click()
@@ -273,6 +278,21 @@ with sync_playwright() as p:
     expect(kiosk.locator('.app-youtube')).to_be_enabled()
     kiosk.wait_for_function("() => document.querySelector('.app-grid').scrollLeft<8")
     kiosk.screenshot(path=str(root/'kiosk.png'),full_page=True)
+    # Local kiosk consumes native navigation; it must never echo it to the API.
+    kiosk.locator('.app-youtube').focus()
+    before=len(agent.calls)
+    kiosk.keyboard.press('ArrowRight')
+    expect(kiosk.locator('.home-selected')).to_have_attribute('data-app','netflix')
+    assert len(agent.calls)==before
+    kiosk.screenshot(path=str(root/'home-selection.png'),full_page=True)
+    kiosk.keyboard.press('Enter')
+    expect(kiosk.locator('#current-label')).to_have_text('Netflix')
+    kiosk.keyboard.press('Home')
+    expect(kiosk.locator('.home-selected')).to_have_attribute('data-app','netflix')
+    kiosk.locator('.side-nav [data-panel=settings]').click()
+    kiosk.keyboard.press('Home')
+    expect(kiosk.locator('#sources')).to_be_visible()
+    expect(kiosk.locator('.home-selected')).to_have_attribute('data-app','netflix')
     kiosk.locator('.app-browser').click()
     expect(kiosk.locator('#current-label')).to_have_text('Navegador')
     kiosk.locator('[data-panel=typing]').click()

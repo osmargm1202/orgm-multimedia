@@ -63,6 +63,28 @@ def test_home_preserves_other_windows(controller):
     run(controller.dispatch({"action": "home"}))
     assert all("kill" not in call.args[0] for call in controller.sway.call_args_list)
     controller.mute_application.assert_any_await(controller.apps["youtube"], True)
+    controller.native_key.assert_awaited_once_with(102)
+
+
+@pytest.mark.parametrize('key,code,modifiers', [('up',103,0),('down',108,0),('left',105,0),('right',106,0),('ok',28,0),('back',1,0),('tab',15,0),('shift-tab',15,1)])
+def test_home_accepts_remote_navigation(controller, monkeypatch, key, code, modifiers):
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value=''))
+    controller.tree=AsyncMock(return_value={'nodes':[window('home')]})
+    assert run(controller.status())['capabilities']['keys']
+    run(controller.dispatch({'action':'key','key':key}))
+    if modifiers:
+        controller.native_key.assert_awaited_once_with(code,modifiers=modifiers)
+    else:
+        controller.native_key.assert_awaited_once_with(code)
+
+
+@pytest.mark.parametrize('key',['play','stop','next','previous','backspace','space'])
+def test_home_rejects_media_transport_and_editing(controller, monkeypatch, key):
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value=''))
+    controller.tree=AsyncMock(return_value={'nodes':[window('home')]})
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'key','key':key}))
+    controller.native_key.assert_not_called()
 
 
 def test_switch_reuses_open_source_without_visiting_home(controller):
