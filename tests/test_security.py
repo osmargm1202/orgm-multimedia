@@ -87,6 +87,24 @@ def test_text_treated_as_data(paired):
     assert agent.calls == [("text", {"text": text})]
 
 
+def test_switch_requires_pairing_and_csrf(configured, paired):
+    client, agent, headers = paired
+    assert client.post('/api/apps/youtube/switch', json={}, headers={'origin':'http://testserver'}).status_code == 403
+    assert not agent.calls
+    assert client.post('/api/apps/unknown/switch', json={}, headers=headers).status_code == 404
+    assert not agent.calls
+    assert client.post('/api/apps/youtube/switch', json={}, headers=headers).status_code == 200
+    assert agent.calls == [('switch-app', {'id':'youtube'})]
+    client.cookies.clear()
+    assert client.post('/api/apps/youtube/switch', json={}, headers=headers).status_code == 401
+
+
+def test_remote_previous_element_is_a_fixed_key(paired):
+    client, agent, headers = paired
+    assert client.post('/api/remote/key',json={'key':'shift-tab'},headers=headers).status_code == 200
+    assert agent.calls == [('key', {'key':'shift-tab'})]
+
+
 @pytest.mark.parametrize(
     "payload",
     [

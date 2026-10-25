@@ -35,6 +35,7 @@ KEYS = {
     "back": "Escape",
     "backspace": "BackSpace",
     "tab": "Tab",
+    "shift-tab": "ISO_Left_Tab",
     "space": "space",
 }
 
@@ -625,8 +626,17 @@ class Controller:
         async with self.lock:
             if action == "status":
                 return await self.status()
+            if action == "apps":
+                return {"apps": [app.public() for app in self.apps.values()]}
             if action == "activate":
                 return await self.activate(request.get("id"))
+            if action == "switch-app":
+                app = self.apps.get(request.get("id"))
+                if not app:
+                    raise ControlError("Aplicación desconocida", 404)
+                if not await self.find(app):
+                    raise ControlError("Esta aplicación ya está cerrada", 409)
+                return await self.activate(app.id)
             if action == "home":
                 return await self.activate("home")
             if action == "open-url":
@@ -668,7 +678,9 @@ class Controller:
                     else:
                         await command("wtype", "-s", "100", "-k", "space")
                 elif key in KEYS:
-                    if key == "back" and (app.type == "chrome" or app.id == "spotify"):
+                    if key == "shift-tab":
+                        await self.native_key(15, modifiers=1)
+                    elif key == "back" and (app.type == "chrome" or app.id == "spotify"):
                         await self.native_key(105, modifiers=8)
                     else:
                         codes = {

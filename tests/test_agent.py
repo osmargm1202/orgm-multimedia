@@ -65,6 +65,37 @@ def test_home_preserves_other_windows(controller):
     controller.mute_application.assert_any_await(controller.apps["youtube"], True)
 
 
+def test_switch_reuses_open_source_without_visiting_home(controller):
+    controller.tree = AsyncMock(return_value={"nodes": [window("browser", 7), window()]})
+    controller.spawn = AsyncMock()
+    controller.active = "youtube"
+    result = run(controller.dispatch({"action": "switch-app", "id": "browser"}))
+    assert result["app"] == "browser"
+    controller.spawn.assert_not_called()
+    calls = [call.args[0] for call in controller.sway.call_args_list]
+    assert "[con_id=7] focus" in calls
+    assert not any("workspace number 1" == call or "kill" in call for call in calls)
+    controller.mute_application.assert_any_await(controller.apps["youtube"], True)
+
+
+@pytest.mark.parametrize("app_id,status", [("youtube", 409), ("arbitrary", 404)])
+def test_switch_never_launches_a_closed_or_unknown_source(controller, app_id, status):
+    controller.tree = AsyncMock(return_value={"nodes": [window("home")]})
+    controller.spawn = AsyncMock()
+    with pytest.raises(ControlError) as error:
+        run(controller.dispatch({"action": "switch-app", "id": app_id}))
+    assert error.value.status == status
+    controller.spawn.assert_not_called()
+    controller.sway.assert_not_called()
+
+
+def test_previous_web_element_uses_shift_tab(controller, monkeypatch):
+    monkeypatch.setattr("orgm_home.agent.command", AsyncMock(return_value=""))
+    controller.tree = AsyncMock(return_value={"nodes": [window("browser")]})
+    run(controller.dispatch({"action": "key", "key": "shift-tab"}))
+    controller.native_key.assert_awaited_once_with(15, modifiers=1)
+
+
 @pytest.mark.parametrize("separator", [b"\0", b" "])
 def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch, separator):
     controller.apps["netflix"] = App(

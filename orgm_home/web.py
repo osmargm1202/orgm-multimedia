@@ -382,6 +382,12 @@ def create_app(settings=None, agent=None):
             raise ControlError("Aplicación desconocida", 404)
         return await client.call("close-app", id=app_id)
 
+    @app.post("/api/apps/{app_id}/switch")
+    async def switch_app(app_id: str):
+        if app_id not in apps:
+            raise ControlError("Aplicación desconocida", 404)
+        return await client.call("switch-app", id=app_id)
+
     @app.post("/api/apps/max/open-url")
     async def open_max(payload: Url):
         if "max" not in apps:

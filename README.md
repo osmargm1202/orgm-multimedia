@@ -2,7 +2,7 @@
 
 Launcher multimedia y mando web para una sesión Sway dedicada. Fase 1 del [plan original](docs/phase1-plan.md).
 
-El inicio actual sigue una referencia cinematográfica del usuario: navegación lateral, pestañas, 22 portadas locales, capturas de ventanas abiertas y Spotify con Play/Pausa sin abandonar el menú. Los prompts de las portadas están en [docs/service-covers.md](docs/service-covers.md).
+El inicio de la pantalla local sigue una referencia cinematográfica del usuario: navegación lateral, pestañas, 22 portadas locales, capturas de ventanas abiertas y Spotify con Play/Pausa sin abandonar el menú. Los navegadores vinculados de teléfono y escritorio abren el mando. Los prompts de las portadas están en [docs/service-covers.md](docs/service-covers.md).
 
 Spotify continúa en Inicio y en aplicaciones silenciosas; se pausa cuando la fuente seleccionada empieza a reproducir audio. Las capturas se obtienen por identificador de ventana con `grim -T`, incluso si están en otro workspace, sin cambiar el foco. Se almacenan en el directorio privado del servicio y requieren vinculación para descargarlas por la API.
 
@@ -17,6 +17,33 @@ aplicación y sus ventanas desde Inicio. El foco de las demás fuentes se conser
 si se cierra la fuente que estaba en pantalla, vuelve a Inicio. Cerrar Spotify
 termina también su sandbox para que no quede audio sin ventana. La X de la barra
 superior sigue cerrando únicamente la página actual.
+
+## Mando desde el teléfono o el escritorio
+
+Después de vincular el navegador, la vista inicial es **Mando**, con navegación
+inferior a **Mando**, **Aplicaciones** y **Opciones**. Mando muestra la aplicación
+que está en la pantalla de Jarq y ofrece flechas, OK, Inicio, Atrás, teclado,
+volumen y silencio. **Inicio** lleva la pantalla real al menú de Jarq; cambiar
+entre las tres vistas del navegador solo cambia la interfaz del mando. Al abrir
+una aplicación desde el catálogo, el navegador vuelve automáticamente a Mando.
+
+En páginas web, **Siguiente elemento** envía Tab y **Anterior** envía Shift+Tab;
+OK activa el elemento seleccionado. No todas las páginas responden a las
+flechas: estos controles permiten recorrer sus enlaces y campos. Para escribir,
+seleccionar primero el campo de destino y abrir **Teclado**. Los controles se
+habilitan según la conexión y las capacidades de la aplicación; no hay mouse
+virtual. AirPlay conserva el control de reproducción en el dispositivo emisor.
+
+**Cambiar app** abre un selector de aplicaciones ya abiertas, señala cuál está
+en pantalla y ofrece una X independiente para cerrar cada una. Elegir una cambia
+directamente a su ventana sin pasar por Inicio. No inicia aplicaciones cerradas:
+`POST /api/apps/{id}/switch` responde 409 si la fuente ya no está abierta. Para
+iniciar otra, usar **Abrir otra aplicación**. Abrir o cerrar el selector no cambia
+la fuente que está en pantalla.
+
+El kiosk local conserva el dashboard con categorías laterales y un único acceso
+a Opciones. Sus controles de audio, Atrás y teclado acompañan a la música; las
+flechas y OK pertenecen al mando remoto.
 
 ## Desde el teléfono
 
@@ -111,6 +138,7 @@ El backend exige cookie firmada, token CSRF y Origin exacto para mutaciones; apl
 - Netflix, Max y Crunchyroll usan Chrome con perfiles independientes. El inicio de sesión comercial es manual; DRM, resolución y reproducción requieren aceptación en el hardware real.
 - El agente busca marcas/app_id/clase en el árbol Sway, reutiliza ventanas y conserva workspaces. Home no las cierra. Cerrar termina solo la ventana seleccionada.
 - La barra táctil superior incluye una X para cerrar la página/ventana actual. Al cerrar una ventana adicional se recupera la original de esa webapp; si era la última, se vuelve a Inicio. Las ventanas nuevas de la webapp en uso se muestran en fullscreen. Una página de una aplicación en segundo plano no cambia la fuente seleccionada.
+- El segundo botón de la barra táctil abre **Cambiar de aplicación** sobre la aplicación actual sin quitarle el foco. El panel muestra solo fuentes abiertas, marca **En pantalla** y permite elegir otra directamente. Su X cierra el selector; la X de la barra sigue cerrando la página actual. Para abrir una aplicación cerrada, volver a Inicio.
 - Al plegar la barra con la flecha hacia arriba queda una flecha gris hacia abajo, sobre fondo semitransparente arriba a la izquierda. Esa flecha recupera los controles; tocar el contenido no anula el plegado manual.
 - Un motor Wayland persistente con mapa español introduce las teclas. El perfil conserva el parche local de keycodes para la compatibilidad de wtype con Chrome ([referencia upstream](https://github.com/atx/wtype/pull/74)). El texto usa una selección Wayland temporal y un atajo con códigos físicos estables; se borra esa selección al terminar. La prueba real verifica acentos, signos, emojis y otros alfabetos sin basarse únicamente en el exit code. Spotify usa MPRIS; mpv su socket propio. Chrome usa teclas de mejor esfuerzo, sin inventar estado de reproducción.
 - Al cambiar se intenta pausar con MPRIS/mpv y silenciar únicamente los streams Pulse que se puedan atribuir a la app anterior. Si no se confirma, se devuelve un aviso. La reanudación de una app pausada es explícita con Play.
@@ -146,7 +174,7 @@ Las pruebas unitarias verifican autenticación, CSRF, límites de entrada, allow
 
 La indicación final del usuario fija duplicación a 1080p: `eDP-1` permanece como fuente táctil y `HDMI-A-1` muestra su copia mediante wl-mirror. Las aplicaciones y workspaces 1–12 permanecen en la pantalla interna; el espejo ocupa exclusivamente el workspace 99 del HDMI. El proyector se reconecta automáticamente y, al retirarlo, la laptop conserva la sesión. Se prioriza audio HDMI cuando está disponible.
 
-La barra de símbolos aparece arriba al tocar, con Inicio, Atrás, volumen, mute, teclado y Opciones. Se retira tras ocho segundos y no queda ningún tirador. El teclado español conserva el foco de la aplicación. Se reutilizan el layout y el motor existentes, bajo GPL, con una superficie Quickshell dedicada. Opciones muestra cinco fondos y Administración para Voltear, reiniciar el launcher y reiniciar el equipo. El reinicio requiere confirmación en la interfaz y la autorización de logind se limita a `media` en este perfil.
+La barra de símbolos aparece arriba al tocar, con Inicio, Cambiar de aplicación, Atrás, cerrar página, volumen, mute, teclado y ocultar controles. Se retira tras ocho segundos; si se pliega manualmente, queda una flecha para recuperarla. El teclado español conserva el foco de la aplicación. Se reutilizan el layout y el motor existentes, bajo GPL, con una superficie Quickshell dedicada. Opciones se abre desde Inicio y muestra cinco fondos y Administración para Voltear, reiniciar el launcher y reiniciar el equipo. El reinicio requiere confirmación en la interfaz y la autorización de logind se limita a `media` en este perfil.
 
 El agente reconcilia el mute de los flujos de audio de cada aplicación para recuperar flujos tardíos que PipeWire restauró silenciados; respeta el mute global del usuario. Atrás usa códigos físicos del motor de teclado: Alt+Izquierda para páginas web y Escape para navegación nativa. El nuevo catálogo añade Poki, StreamEast, la web oficial NBA y RetroArch; no incluye juegos ni ROMs.
 

@@ -21,6 +21,8 @@ def control():
     action = sys.argv[1] if len(sys.argv) >= 2 else "status"
     actions = {
         "status": ("status", {}),
+        "apps": ("apps", {}),
+        "switch-app": ("switch-app", {"id": sys.argv[2] if len(sys.argv) == 3 else ""}),
         "home": ("home", {}),
         "rotate": ("rotate", {}),
         "preferences": ("preferences", {}),

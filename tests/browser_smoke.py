@@ -25,6 +25,9 @@ class PreviewAgent:
         if action == "activate":
             self.active = data["id"]
             self.opened.add(self.active)
+        if action == "switch-app":
+            assert data['id'] in self.opened
+            self.active=data['id']
         if action == "home":
             self.active = "home"
         if action == "close-app":
@@ -102,6 +105,7 @@ with sync_playwright() as p:
         viewport={"width": 1440, "height": 1000}, device_scale_factor=1
     )
     page = context.new_page()
+    page.add_init_script("sessionStorage.setItem('orgm-kiosk','yes')")
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(f"http://127.0.0.1:{port}/")
     page.locator("#pairing").wait_for(state="visible")
@@ -110,8 +114,9 @@ with sync_playwright() as p:
     expect(page.locator('.app-youtube')).to_be_enabled()
     expect(page.locator('.app-tile:not([hidden])')).to_have_count(len(apps)-1)
     assert page.locator('.side-nav [data-catalog],.side-nav [data-panel=remote],.side-nav [data-panel=typing]').count()==0
-    assert page.locator('[data-panel=settings]').count()==1
-    assert page.locator('#remote .dpad,#remote [data-home],#remote [data-key=ok]').count()==0
+    assert page.locator('[data-panel=settings]:visible').count()==1
+    assert not page.locator('#remote .dpad').is_visible()
+    assert not page.locator('#remote [data-home]').is_visible()
     assert page.locator('[data-wifi]').count()==1
     page.locator('.app-youtube').click()
     expect(page.locator('#current-label')).to_have_text('YouTube')
@@ -202,11 +207,61 @@ with sync_playwright() as p:
     kiosk.screenshot(path=str(root/'pair-code-mobile.png'),full_page=True)
     kiosk.set_viewport_size({'width':1920,'height':1080})
     phone=browser.new_page(viewport={'width':390,'height':844})
+    phone.on('pageerror',lambda e:errors.append(str(e)))
     phone.goto(f'http://127.0.0.1:{port}/')
     phone.fill('#pair-token',invitation)
     phone.locator('#pair-form button').click()
-    expect(phone.locator('.app-youtube')).to_be_enabled()
+    expect(phone.locator('#remote')).to_be_visible()
+    expect(phone.locator('#remote .dpad')).to_be_visible()
     assert phone.locator('#local-pairing').is_hidden()
+    assert phone.locator('#sources').is_hidden()
+    phone.locator('#controller-nav [data-panel=sources]').click()
+    phone.locator('.app-youtube').click()
+    expect(phone.locator('#remote-title')).to_have_text('YouTube')
+    for key in ['up','down','left','right','ok','tab','shift-tab','back']:
+        phone.locator('#remote [data-key='+key+']').click()
+        phone.wait_for_timeout(60)
+        assert ('key',{'key':key}) in agent.calls
+    phone.locator('#remote [data-home]').click()
+    expect(phone.locator('#remote-title')).to_have_text('ORGM Home')
+    expect(phone.locator('#remote [data-key=ok]')).to_be_disabled()
+    phone.locator('#controller-nav [data-panel=sources]').click()
+    expect(phone.locator('.app-youtube')).to_be_visible()
+    phone.locator('.app-youtube').click()
+    expect(phone.locator('#remote')).to_be_visible()
+    expect(phone.locator('#remote-title')).to_have_text('YouTube')
+    expect(phone.locator('#remote [data-key=ok]')).to_be_enabled()
+    phone.locator('#feedback').wait_for(state='hidden')
+    for width,height,name in [(390,844,'remote-mobile'),(320,640,'remote-compact'),(1440,1000,'remote-desktop')]:
+        phone.set_viewport_size({'width':width,'height':height})
+        assert phone.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        for button in phone.locator('#remote button:visible').all():
+            box=button.bounding_box()
+            assert box['width']>=44 and box['height']>=44
+        phone.screenshot(path=str(root/(name+'.png')),full_page=True)
+    phone.set_viewport_size({'width':390,'height':844})
+    phone.locator('#remote [data-switcher]').click()
+    expect(phone.locator('#app-switcher')).to_be_visible()
+    phone.screenshot(path=str(root/'switcher-mobile.png'),full_page=True)
+    assert agent.active=='youtube'
+    checkpoint=len(agent.calls)
+    phone.locator('[data-switch-app=max]').click()
+    expect(phone.locator('#remote-title')).to_have_text('Max')
+    assert ('switch-app',{'id':'max'}) in agent.calls[checkpoint:]
+    assert not any(action=='home' for action,_ in agent.calls[checkpoint:])
+    phone.locator('#remote [data-switcher]').click()
+    phone.locator('#switcher-list [aria-label="Cerrar YouTube"]').click()
+    expect(phone.locator('[data-switch-app=youtube]')).to_have_count(0)
+    assert agent.active=='max'
+    phone.keyboard.press('Escape')
+    expect(phone.locator('#app-switcher')).not_to_be_visible()
+    phone.locator('#remote [data-panel=typing]').click()
+    phone.fill('#remote-text','Buscar desde el teléfono')
+    phone.locator('#text-form button[type=submit]').click()
+    phone.wait_for_timeout(100)
+    assert ('text',{'text':'Buscar desde el teléfono'}) in agent.calls
+    phone.locator('[data-return].return-remote').click()
+    expect(phone.locator('#remote')).to_be_visible()
     phone.close()
     kiosk.locator('.side-nav [data-home]').click()
     assert kiosk.evaluate('location.hash')==''

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/static/home.css">
   <script src="/static/home.js" defer></script>
   <link rel="stylesheet" href="/static/cinema.css">
+  <link rel="stylesheet" href="/static/remote.css">
   <link rel="stylesheet" href="/static/pump.css">
   <script src="/static/pump.js" defer></script>
 </head>
@@ -36,6 +37,8 @@
     <symbol id="i-remote" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="5"/><circle cx="12" cy="10" r="3"/><path d="M10 17h4"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 14 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2 6h8l2 3h10v11H2ZM2 6V3h7l3 3h8v3"/></symbol>
+    <symbol id="i-apps" viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v11M7 11h6"/></symbol>
+    <symbol id="i-tab" viewBox="0 0 24 24"><path d="M19 4v16M3 12h12m-5-5 5 5-5 5"/></symbol>
   </svg>
   <aside class="side-nav" aria-label="Centro multimedia">
     <button data-home aria-label="Inicio"><svg><use href="#i-home"/></svg><span>Inicio</span></button>
@@ -81,22 +84,32 @@
     </section>
 
     <section id="remote" class="remote" aria-labelledby="remote-title">
-      <div class="remote-heading"><h2 id="remote-title">Audio</h2></div>
+      <div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
+      <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p>
+      <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button></div>
+      <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
+        <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
+        <button class="left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
+        <button class="ok" data-key="ok" aria-label="Aceptar" disabled>OK</button>
+        <button class="right" data-key="right" aria-label="Derecha" disabled><svg><use href="#i-right"/></svg></button>
+        <button class="down" data-key="down" aria-label="Abajo" disabled><svg><use href="#i-down"/></svg></button>
+      </div>
       <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
+      <div class="focus-controls remote-only" role="group" aria-label="Seleccionar elementos en páginas web"><button data-key="shift-tab" aria-label="Elemento anterior" disabled><svg class="reverse"><use href="#i-tab"/></svg><span>Anterior</span></button><button data-key="tab" aria-label="Siguiente elemento" disabled><span>Siguiente elemento</span><svg><use href="#i-tab"/></svg></button></div>
       <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
       <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
     </section>
 
     <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
       <div class="section-heading"><h2 id="typing-title">Escribe desde aquí</h2><p>Selecciona primero un campo en la pantalla.</p></div>
-      <button class="secondary return-remote" data-panel="sources">Volver a las aplicaciones</button>
+      <button class="secondary return-remote" data-return>Volver</button>
       <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="ok" disabled>Enter</button></div></form>
       <form id="url-form"><label for="web-url">Abrir una página</label><p class="field-hint">Se abrirá en Navegador.</p><div class="input-row"><input id="web-url" name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="url" required><button type="submit" class="primary" disabled>Abrir</button></div></form>
       <div class="video-section"><h3>Videos locales</h3><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
     </section>
 
     <section id="settings" class="settings" aria-labelledby="settings-title" hidden>
-      <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-panel="sources" aria-label="Cerrar opciones"><img src="/static/icons/close.svg" alt=""></button></div>
+      <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-return aria-label="Cerrar opciones"><img src="/static/icons/close.svg" alt=""></button></div>
       <div id="settings-menu" class="settings-menu">
         <button data-settings-view="backgrounds"><img src="/static/icons/background.svg" alt=""><span>Fondos</span></button>
         <button data-settings-view="cast"><img src="/static/icons/cast.svg" alt=""><span>Desde el teléfono</span></button>
@@ -132,6 +145,18 @@
       <form id="pair-form"><label for="pair-token">Código de la pantalla</label><input id="pair-token" type="text" inputmode="numeric" autocomplete="one-time-code" spellcheck="false" required minlength="6" maxlength="256"><button type="submit" class="primary">Vincular este dispositivo</button></form>
     </section>
   </main>
+  <nav id="controller-nav" class="controller-nav" aria-label="Mando de la sala" hidden>
+    <button data-panel="remote"><svg><use href="#i-remote"/></svg><span>Mando</span></button>
+    <button data-panel="sources"><svg><use href="#i-grid"/></svg><span>Aplicaciones</span></button>
+    <button data-panel="settings"><img src="/static/icons/options.svg" alt=""><span>Opciones</span></button>
+  </nav>
+  <dialog id="app-switcher" class="app-switcher" aria-labelledby="switcher-title">
+    <div class="settings-heading"><h2 id="switcher-title">Cambiar de aplicación</h2><button id="switcher-close" class="icon-button" aria-label="Cerrar selector"><img src="/static/icons/close.svg" alt=""></button></div>
+    <p class="field-hint">Elige una de las aplicaciones abiertas en Jarq.</p>
+    <div id="switcher-list" class="switcher-list"></div>
+    <p id="switcher-empty" class="field-hint" hidden>Todavía no hay aplicaciones abiertas.</p>
+    <button id="switcher-catalog" class="secondary"><svg><use href="#i-grid"/></svg>Abrir otra aplicación</button>
+  </dialog>
   <dialog id="reboot-confirm"><h2>¿Reiniciar Jarq?</h2><p>Las aplicaciones se cerrarán y el equipo volverá al inicio.</p><div class="form-actions"><button id="reboot-cancel">Cancelar</button><button id="reboot-accept" class="primary">Reiniciar</button></div></dialog>
   <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
 

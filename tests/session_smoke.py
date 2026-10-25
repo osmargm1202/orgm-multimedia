@@ -100,7 +100,7 @@ env.update(
     XDG_STATE_HOME=str(root / "state"),
     XDG_CONFIG_HOME=str(home / ".config"),
     XDG_DATA_HOME=str(home / ".local/share"),
-    PATH=f"{wrappers}:{bin_dir}:" + os.environ["PATH"],
+    PATH=f"{wrappers}:{app_bin}:{bin_dir}:" + os.environ["PATH"],
     WLR_BACKENDS="headless",
     WLR_HEADLESS_OUTPUTS="2",
     ORGM_DISPLAY_SOURCE="HEADLESS-1",
@@ -303,6 +303,21 @@ try:
         assert response.status_code == 200, response.text
         wait_for(lambda: page.locator("#target").input_value() == text[:-1])
         page.screenshot(path=str(root / "input.png"))
+        # Remote focus navigation and OK cross the actual native keyboard path.
+        page.evaluate("""() => {
+            const button=document.createElement('button');button.id='remote-target';
+            button.textContent='Seleccionar';button.onclick=()=>button.dataset.clicked='yes';
+            document.querySelector('#target').after(button);
+        }""")
+        page.locator('#target').click()
+        client.post('/api/remote/key',json={'key':'tab'}).raise_for_status()
+        wait_for(lambda:page.evaluate("document.activeElement.id")=='remote-target')
+        client.post('/api/remote/key',json={'key':'shift-tab'}).raise_for_status()
+        wait_for(lambda:page.evaluate("document.activeElement.id")=='target')
+        client.post('/api/remote/key',json={'key':'tab'}).raise_for_status()
+        client.post('/api/remote/key',json={'key':'ok'}).raise_for_status()
+        wait_for(lambda:page.locator('#remote-target').get_attribute('data-clicked')=='yes')
+        page.locator('#remote-target').evaluate('(e)=>e.remove()')
         # Drive the actual QML keys through Wayland pointer events, not JS.
         page.fill("#target", "")
         subprocess.check_call(
@@ -416,6 +431,22 @@ try:
             pointer.move(x, y, 3840, 1080)
             pointer.button(True)
             pointer.button(False)
+
+        # The native picker switches existing sources without visiting Home.
+        for target in ['netflix','browser']:
+            panel=touch_status()['panels'][0]
+            button=panel['controls']['apps']
+            click_at(button['x']+button['width']/2,button['y']+button['height']/2)
+            wait_for(lambda:touch_status()['apps'])
+            assert client.get('/api/status').json()['app']==('browser' if target=='netflix' else 'netflix')
+            picker=wait_for(lambda:touch_status()['panels'][0]['switcher'] if any(a['id']==target for a in touch_status()['panels'][0]['switcher']['apps']) else None)
+            card=next(a for a in picker['apps'] if a['id']==target)
+            if target=='netflix' and shutil.which('grim'):
+                subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'native-app-switcher.png')],env=env)
+            click_at(picker['x']+card['x']+card['width']/2,picker['y']+card['y']+card['height']/2)
+            wait_for(lambda:client.get('/api/status').json()['app']==target)
+            wait_for(lambda:not touch_status()['apps'])
+        assert any(w['id']==app_mode['id'] for w in leaves(tree()))
 
         panel = touch_status()['panels'][0]
         hide_button=panel['controls']['hide']
@@ -558,10 +589,12 @@ try:
                     "real Chrome app_id",
                     "kiosk",
                     "HTTP to Unix socket to wtype",
+                    "remote Tab, Shift+Tab and OK select a real web button",
                     "Home preserves windows",
                     "agent restart reuses window",
                     "API restart retains session",
                     "collapsed arrow restores controls",
+                    "native picker switches open applications without Home",
                     "native X closes popup and retains original webapp",
                     "private Wi-Fi credential entry with real QML keyboard focus",
                     "authenticated per-window preview while Home retains focus",

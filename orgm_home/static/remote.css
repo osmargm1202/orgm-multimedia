@@ -1,0 +1,59 @@
+/* The room keeps its dashboard; paired browsers open a hand-held remote. */
+.is-kiosk .remote-only{display:none!important}
+.controller-nav{display:flex;position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;width:min(460px,calc(100% - 24px));padding:6px;gap:4px;background:#101d2d;border:1px solid #42526b;border-radius:16px}
+.controller-nav button{display:flex;flex:1;min-width:0;min-height:58px;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:transparent;color:var(--secondary);font-size:.8rem}
+.controller-nav svg,.controller-nav img{width:24px;height:24px}
+.controller-nav [aria-current=page]{background:#233b56;color:#b9ddff}
+.is-controller{padding-left:0;background-color:#0c1723}
+.is-controller .side-nav{display:none}
+.is-controller .masthead{max-width:1024px;margin:auto;padding:20px 24px 12px}
+.is-controller .brand{font-size:1.5rem}
+.is-controller .brand small{font-size:.8rem;margin-top:4px}
+.is-controller .layout{display:block;max-width:1024px;margin:auto;padding:16px 24px calc(100px + env(safe-area-inset-bottom))}
+.is-controller[data-panel=remote] .layout{max-width:480px;padding-top:4px}
+.is-controller .remote{padding:18px 20px 20px;margin:0;max-width:none;background:#0e1c2c;border-color:#34465b}
+.is-controller .remote-heading h2{font-size:1.4rem;line-height:1.3}
+.remote-status{color:var(--secondary);font-size:.85rem;margin-top:8px;line-height:1.5;min-height:2.55em;max-height:3em;overflow:hidden;overflow-wrap:anywhere}
+.remote-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.remote-shortcuts button,.focus-controls button{display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;font-size:.88rem;background:#21354c}
+.is-controller .dpad{width:252px;height:252px;max-width:100%;max-height:none;margin:20px auto;padding:6px;gap:5px;background:#1d3045;border-radius:50%}
+.is-controller .dpad button{display:grid;place-items:center;min-height:0;padding:0;background:#304760;border-radius:12px}
+.is-controller .dpad svg{width:30px;height:30px}
+.is-controller .dpad .ok{background:#b9ddff;color:#0a1c2c;border-radius:50%;font-size:1.1rem;box-shadow:none}
+.is-controller .dpad button:hover:enabled{background:#456482}
+.is-controller .dpad .ok:hover:enabled{background:#d5eaff}
+.is-controller .dpad button:focus-visible{outline-offset:-3px}
+.is-controller .transport{gap:10px;margin:0}
+.is-controller .transport button{min-height:48px;font-size:.85rem;background:#21354c}
+.focus-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px;margin-top:10px}
+.focus-controls button{font-size:.75rem;padding:8px;gap:6px}
+.reverse{transform:rotate(180deg)}
+.is-controller .volume{margin-top:18px;background:#1d3045}
+.is-controller .control-note{display:block;line-height:1.5;margin:14px 0 0;color:var(--secondary);font-size:.78rem}
+.is-controller .feedback{bottom:calc(96px + env(safe-area-inset-bottom));pointer-events:none}
+.is-controller .sources .now-playing{display:none}
+.is-controller .sessions{margin-top:24px}
+.is-controller .music{margin-top:20px;grid-template-columns:24% minmax(0,1fr) auto}
+.is-controller .typing,.is-controller .settings{max-width:700px;margin:auto}
+.is-controller .pairing{max-width:460px;margin:20px auto}
+.app-switcher{width:min(480px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 32px);padding:24px;border-radius:16px;overscroll-behavior:contain}
+.app-switcher .settings-heading{margin:0;gap:12px}.app-switcher h2{font-size:1.2rem}.app-switcher .field-hint{font-size:.85rem;margin-top:10px;line-height:1.5}
+.switcher-list{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.switcher-row{display:flex;align-items:center;gap:8px;min-width:0}
+.switcher-app{display:flex;align-items:center;gap:14px;min-width:0;flex:1;text-align:left;background:#1c2c41;border:1px solid transparent;padding:8px}
+.switcher-app[aria-pressed=true]{border-color:#8ec9ff;background:#233b56}
+.switcher-app>img{width:86px;height:54px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.switcher-app>span{font-size:.95rem;font-weight:700;overflow-wrap:anywhere}
+.switcher-app small{display:block;color:var(--secondary);font-size:.73rem;font-weight:500;margin-top:4px}
+.switcher-remove{display:grid;place-items:center;width:44px;height:44px;min-height:44px;flex-shrink:0;padding:12px;background:transparent}
+.switcher-remove img{width:20px;height:20px}
+#switcher-catalog{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:24px;width:100%}
+@media(max-width:720px){
+ .is-controller .masthead{padding:16px 20px 8px}.is-controller .brand{font-size:1.2rem}.is-controller .layout{padding:16px 16px calc(100px + env(safe-area-inset-bottom))}.is-controller[data-panel=remote] .layout{padding-top:8px}
+ .is-controller .room-clock{display:none}.is-controller .connection{max-width:none;width:44px;min-width:44px}
+ .is-controller .remote{padding:16px}.is-controller .app-grid{grid-template-rows:repeat(2,auto);grid-auto-columns:80%}.is-controller .app-name{font-size:1rem}
+ .is-controller .dpad{width:224px;height:224px;margin:16px auto}.is-controller .remote-status{min-height:0;white-space:nowrap;text-overflow:ellipsis}
+ .is-controller .music{grid-template-columns:25% minmax(0,1fr)}.is-controller .music-controls{grid-column:2}
+ .app-switcher{padding:18px}.switcher-app>img{width:70px;height:48px}.switcher-app{gap:10px}.switcher-app>span{font-size:.85rem}.switcher-app small{font-size:.7rem}
+}
+@media(max-width:360px){.is-controller .remote{padding:14px}.is-controller .dpad{width:222px;height:222px}.remote-shortcuts button{font-size:.8rem}.focus-controls button{font-size:.7rem}.focus-controls svg{width:20px;height:20px}}
