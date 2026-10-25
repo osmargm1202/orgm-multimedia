@@ -34,7 +34,7 @@ Rectangle {
                     width:(menu.width-52)/2; height:120; radius:12
                     color:menu.controller.background===modelData.id?"#b9c9ff":"#34415b"
                     Image { anchors {fill:parent;margins:3} source:"file://"+(Quickshell.env("ORGM_ASSET_DIR") || Quickshell.shellPath("../static"))+"/"+modelData.file; fillMode:Image.PreserveAspectCrop; asynchronous:true }
-                    Rectangle { anchors {left:parent.left;right:parent.right;bottom:parent.bottom;margins:3} height:32; color:"#161b27df" }
+                    Rectangle { anchors {left:parent.left;right:parent.right;bottom:parent.bottom;margins:3} height:32; color:"#df161b27" }
                     Text { x:12; anchors.bottom:parent.bottom; anchors.bottomMargin:11; text:modelData.name; color:"#f2f5fc"; font.pixelSize:14 }
                     MouseArea { anchors.fill:parent; onClicked:menu.controller.act("background",modelData.id) }
                 }

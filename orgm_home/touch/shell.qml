@@ -139,7 +139,7 @@ Scope {
                 Rectangle {
                     id:controlsBackground
                     anchors.horizontalCenter:parent.horizontalCenter
-                    width:Math.min(parent.width-24,940); height:parent.height; radius:16; color:"#20293bf5"
+                    width:Math.min(parent.width-24,940); height:parent.height; radius:16; color:"#f520293b"
                     Row {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:5
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
