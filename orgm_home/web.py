@@ -24,6 +24,7 @@ from .agent import KEYS
 from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .urls import validate_url
+from .preferences import gallery
 
 ROOT = Path(__file__).parent
 LOG = logging.getLogger(__name__)
@@ -52,6 +53,10 @@ class Volume(Payload):
 
 class Url(Payload):
     url: StrictStr = Field(min_length=1, max_length=2048)
+
+
+class Background(Payload):
+    id: StrictStr = Field(max_length=20)
 
 
 class Brightness(Payload):
@@ -241,7 +246,10 @@ def create_app(settings=None, agent=None):
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"apps": [a.public() for a in apps.values() if a.id != "home"]},
+            context={
+                "apps": [a.public() for a in apps.values() if a.id != "home"],
+                "backgrounds": gallery(),
+            },
         )
 
     @app.get("/api/health")
@@ -343,6 +351,22 @@ def create_app(settings=None, agent=None):
     @app.post("/api/browser/open-url")
     async def open_url(payload: Url):
         return await client.call("open-url", url=await validate_url(payload.url))
+
+    @app.get("/api/preferences")
+    async def preferences():
+        return await client.call("preferences")
+
+    @app.post("/api/preferences/background")
+    async def background(payload: Background):
+        return await client.call("background", id=payload.id)
+
+    @app.post("/api/admin/restart-launcher")
+    async def restart_launcher():
+        return await client.call("restart-launcher")
+
+    @app.post("/api/admin/reboot")
+    async def reboot():
+        return await client.call("reboot")
 
     @app.post("/api/display/brightness")
     async def brightness(payload: Brightness):

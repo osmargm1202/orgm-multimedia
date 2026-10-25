@@ -33,8 +33,8 @@ async function api(path, body) {
 function showPanel(next) {
   panel=next;
   const paired=Boolean(csrf);
-  for (const id of ['sources','remote','typing']) {
-    const visible = paired && (kiosk ? id==='sources' : mobile.matches ? id===next : next==='typing' ? id==='typing' : id!=='typing');
+  for (const id of ['sources','remote','typing','settings']) {
+    const visible = paired && (kiosk ? id===(next==='settings'?'settings':'sources') : mobile.matches ? id===next : ['typing','settings'].includes(next) ? id===next : ['sources','remote'].includes(id));
     $(`#${id}`).hidden=!visible;
   }
   $$('[data-panel]').forEach(button => {if (button.dataset.panel===next) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current');});
@@ -51,14 +51,12 @@ function render() {
   $('#volume-value').textContent=state.volume===null || state.volume===undefined ? '—' : `${state.volume}%`;
   $('#mute').setAttribute('aria-pressed',String(Boolean(state.muted)));
   $('#mute').setAttribute('aria-label',state.muted ? 'Activar audio' : 'Silenciar audio');
-  const brightness=$('#brightness');
-  brightness.disabled=!online || busy || state.brightness===null || state.brightness===undefined;
-  $$('[data-brightness]').forEach(button=>button.disabled=brightness.disabled);
-  $('#rotate-screen').disabled=!online || busy;
-  if(document.activeElement!==brightness) {
-    if(state.brightness!==null && state.brightness!==undefined) brightness.value=state.brightness;
-    $('#brightness-value').textContent=state.brightness===null || state.brightness===undefined ? 'No disponible' : `${state.brightness}%`;
-  }
+  document.body.dataset.background=state.background || 'costa';
+  $$('button[data-background]').forEach(button=>{
+    button.disabled=!online || busy;
+    button.setAttribute('aria-pressed',String(button.dataset.background===state.background));
+  });
+  $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
   $$('[data-app]').forEach(button=>{
     button.disabled=!online || busy;
     button.classList.toggle('is-active',button.dataset.app===state.app);
@@ -71,7 +69,7 @@ function render() {
   $('#text-form button[type=submit]').disabled=!online || busy || !state.capabilities?.text;
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
-  $('#control-note').textContent=state.app==='home' ? 'Abre una aplicación para usar el mando.' : state.app==='spotify' ? 'Play y pausa controlan Spotify. La navegación puede variar.' : ['netflix','max','crunchyroll','browser'].includes(state.app) ? 'Las teclas dependen de la página. Usa Teclado para búsquedas.' : 'Los controles dependen de cada aplicación.';
+  $('#control-note').textContent=state.app==='home' ? 'Abre una aplicación para usar el mando.' : state.app==='spotify' ? 'Controla la música desde Spotify.' : ['netflix','max','crunchyroll','browser'].includes(state.app) ? 'Las teclas dependen de la página. Usa Teclado para búsquedas.' : 'Los controles dependen de cada aplicación.';
 }
 async function refresh() {
   if (!csrf || busy) return;
@@ -98,10 +96,14 @@ $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');showPanel('sources');}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Aplicación cerrada'));
-$('#brightness').addEventListener('input',event=>$('#brightness-value').textContent=`${event.target.value}%`);
-$('#brightness').addEventListener('change',event=>act('display/brightness',{value:Number(event.target.value)}));
-$$('[data-brightness]').forEach(button=>button.addEventListener('click',()=>act('display/brightness',{value:Number(button.dataset.brightness)})));
-$('#rotate-screen').addEventListener('click',()=>act('display/rotate',{},'Pantalla táctil girada'));
+$$('button[data-background]').forEach(button=>button.addEventListener('click',()=>act('preferences/background',{id:button.dataset.background})));
+$$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
+  const action=button.dataset.admin;
+  if(action==='reboot') $('#reboot-confirm').showModal();
+  else act(action==='rotate'?'display/rotate':'admin/restart-launcher',{},action==='rotate'?'Pantalla girada':'Reiniciando el launcher');
+}));
+$('#reboot-cancel').addEventListener('click',()=>$('#reboot-confirm').close());
+$('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();act('admin/reboot',{},'Reiniciando Jarq');});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('remote');});
 $('#load-videos').addEventListener('click',async()=>{
@@ -117,7 +119,7 @@ $('#pair-form').addEventListener('submit',async event=>{
 });
 document.addEventListener('keydown',event=>{
   if(!csrf || busy || event.ctrlKey || event.metaKey || event.altKey || ['INPUT','TEXTAREA','BUTTON','A'].includes(event.target.tagName))return;
-  const key={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'ok',Escape:'back',' ':'play'}[event.key];
+  const key={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'ok',Escape:'back'}[event.key];
   if(key && state.capabilities?.keys){event.preventDefault();act('remote/key',{key});}
   if(event.key==='Home'){event.preventDefault();act('remote/home');showPanel('sources');}
 });

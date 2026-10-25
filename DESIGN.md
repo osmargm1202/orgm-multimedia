@@ -19,3 +19,7 @@ The physical remote is the memorable element. The source selector is purposeful 
 ## Direction reasoning
 
 Grounded candidates: cinema screen, physical remote, jukebox selector, broadcast switcher, AV receiver, television program guide, theater wayfinding. The assigned AV receiver direction carries the fixed sources, directional keys and audio control without administrative UI. The monochrome catalog contributes restraint; sleeve catalog contributes identifiable source typography; reference setting contributes exact alignment; map contributes stable control vocabulary; departure board contributes persistent status; concourse contributes glanceable state. Their literal navigation rituals would obscure the household task and are declined.
+
+## Refinamiento solicitado: controles y opciones
+
+La barra táctil se superpone arriba y aparece por actividad; no hay tirador persistente. Los controles usan SVG consistentes: Inicio, Atrás, volumen, mute, teclado y opciones. Se retiran transporte y brillo manual. Opciones reutiliza las superficies de Quickshell, con una galería de cinco fondos y Administración para rotación y reinicios. Los cambios de fondo se sincronizan entre el selector táctil y el mando web. Atenuación fija: 20% después de 20 segundos y 0% después de un minuto; actividad restaura 100% sin afectar HDMI.

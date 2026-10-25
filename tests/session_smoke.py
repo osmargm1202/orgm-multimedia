@@ -251,6 +251,11 @@ try:
         browser = playwright.chromium.connect_over_cdp("http://127.0.0.1:" + debug_port)
         page = browser.contexts[0].pages[0]
         page.wait_for_selector("#target")
+        original=page.url
+        page.evaluate("history.pushState({}, '', '/second-page')")
+        client.post('/api/remote/key',json={'key':'back'}).raise_for_status()
+        wait_for(lambda:page.url==original)
+        page.locator('#target').click()
         page.evaluate("document.body.style.minHeight='2000px'")
         page.wait_for_timeout(150)
         assert page.evaluate("innerWidth-document.documentElement.clientWidth") == 0

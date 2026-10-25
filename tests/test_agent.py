@@ -67,19 +67,29 @@ def test_home_preserves_other_windows(controller):
 @pytest.mark.parametrize("separator", [b"\0", b" "])
 def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch, separator):
     controller.apps["netflix"] = App(
-        id="netflix", name="Netflix", type="chrome", workspace="4",
-        match="orgm-home-netflix", url="https://www.netflix.com",
+        id="netflix",
+        name="Netflix",
+        type="chrome",
+        workspace="4",
+        match="orgm-home-netflix",
+        url="https://www.netflix.com",
     )
     item = window("netflix")
     item["app_id"] = "chrome-www.netflix.com__-Default"
     item["name"] = "A redirected login page"
     profile = Path.home() / ".local/share/orgm-home/chrome/netflix"
     monkeypatch.setattr(
-        Path, "read_bytes",
-        lambda self: separator.join([b"chrome", str(f"--user-data-dir={profile}").encode()]) + b"\0",
+        Path,
+        "read_bytes",
+        lambda self: (
+            separator.join([b"chrome", str(f"--user-data-dir={profile}").encode()])
+            + b"\0"
+        ),
     )
     assert controller.identify(item).id == "netflix"
-    monkeypatch.setattr(Path, "read_bytes", lambda self: b"chrome\0--user-data-dir=/unmanaged\0")
+    monkeypatch.setattr(
+        Path, "read_bytes", lambda self: b"chrome\0--user-data-dir=/unmanaged\0"
+    )
     assert controller.identify(item) is None
 
 
@@ -213,22 +223,87 @@ def test_unavailable_transport_controls_are_rejected(controller, monkeypatch):
 
 
 def test_brightness_controls_only_fixed_internal_backlight(controller, monkeypatch):
-    command = AsyncMock(return_value='')
-    monkeypatch.setattr('orgm_home.agent.command', command)
-    run(controller.dispatch({'action': 'brightness', 'value': 35}))
-    command.assert_awaited_once_with('brightnessctl', '--device=intel_backlight', 'set', '35%')
-    for value in [0, True, '35', 101]:
+    command = AsyncMock(return_value="")
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    run(controller.dispatch({"action": "brightness", "value": 35}))
+    command.assert_awaited_once_with(
+        "brightnessctl", "--device=intel_backlight", "set", "35%"
+    )
+    for value in [0, True, "35", 101]:
         with pytest.raises(ControlError):
-            run(controller.dispatch({'action': 'brightness', 'value': value}))
+            run(controller.dispatch({"action": "brightness", "value": value}))
 
 
-def test_rotation_toggles_only_internal_output_and_preserves_choice(controller, monkeypatch):
-    command = AsyncMock(return_value=json.dumps([{'name': 'eDP-1', 'transform': 'normal'}, {'name': 'HDMI-A-1', 'transform': 'normal'}]))
-    monkeypatch.setattr('orgm_home.agent.command', command)
-    assert run(controller.dispatch({'action': 'rotate'})) == {'rotation': '180'}
-    controller.sway.assert_any_await('output eDP-1 transform 180')
-    controller.sway.assert_any_await('input type:touch map_to_output eDP-1')
-    assert (controller.state_dir / 'rotation').read_text() == '180'
-    assert not any('HDMI' in call.args[0] for call in controller.sway.call_args_list)
-    command.return_value=json.dumps([{'name': 'eDP-1', 'transform': '180'}])
-    assert run(controller.dispatch({'action': 'rotate'})) == {'rotation': 'normal'}
+def test_rotation_toggles_only_internal_output_and_preserves_choice(
+    controller, monkeypatch
+):
+    command = AsyncMock(
+        return_value=json.dumps(
+            [
+                {"name": "eDP-1", "transform": "normal"},
+                {"name": "HDMI-A-1", "transform": "normal"},
+            ]
+        )
+    )
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    assert run(controller.dispatch({"action": "rotate"})) == {"rotation": "180"}
+    controller.sway.assert_any_await("output eDP-1 transform 180")
+    controller.sway.assert_any_await("input type:touch map_to_output eDP-1")
+    assert (controller.state_dir / "rotation").read_text() == "180"
+    assert not any("HDMI" in call.args[0] for call in controller.sway.call_args_list)
+    command.return_value = json.dumps([{"name": "eDP-1", "transform": "180"}])
+    assert run(controller.dispatch({"action": "rotate"})) == {"rotation": "normal"}
+
+
+def test_late_audio_recovers_active_chrome_and_silences_hidden_app(
+    controller, monkeypatch
+):
+    controller.apps["netflix"] = App(
+        id="netflix",
+        name="Netflix",
+        type="chrome",
+        workspace="4",
+        match="orgm-home-netflix",
+    )
+    netflix, youtube = window("netflix", 7), window("youtube", 8)
+    netflix["pid"], youtube["pid"] = 100, 200
+    youtube["focused"] = False
+    controller.tree = AsyncMock(return_value={"nodes": [netflix, youtube]})
+    monkeypatch.setattr(controller, "ancestors", lambda pid: {str(pid)})
+    streams = [
+        {"index": 1, "mute": True, "properties": {"application.process.id": "100"}},
+        {"index": 2, "mute": False, "properties": {"application.process.id": "200"}},
+    ]
+    command = AsyncMock(return_value=json.dumps(streams))
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    run(controller.reconcile_audio())
+    command.assert_any_await("pactl", "set-sink-input-mute", "1", "0")
+    command.assert_any_await("pactl", "set-sink-input-mute", "2", "1")
+    assert not any(call.args[0] == "wpctl" for call in command.call_args_list)
+    netflix["focused"], youtube["focused"] = False, True
+    streams[0]["mute"], streams[1]["mute"] = False, True
+    command.return_value = json.dumps(streams)
+    command.reset_mock()
+    run(controller.reconcile_audio())
+    command.assert_any_await("pactl", "set-sink-input-mute", "2", "0")
+    assert controller.active == "youtube"
+
+
+def test_background_preference_is_validated_and_persisted(controller):
+    assert run(controller.dispatch({"action": "preferences"}))["background"] == "costa"
+    assert run(controller.dispatch({"action": "background", "id": "bosque"})) == {
+        "background": "bosque"
+    }
+    assert run(controller.dispatch({"action": "preferences"}))["background"] == "bosque"
+    for value in ["../../etc/passwd", "https://evil.example/a.png", None]:
+        with pytest.raises(ControlError):
+            run(controller.dispatch({"action": "background", "id": value}))
+
+
+def test_web_back_uses_real_alt_left_keycode(controller, monkeypatch):
+    controller.status = AsyncMock(
+        return_value={"app": "browser", "capabilities": {"keys": True}}
+    )
+    controller.native_key = AsyncMock()
+    run(controller.dispatch({"action": "key", "key": "back"}))
+    controller.native_key.assert_awaited_once_with(105, modifiers=8)

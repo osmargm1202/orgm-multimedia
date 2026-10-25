@@ -16,6 +16,7 @@ class PreviewAgent:
         self.active = "home"
         self.calls = []
         self.brightness = 35
+        self.background = "costa"
 
     async def call(self, action, **data):
         self.calls.append((action, data))
@@ -25,6 +26,8 @@ class PreviewAgent:
             self.active = "home"
         if action == "brightness":
             self.brightness = data["value"]
+        if action == "background":
+            self.background=data["id"]
         if action == "status":
             return {
                 "session": True,
@@ -34,6 +37,7 @@ class PreviewAgent:
                 else "Reproducción de prueba",
                 "volume": 45,
                 "brightness": self.brightness,
+                "background": self.background,
                 "muted": False,
                 "open": ["home", self.active],
                 "capabilities": {
@@ -126,12 +130,24 @@ with sync_playwright() as p:
     for width, height in [(1536, 864), (1280, 720)]:
         kiosk.set_viewport_size({"width": width, "height": height})
         assert kiosk.evaluate("document.documentElement.scrollHeight <= innerHeight"), (width, height)
-        assert kiosk.locator('#brightness').bounding_box()['y'] < height - 48
-    kiosk.locator('#brightness').fill('25')
-    kiosk.locator('#brightness').dispatch_event('change')
-    expect(kiosk.locator('#brightness-value')).to_have_text('25%')
-    kiosk.wait_for_timeout(150)
-    assert ('brightness', {'value': 25}) in agent.calls
+    assert kiosk.locator('#brightness').count()==0
+    assert kiosk.locator('[data-key=play]').count()==0
+    kiosk.locator('.header-actions [data-panel=settings]').click()
+    expect(kiosk.locator('#settings')).to_be_visible()
+    expect(kiosk.locator('button[data-background]')).to_have_count(5)
+    kiosk.locator('[data-background=bosque]').click()
+    expect(kiosk.locator('body')).to_have_attribute('data-background','bosque')
+    kiosk.screenshot(path=str(root/'options-kiosk.png'),full_page=True)
+    page.set_viewport_size({'width':390,'height':844})
+    page.locator('.header-actions [data-panel=settings]').click()
+    expect(page.locator('#settings')).to_be_visible()
+    page.screenshot(path=str(root/'options-mobile.png'),full_page=True)
+    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    page.locator('.admin-options summary').click()
+    page.locator('[data-admin=reboot]').click()
+    expect(page.locator('#reboot-confirm')).to_be_visible()
+    page.locator('#reboot-cancel').click()
+    assert not any(action=='reboot' for action,_ in agent.calls)
     assert not errors, errors
     browser.close()
 server.should_exit = True

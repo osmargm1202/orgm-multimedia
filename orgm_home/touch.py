@@ -16,11 +16,16 @@ def main():
 
 
 def control():
-    action = sys.argv[1] if len(sys.argv) == 2 else "status"
+    action = sys.argv[1] if len(sys.argv) >= 2 else "status"
     actions = {
         "status": ("status", {}),
         "home": ("home", {}),
         "rotate": ("rotate", {}),
+        "preferences": ("preferences", {}),
+        "background": ("background", {"id": sys.argv[2] if len(sys.argv) == 3 else ""}),
+        "restart-launcher": ("restart-launcher", {}),
+        "reboot": ("reboot", {}),
+        "close": ("close", {}),
         "back": ("key", {"key": "back"}),
         "play": ("key", {"key": "play"}),
         "stop": ("key", {"key": "stop"}),

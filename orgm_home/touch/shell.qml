@@ -15,26 +15,34 @@ Scope {
     property var capabilities: ({})
     property bool online: false
     property string activeName: "ORGM Home"
-    property bool handleQuiet: false
+    property bool optionsOpened: false
+    property string background: "costa"
+    property int volume: 0
+    property bool muted: false
+    readonly property var backgrounds: [
+        {id:"costa",name:"Costa nocturna",file:"home-night.png"},
+        {id:"bosque",name:"Bosque",file:"home-bosque.png"},
+        {id:"dunas",name:"Dunas",file:"home-dunas.png"},
+        {id:"orbita",name:"Órbita",file:"home-orbita.png"},
+        {id:"aurora",name:"Aurora",file:"home-aurora.png"}
+    ]
     readonly property string sourceOutput: Quickshell.env("ORGM_DISPLAY_SOURCE") || "eDP-1"
     readonly property string output: sourceOutput
     readonly property bool tabletMode: true
 
     function overlay(panel) { panel.WlrLayershell.layer = WlrLayer.Overlay; }
     function show() { opened = true; controlsOpened = true; hideControls.stop(); }
-    function wakeHandle() { handleQuiet=false; quietHandle.restart(); }
-    function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); wakeHandle(); }
+    function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); }
     function toggle() { if (opened) hide(); else show(); }
     function retry() { if (!engine.running) { ready = false; error = ""; engine.running = true; } }
     function send(value) { if (engine.running) engine.write(JSON.stringify(value) + "\n"); }
-    function act(action) {
+    function act(action, argument) {
         if (control.running) return;
-        control.command = ["orgm-home-control", action];
+        control.command = argument === undefined ? ["orgm-home-control", action] : ["orgm-home-control", action, argument];
         control.running = true;
         hideControls.restart();
     }
-    Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened) root.controlsOpened = false; } }
-    Timer { id: quietHandle; interval: 6000; running:true; onTriggered:root.handleQuiet=true }
+    Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened && !root.optionsOpened) root.controlsOpened = false; } }
     Process {
         id: engine
         command: [Quickshell.env("ORGM_OSK_ENGINE") || "orgm-osk-engine"]
@@ -66,6 +74,9 @@ Scope {
                     if (root.online) {
                         root.capabilities=result.data.capabilities || {};
                         root.activeName=result.data.title || "ORGM Home";
+                        root.background=result.data.background || "costa";
+                        root.volume=result.data.volume || 0;
+                        root.muted=!!result.data.muted;
                     }
                 } catch(e) { root.online=false; }
             }
@@ -78,7 +89,7 @@ Scope {
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
         function controls(): void { root.controlsOpened=true; hideControls.restart(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,handleQuiet:root.handleQuiet,panels:root.panels.map(p=>p.snapshot())}); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,options:root.optionsOpened,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -112,79 +123,50 @@ Scope {
                 }
             }
             PanelWindow {
-                id: handle
-                screen: surface.modelData
-                visible: !root.controlsOpened && !root.opened
-                anchors { bottom:true; left:true }
-                margins { left:12; bottom:8 }
-                implicitWidth: 164
-                implicitHeight: 52
-                exclusionMode: ExclusionMode.Ignore
-                focusable: false
-                aboveWindows: true
-                color: "transparent"
-                Component.onCompleted: root.overlay(this)
-                Rectangle { anchors.centerIn:parent; width:128; height:34; radius:12; color:root.handleQuiet?"transparent":"#242d40"
-                    Behavior on color { ColorAnimation { duration:450 } }
-                    Text { anchors.centerIn:parent; text:"Mando táctil"; font.pixelSize:14; color:root.handleQuiet?"#8b8d94":"#f2f5fc"; Behavior on color { ColorAnimation { duration:450 } } }
-                }
-                MouseArea { anchors.fill:parent; hoverEnabled:true; onEntered:root.wakeHandle(); onExited:quietHandle.restart(); onClicked: { root.wakeHandle(); root.controlsOpened=true; hideControls.restart(); } }
-            }
-            PanelWindow {
                 id: controls
                 screen: surface.modelData
-                visible: root.controlsOpened || root.opened
-                anchors { bottom:true; left:true; right:true }
-                margins.bottom: root.opened ? keyboard.height+8 : 8
-                implicitHeight: 102
+                visible: root.controlsOpened || root.opened || root.optionsOpened
+                anchors { top:true; left:true; right:true }
+                margins.top:12
+                implicitHeight:76
                 exclusionMode: ExclusionMode.Ignore
-                focusable: false
-                aboveWindows: true
-                color: "transparent"
-                Component.onCompleted: root.overlay(this)
-                mask: Region { item: controlsBackground }
+                focusable:false
+                aboveWindows:true
+                color:"transparent"
+                Component.onCompleted:root.overlay(this)
+                mask:Region { item:controlsBackground }
                 Rectangle {
-                    id: controlsBackground
-                    width: Math.min(parent.width-24,1060)
-                    height: parent.height
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    radius: 16
-                    color: "#242d40"
-                    Text { x:16; y:8; width:parent.width-32; text:root.error || root.activeName; textFormat:Text.PlainText; elide:Text.ElideRight; font.pixelSize:12; color:root.error?"#ffc0b6":"#b5c2d9" }
+                    id:controlsBackground
+                    anchors.horizontalCenter:parent.horizontalCenter
+                    width:Math.min(parent.width-24,940); height:parent.height; radius:16; color:"#20293bf5"
                     Row {
-                        anchors { left:parent.left; right:parent.right; bottom:parent.bottom; margins:8 }
-                        spacing: 6
-                        Repeater {
-                            model: [
-                                {label:"Inicio",action:"home",cap:""}, {label:"Atrás",action:"back",cap:"keys"},
-                                {label:"Play / pausa",action:"play",cap:"play"}, {label:"Detener",action:"stop",cap:"stop"},
-                                {label:"Anterior",action:"previous",cap:"next"}, {label:"Siguiente",action:"next",cap:"next"},
-                                {label:"Vol −",action:"volume-down",cap:""}, {label:"Vol +",action:"volume-up",cap:""},
-                                {label:"Teclado",action:"keyboard",cap:""}, {label:"Voltear",action:"rotate",cap:""}, {label:"Ocultar",action:"hide",cap:""}
-                            ]
-                            delegate: Rectangle {
-                                required property var modelData
-                                readonly property bool available: modelData.action==="keyboard" || modelData.action==="hide" || (root.online && (modelData.cap==="" || !!root.capabilities[modelData.cap]))
-                                width:(controlsBackground.width-16-60)/11
-                                height:62
-                                radius:10
-                                color:mouse.pressed?"#b9c9ff":"#34415b"
-                                opacity:available?1:0.35
-                                Text { anchors.centerIn:parent; width:parent.width-6; horizontalAlignment:Text.AlignHCenter; wrapMode:Text.WordWrap; text:modelData.label; font.pixelSize:13; color:mouse.pressed?"#161b27":"#f2f5fc" }
-                                MouseArea {
-                                    id:mouse
-                                    anchors.fill:parent
-                                    enabled:parent.available
-                                    onClicked: {
-                                        if (modelData.action==="keyboard") root.toggle();
-                                        else if (modelData.action==="hide") { root.hide(); root.controlsOpened=false; }
-                                        else root.act(modelData.action);
-                                    }
-                                }
-                            }
-                        }
+                        x:12; anchors.verticalCenter:parent.verticalCenter; spacing:5
+                        IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
+                        IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
+                        Text { width:Math.max(90,controlsBackground.width-564); anchors.verticalCenter:parent.verticalCenter; text:root.error || root.activeName; elide:Text.ElideRight; color:root.error?"#ffc0b6":"#b5c2d9"; font.pixelSize:14 }
+                        IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
+                        IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
+                        Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }
+                        IconButton { icon:"volume-up";label:"Subir volumen";available:root.online;onClicked:root.act("volume-up") }
+                        IconButton { icon:"keyboard";label:"Teclado";onClicked:root.toggle() }
+                        IconButton { icon:"options";label:"Opciones";onClicked:{root.optionsOpened=!root.optionsOpened;hideControls.restart();} }
+                        IconButton { icon:"hide";label:"Ocultar controles";onClicked:{root.optionsOpened=false;root.hide();root.controlsOpened=false;} }
                     }
                 }
+            }
+            PanelWindow {
+                screen:surface.modelData
+                visible:root.optionsOpened
+                anchors {top:true;right:true}
+                margins {top:100;right:12}
+                implicitWidth:Math.min(screen.width-24,640)
+                implicitHeight:Math.min(screen.height-126,620)
+                exclusionMode:ExclusionMode.Ignore
+                focusable:false
+                aboveWindows:true
+                color:"transparent"
+                Component.onCompleted:root.overlay(this)
+                OptionsPanel { anchors.fill:parent;controller:root }
             }
         }
     }

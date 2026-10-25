@@ -19,6 +19,7 @@ import time
 from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
 from .urls import validate_url
+from .preferences import BACKGROUNDS, gallery, read_background, write_background
 
 LOG = logging.getLogger(__name__)
 KEYS = {
@@ -132,7 +133,9 @@ class Controller:
             args = [arg for arg in args if arg]
             if len(args) == 1:
                 try:
-                    args = [os.fsencode(arg) for arg in shlex.split(os.fsdecode(args[0]))]
+                    args = [
+                        os.fsencode(arg) for arg in shlex.split(os.fsdecode(args[0]))
+                    ]
                 except ValueError:
                     return None
             for app in self.apps.values():
@@ -186,39 +189,57 @@ class Controller:
             ),
         ]
 
-    async def mute_application(self, app, muted):
-        """Mute only matching Pulse streams; never mute every application."""
-        raw = await command("pactl", "-f", "json", "list", "sink-inputs", check=False)
-        try:
-            streams = json.loads(raw)
-        except ValueError:
-            return False
-        matched = False
-        owned_pids = {
-            str(w.get("pid"))
-            for w in windows(await self.tree())
-            if self.identify(w) == app
+    @staticmethod
+    def ancestors(pid):
+        result = set()
+        for _ in range(16):
+            try:
+                pid = str(int(pid))
+                if pid in result or int(pid) < 1:
+                    break
+                result.add(pid)
+                stat = Path(f"/proc/{pid}/stat").read_text()
+                pid = stat[stat.rindex(")") + 2 :].split()[1]
+            except (OSError, ValueError, IndexError):
+                break
+        return result
+
+    def stream_app(self, stream, views):
+        props = stream.get("properties", {})
+        ancestors = self.ancestors(props.get("application.process.id", ""))
+        for view in views:
+            if str(view.get("pid")) in ancestors:
+                app = self.identify(view)
+                if app:
+                    return app
+        identifiers = {
+            str(props.get(key, "")).lower()
+            for key in (
+                "application.name",
+                "application.id",
+                "flatpak.app_id",
+                "pipewire.access.portal.app_id",
+            )
         }
+        for app in self.apps.values():
+            if app.type == "flatpak" and identifiers.intersection(
+                {
+                    app.name.lower(),
+                    app.appId.lower(),
+                    app.appId.rsplit(".", 1)[-1].lower(),
+                }
+            ):
+                return app
+        return None
+
+    async def mute_application(self, app, muted):
+        streams = json.loads(
+            await command("pactl", "-f", "json", "list", "sink-inputs")
+        )
+        views = list(windows(await self.tree()))
+        matched = False
         for stream in streams:
-            props = stream.get("properties", {})
-            app_name = props.get("application.name", "")
-            proc_id = props.get("application.process.id", "")
-            # Chromium's audio process may be a descendant of the window process.
-            ancestor = proc_id
-            for _ in range(12):
-                if ancestor in owned_pids:
-                    break
-                try:
-                    stat = Path(f"/proc/{int(ancestor)}/stat").read_text()
-                    ancestor = stat[stat.rindex(")") + 2 :].split()[1]
-                except (ValueError, OSError, IndexError):
-                    ancestor = ""
-                    break
-            flatpak_match = app.type == "flatpak" and app_name.lower() in {
-                app.name.lower(),
-                app.appId.rsplit(".", 1)[-1].lower(),
-            }
-            if ancestor in owned_pids or flatpak_match:
+            if self.stream_app(stream, views) == app:
                 await command(
                     "pactl",
                     "set-sink-input-mute",
@@ -227,6 +248,45 @@ class Controller:
                 )
                 matched = True
         return matched
+
+    async def reconcile_audio(self):
+        # Pulse restores mute by application name; separate Chrome profiles share
+        # that name. Reconcile late-created streams against the actual focused app.
+        views = list(windows(await self.tree()))
+        focused = next((w for w in views if w.get("focused")), None)
+        active = self.identify(focused) if focused else self.apps.get(self.active)
+        if active:
+            self.active = active.id
+        streams = json.loads(
+            await command("pactl", "-f", "json", "list", "sink-inputs")
+        )
+        for stream in streams:
+            owner = self.stream_app(stream, views)
+            if owner:
+                muted = owner != active
+                if bool(stream.get("mute")) != muted:
+                    await command(
+                        "pactl",
+                        "set-sink-input-mute",
+                        str(int(stream["index"])),
+                        "1" if muted else "0",
+                    )
+
+    async def native_key(self, code, modifiers=0):
+        payload = (
+            json.dumps(
+                {"action": "tap", "code": code, "modifiers": modifiers, "text": ""}
+            )
+            + "\n"
+        )
+        output = await command(
+            os.getenv("ORGM_OSK_ENGINE", "orgm-osk-engine"), input_text=payload
+        )
+        messages = [json.loads(line) for line in output.splitlines() if line.strip()]
+        if not any(row.get("event") == "done" for row in messages) or any(
+            row.get("event") == "error" for row in messages
+        ):
+            raise ControlError("No se pudo enviar la tecla a la aplicación")
 
     async def mpv(self, payload):
         reader, writer = await asyncio.wait_for(
@@ -312,7 +372,6 @@ class Controller:
         if app_id not in self.apps:
             raise ControlError("Aplicación desconocida", 404)
         app = self.apps[app_id]
-        await self.pause_previous(app)
         window = await self.find(app)
         navigate_existing = window is not None and url is not None
         if url is not None and app.id != "browser":
@@ -355,18 +414,22 @@ class Controller:
                 await asyncio.sleep(0.2)
             if not window:
                 raise ControlError(f"No apareció la ventana de {app.name}", 504)
+        with contextlib.suppress(ControlError):
+            await self.pause_previous(app)
         con_id = int(window["id"])
         await self.sway(f"[con_id={con_id}] mark --add orgm-home-{app.id}")
         await self.sway(
             f"[con_id={con_id}] move container to workspace number {app.workspace}"
         )
+        await self.sway(f"workspace number {app.workspace}")
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
         if navigate_existing and app.id == "browser":
             # Chrome forwards this URL as a tab to the same profile/window.
             await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
-        await self.mute_application(app, False)
+        with contextlib.suppress(ControlError):
+            await self.mute_application(app, False)
         return {"app": app.id, "warning": self.warning}
 
     async def status(self):
@@ -384,7 +447,11 @@ class Controller:
         )
         try:
             backlight = Path("/sys/class/backlight/intel_backlight")
-            brightness = round(100 * int((backlight / "brightness").read_text()) / int((backlight / "max_brightness").read_text()))
+            brightness = round(
+                100
+                * int((backlight / "brightness").read_text())
+                / int((backlight / "max_brightness").read_text())
+            )
         except (OSError, ValueError, ZeroDivisionError):
             brightness = None
         return {
@@ -394,6 +461,7 @@ class Controller:
             "volume": round(float(match[1]) * 100) if match else None,
             "muted": "MUTED" in volume_raw,
             "brightness": brightness,
+            "background": read_background(self.state_dir),
             "open": opened,
             "warning": self.warning,
             "capabilities": {
@@ -453,7 +521,21 @@ class Controller:
                     else:
                         await command("wtype", "-s", "100", "-k", "space")
                 elif key in KEYS:
-                    await command("wtype", "-s", "100", "-k", KEYS[key])
+                    if key == "back" and (app.type == "chrome" or app.id == "spotify"):
+                        await self.native_key(105, modifiers=8)
+                    else:
+                        codes = {
+                            "up": 103,
+                            "down": 108,
+                            "left": 105,
+                            "right": 106,
+                            "ok": 28,
+                            "back": 1,
+                            "backspace": 14,
+                            "tab": 15,
+                            "space": 57,
+                        }
+                        await self.native_key(codes[key])
                 else:
                     raise ControlError("Tecla no permitida", 422)
                 return {"sent": key}
@@ -504,10 +586,39 @@ class Controller:
                 value = request.get("value")
                 if type(value) is not int or not 5 <= value <= 100:
                     raise ControlError("El brillo debe estar entre 5 y 100", 422)
-                await command("brightnessctl", "--device=intel_backlight", "set", f"{value}%")
+                await command(
+                    "brightnessctl", "--device=intel_backlight", "set", f"{value}%"
+                )
                 return {"updated": True}
+            if action == "preferences":
+                return {
+                    "background": read_background(self.state_dir),
+                    "backgrounds": gallery(),
+                }
+            if action == "background":
+                value = request.get("id")
+                if not isinstance(value, str) or value not in BACKGROUNDS:
+                    raise ControlError("Fondo desconocido", 422)
+                write_background(self.state_dir, value)
+                return {"background": value}
+            if action == "restart-launcher":
+                await command(
+                    "systemctl",
+                    "--user",
+                    "--no-block",
+                    "restart",
+                    "orgm-home-kiosk",
+                    "orgm-home-display",
+                    "orgm-home-touch",
+                )
+                return {"accepted": True}
+            if action == "reboot":
+                await command("systemctl", "reboot", "--no-block")
+                return {"accepted": True}
             if action == "rotate":
-                outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs"))
+                outputs = json.loads(
+                    await command("swaymsg", "-r", "-t", "get_outputs")
+                )
                 output = next((o for o in outputs if o.get("name") == "eDP-1"), None)
                 if output is None:
                     raise ControlError("No está disponible la pantalla táctil", 409)
@@ -617,8 +728,22 @@ async def serve():
     stop = asyncio.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
         asyncio.get_running_loop().add_signal_handler(sig, stop.set)
+
+    async def audio_policy():
+        while not stop.is_set():
+            try:
+                async with controller.lock:
+                    await controller.reconcile_audio()
+            except (ControlError, ValueError, OSError):
+                LOG.warning("Audio reconciliation unavailable; retrying")
+            await asyncio.sleep(1)
+
+    audio_task = asyncio.create_task(audio_policy())
     async with server:
         await stop.wait()
+    audio_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await audio_task
     path.unlink(missing_ok=True)
 
 
