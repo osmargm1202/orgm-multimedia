@@ -299,7 +299,7 @@ def create_app(settings=None, agent=None):
 
     @app.post("/api/remote/key")
     async def key(payload: Key):
-        if payload.key not in {*KEYS, "play", "mute"}:
+        if payload.key not in {*KEYS, "play", "mute", "stop", "next", "previous"}:
             raise ControlError("Tecla no permitida", 422)
         return await client.call(
             "mute" if payload.key == "mute" else "key",

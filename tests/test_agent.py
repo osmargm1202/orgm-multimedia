@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from orgm_home.agent import Controller
+from orgm_home.config import App
 from orgm_home.protocol import AgentClient, ControlError
 
 
@@ -160,3 +161,33 @@ def test_agent_client_timeout_and_response(tmp_path):
             await AgentClient(tmp_path / "missing").call("status")
 
     run(check())
+
+
+def test_transport_controls_are_scoped_to_current_mpris_player(controller, monkeypatch):
+    controller.apps["spotify"] = App(
+        "spotify",
+        "flatpak",
+        "Spotify",
+        "3",
+        appId="com.spotify.Client",
+        player="spotify",
+    )
+    controller.status = AsyncMock(
+        return_value={"app": "spotify", "capabilities": {"stop": True, "next": True}}
+    )
+    command = AsyncMock(return_value="")
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    for key in ("stop", "next", "previous"):
+        run(controller.dispatch({"action": "key", "key": key}))
+        command.assert_any_await("playerctl", "--player=spotify", key)
+
+
+def test_unavailable_transport_controls_are_rejected(controller, monkeypatch):
+    controller.status = AsyncMock(
+        return_value={"app": "browser", "capabilities": {"stop": False, "next": False}}
+    )
+    command = AsyncMock()
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    with pytest.raises(ControlError):
+        run(controller.dispatch({"action": "key", "key": "next"}))
+    command.assert_not_called()

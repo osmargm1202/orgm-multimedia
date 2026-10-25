@@ -24,7 +24,7 @@ Una sesión Sway dedicada con usuario media sin sudo. La misma aplicación sirve
 
 ## Capabilities and Constraints
 
-Catálogo fijo declarado desde NixOS: YouTube/VacuumTube, Spotify, Netflix, Max, Crunchyroll, navegador y mpv. Home recupera el inicio conservando ventanas. Teclas, texto, volumen, archivos locales y enlaces públicos. Capacidades variables por aplicación. Sin panel administrativo, compras, escritorios GNOME/KDE, automatización de credenciales ni segundo túnel. Cloudflare Access y autenticación/origen obligatorios para el control público. DRM y audio se validan en hardware, sin afirmaciones de compatibilidad previas.
+Catálogo fijo declarado desde NixOS: YouTube/VacuumTube, Spotify, Netflix, Max, Crunchyroll, navegador y mpv. Home recupera el inicio conservando ventanas. Teclas, texto, volumen, archivos locales y enlaces públicos. Capacidades variables por aplicación. Sin panel administrativo, compras, escritorios GNOME/KDE, automatización de credenciales ni segundo túnel. La ampliación final del usuario pide pantallas internas/HDMI duplicadas a 1080p, touch y teclado digital; autoriza reutilizar el teclado existente con una superficie Quickshell local dedicada. El HDMI fijo es HDMI-A-1 y el touch ELAN USB está en la pantalla eDP-1. Cloudflare Access y autenticación/origen obligatorios para el control público. DRM y audio se validan en hardware, sin afirmaciones de compatibilidad previas.
 
 ## Brand Commitments
 

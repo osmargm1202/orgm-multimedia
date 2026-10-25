@@ -80,4 +80,13 @@ La UI mostrará sesión no disponible mientras no exista un agente conectado. Un
 
 ## Estado de aceptación
 
-Las 44 pruebas unitarias verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados, HDMI y reutilización de ventanas. `tests/browser_smoke.py` prueba la UI con un agente simulado; `tests/session_smoke.py` usa Sway, Chrome y wtype reales en una sesión aislada. El check NixOS `multimedia-boot` verifica greetd autologin, kiosk, nftables, reinicios de servicios y retorno al inicio tras apagar/arrancar una VM. No certifican el hardware de Jarq, HDMI hotplug físico, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.
+Las 48 pruebas unitarias verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados, HDMI y reutilización de ventanas. `tests/browser_smoke.py` prueba la UI con un agente simulado; `tests/session_smoke.py` usa Sway, Chrome y wtype reales en una sesión aislada. El check NixOS `multimedia-boot` verifica greetd autologin, kiosk, nftables, reinicios de servicios y retorno al inicio tras apagar/arrancar una VM. No certifican el hardware de Jarq, HDMI hotplug físico, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.
+
+
+## Pantallas y control táctil fijo
+
+La indicación final del usuario fija duplicación a 1080p: `eDP-1` permanece como fuente táctil y `HDMI-A-1` muestra su copia mediante wl-mirror. Las aplicaciones y workspaces 1–8 permanecen en la pantalla interna; el espejo ocupa exclusivamente el workspace 99 del HDMI. El proyector se reconecta automáticamente y, al retirarlo, la laptop conserva la sesión. Se prioriza audio HDMI cuando está disponible.
+
+El botón «Mando táctil» abre controles locales sobre la aplicación, con Inicio, Atrás, Play/Pausa, transporte compatible, volumen y teclado español. La barra se recoge tras inactividad; el teclado se abre sin quitar foco al campo de la aplicación. Se reutilizan el layout y el motor de teclado ya existentes, bajo GPL, con una superficie Quickshell dedicada. Esta ampliación táctil fue solicitada después del plan inicial que posponía Quickshell. El control web sigue servido por la única app FastAPI.
+
+El espejo replica también los controles mientras se muestran. El botón Detener/Anterior/Siguiente se deshabilita para servicios cuya integración no permite confirmar esos comandos; Spotify/MPRIS y mpv disponen de transporte explícito.

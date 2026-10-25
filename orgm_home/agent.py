@@ -357,7 +357,7 @@ class Controller:
         return {
             "session": True,
             "app": app.id if app else None,
-            "title": (focused or {}).get("name", ""),
+            "title": str((focused or {}).get("name", ""))[:256],
             "volume": round(float(match[1]) * 100) if match else None,
             "muted": "MUTED" in volume_raw,
             "open": opened,
@@ -368,6 +368,8 @@ class Controller:
                 "pointer": False,
                 "play": bool(app and app.id != "home"),
                 "close": bool(app and app.id != "home"),
+                "stop": bool(app and (app.type == "mpv" or app.id == "spotify")),
+                "next": bool(app and (app.type == "mpv" or app.id == "spotify")),
             },
         }
 
@@ -392,7 +394,22 @@ class Controller:
                     raise ControlError(
                         "Selecciona una aplicación para usar el mando", 409
                     )
-                if key == "play":
+                if key in {"stop", "next", "previous"}:
+                    if not current["capabilities"]["stop" if key == "stop" else "next"]:
+                        raise ControlError("Este servicio no ofrece ese control", 409)
+                    if app.type == "mpv":
+                        await self.mpv(
+                            [
+                                {
+                                    "stop": "stop",
+                                    "next": "playlist-next",
+                                    "previous": "playlist-prev",
+                                }[key]
+                            ]
+                        )
+                    else:
+                        await command("playerctl", f"--player={app.player}", key)
+                elif key == "play":
                     if app.type == "mpv":
                         await self.mpv(["cycle", "pause"])
                     elif app.player:
