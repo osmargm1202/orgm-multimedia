@@ -85,7 +85,7 @@ def test_agent_text_uses_argv_terminator(controller,monkeypatch):
     command=AsyncMock(return_value='')
     monkeypatch.setattr('orgm_home.agent.command',command)
     run(controller.dispatch({'action':'text','text':'--help; $(id)'}))
-    command.assert_awaited_once_with('wtype','--','--help; $(id)')
+    command.assert_awaited_once_with('wtype','-d','20','-s','150','--','--help; $(id)',timeout=25)
 
 
 def test_private_files_and_path_traversal_rejected(controller,tmp_path):
@@ -105,7 +105,7 @@ def test_new_browser_url_reuses_window(controller,monkeypatch):
     monkeypatch.setattr('orgm_home.agent.command',command)
     run(controller.activate('browser','https://example.com/'))
     controller.spawn.assert_not_called()
-    command.assert_any_await('wtype','--','https://example.com/')
+    command.assert_any_await('wtype','-d','10','-s','150','--','https://example.com/',timeout=25)
 
 
 def test_agent_client_timeout_and_response(tmp_path):

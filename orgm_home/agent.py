@@ -203,7 +203,7 @@ class Controller:
         await self.sway(f"[con_id={con_id}] fullscreen enable")
         if url and app.id == "browser":
             await command("wtype", "-M", "ctrl", "-k", "l", "-m", "ctrl")
-            await command("wtype", "--", url)
+            await command("wtype", "-d", "10", "-s", "150", "--", url, timeout=25)
             await command("wtype", "-k", "Return")
         self.active = app.id
         await self.mute_application(app, False)
@@ -244,9 +244,9 @@ class Controller:
                     elif app.player:
                         await command("playerctl", f"--player={app.player}", "play-pause")
                     else:
-                        await command("wtype", "-k", "space")
+                        await command("wtype", "-s", "100", "-k", "space")
                 elif key in KEYS:
-                    await command("wtype", "-k", KEYS[key])
+                    await command("wtype", "-s", "100", "-k", KEYS[key])
                 else:
                     raise ControlError("Tecla no permitida", 422)
                 return {"sent": key}
@@ -256,7 +256,7 @@ class Controller:
                     raise ControlError("Texto inválido: máximo 1000 caracteres sin controles", 422)
                 if not (await self.status())["capabilities"]["text"]:
                     raise ControlError("Esta aplicación no acepta texto", 409)
-                await command("wtype", "--", value)
+                await command("wtype", "-d", "20", "-s", "150", "--", value, timeout=25)
                 return {"sent": True}
             if action == "volume":
                 value = request.get("value")

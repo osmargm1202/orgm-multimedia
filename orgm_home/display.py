@@ -27,7 +27,7 @@ async def update():
     cards = json.loads(await command("pactl", "-f", "json", "list", "cards"))
     for card in cards:
         profiles = card.get("profiles", {})
-        candidates = [name for name, profile in profiles.items() if "output:hdmi-stereo" in name and profile.get("available") == "yes"]
+        candidates = [name for name, profile in profiles.items() if "output:hdmi-stereo" in name and profile.get("available") in (True, "yes")]
         if candidates and card.get("active_profile") not in candidates:
             await command("pactl", "set-card-profile", str(card["index"]), sorted(candidates, key=lambda name: ("extra" in name, len(name)))[0])
     graph = json.loads(await command("pw-dump"))
