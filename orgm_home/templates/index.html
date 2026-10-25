@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161b27">
+  <title>ORGM Home</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/home.css">
+  <script src="/static/home.js" defer></script>
+</head>
+<body>
+  <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v11h5v-7h4v7h5V10"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m9 5-7 7 7 7M3 12h12a6 6 0 0 1 6 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m4 4 10 8-10 8ZM18 4v16M22 4v16"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8M18 4a11 11 0 0 1 0 16"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h1m3 0h1m3 0h1m3 0h1M6 12h1m3 0h1m3 0h1m3 0h1M7 15h10"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-remote" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="5"/><circle cx="12" cy="10" r="3"/><path d="M10 17h4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 14 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2 6h8l2 3h10v11H2ZM2 6V3h7l3 3h8v3"/></symbol>
+  </svg>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="ORGM Home, inicio"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16 16 4l13 12v13H3Z"/><path d="M11 29V16h10v13"/></svg><span>ORGM <strong>Home</strong></span></a>
+    <span id="connection" class="connection"><span class="status-dot"></span><span id="connection-label">Conectando</span></span>
+  </header>
+
+  <main class="layout">
+    <section id="sources" class="sources" aria-labelledby="source-title">
+      <div class="section-heading"><h1 id="source-title">Tu sala.<br>Lo que quieras ver.</h1><p>Elige dónde empezar.</p></div>
+      <div class="app-grid">
+      {% for app in apps %}
+        <button class="app-tile app-{{ app.id }}" data-app="{{ app.id }}" disabled>
+          <span class="service-mark" aria-hidden="true">{% if app.id == 'youtube' %}<svg viewBox="0 0 40 28"><rect x="1" y="1" width="38" height="26" rx="8"/><path d="m16 7 12 7-12 7Z"/></svg>{% elif app.id == 'spotify' %}<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15"/><path d="M7 12c6-3 13-2 19 1M8 17c5-2 12-2 17 1M10 22c4-2 9-1 13 1"/></svg>{% elif app.id == 'netflix' %}<span class="netflix-letter">N</span>{% elif app.id == 'max' %}<span class="max-word">max</span>{% elif app.id == 'crunchyroll' %}<svg viewBox="0 0 32 32"><path d="M28 23a15 15 0 1 1 1-15A12 12 0 0 0 9 25a12 12 0 0 1 19-2Z"/></svg>{% elif app.id == 'browser' %}<svg class="line-icon" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13"/><ellipse cx="16" cy="16" rx="6" ry="13"/><path d="M3 16h26M6 8h20M6 24h20"/></svg>{% else %}<svg class="line-icon" viewBox="0 0 32 32"><rect x="3" y="6" width="26" height="20" rx="4"/><path d="m13 11 9 5-9 5Z"/></svg>{% endif %}</span>
+          <span class="app-name">{{ app.name }}</span><span class="app-state" aria-hidden="true"></span>
+        </button>
+      {% endfor %}
+      </div>
+      <div class="now-playing" aria-live="polite"><span class="now-line"></span><div><p id="current-label">La sala se está preparando</p><span id="current-detail">Esperando conexión</span></div><button id="close-app" class="text-button" hidden>Cerrar app</button></div>
+      <p class="kiosk-hint" hidden>Abre home.or-gm.com en tu teléfono para usar el mando.</p>
+    </section>
+
+    <section id="remote" class="remote" aria-labelledby="remote-title">
+      <div class="remote-heading"><h2 id="remote-title">Mando</h2><button class="icon-button home-control" data-home aria-label="Volver al inicio" disabled><svg><use href="#i-home"/></svg></button></div>
+      <div class="dpad" role="group" aria-label="Navegación">
+        <button class="direction up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
+        <button class="direction left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
+        <button class="direction ok" data-key="ok" disabled>OK</button>
+        <button class="direction right" data-key="right" aria-label="Derecha" disabled><svg><use href="#i-right"/></svg></button>
+        <button class="direction down" data-key="down" aria-label="Abajo" disabled><svg><use href="#i-down"/></svg></button>
+      </div>
+      <div class="transport"><button data-key="back" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button data-key="play" disabled><svg><use href="#i-play"/></svg><span>Play / pausa</span></button><button data-panel="typing"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
+      <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
+      <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
+    </section>
+
+    <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
+      <div class="section-heading"><h2 id="typing-title">Escribe desde aquí</h2><p>Selecciona primero un campo en la pantalla.</p></div>
+      <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="ok" disabled>Enter</button></div></form>
+      <form id="url-form"><label for="web-url">Abrir una página</label><p class="field-hint">Se abrirá en Navegador.</p><div class="input-row"><input id="web-url" name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="url" required><button type="submit" class="primary" disabled>Abrir</button></div></form>
+      <div class="video-section"><h3>Videos locales</h3><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
+    </section>
+
+    <section id="pairing" class="pairing" aria-labelledby="pairing-title" hidden>
+      <h2 id="pairing-title">Vincula tu mando</h2><p>Introduce la clave de la sala para controlar la pantalla desde este dispositivo.</p>
+      <form id="pair-form"><label for="pair-token">Clave de vinculación</label><input id="pair-token" type="password" autocomplete="off" spellcheck="false" required minlength="20" maxlength="256"><button type="submit" class="primary">Vincular este dispositivo</button></form>
+    </section>
+  </main>
+  <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+  <nav class="mobile-nav" aria-label="Vistas del mando"><button data-panel="sources" aria-current="page"><svg><use href="#i-grid"/></svg>Inicio</button><button data-panel="remote"><svg><use href="#i-remote"/></svg>Mando</button><button data-panel="typing"><svg><use href="#i-keyboard"/></svg>Escribir</button></nav>
+</body>
+</html>
