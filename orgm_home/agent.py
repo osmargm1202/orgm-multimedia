@@ -141,6 +141,21 @@ class Controller:
     async def tree(self):
         return json.loads(await command("swaymsg", "-r", "-t", "get_tree"))
 
+    @staticmethod
+    def receiver_window(window):
+        if (window.get("app_id") or "").casefold() == "uxplay":
+            return True
+        pid = window.get("pid")
+        if not isinstance(pid, int) or pid <= 0:
+            return False
+        try:
+            args = [os.fsdecode(a) for a in Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if a]
+            if len(args) == 1:
+                args = shlex.split(args[0])
+            return bool(args and Path(args[0]).name.lstrip(".") in {"uxplay", "uxplay-wrapped"})
+        except (OSError, ValueError):
+            return False
+
     def identify(self, window):
         marks = window.get("marks", [])
         for app in self.apps.values():
@@ -183,7 +198,7 @@ class Controller:
     async def find(self, app):
         matches = [w for w in windows(await self.tree()) if self.identify(w) == app]
         if app.type == "airplay":
-            stream = next((w for w in matches if "uxplay" in (w.get("app_id") or "").lower()), None)
+            stream = next((w for w in matches if self.receiver_window(w)), None)
             if stream:
                 return stream
         # A popup may precede its opener in Sway's tree. Keep activation tied
@@ -347,6 +362,12 @@ class Controller:
         current_ids = {w["id"] for w in views}
         previous, self.known_windows = self.known_windows, current_ids
         if previous is None:
+            return
+        incoming = next((self.identify(w) for w in views
+                         if w["id"] not in previous and self.receiver_window(w)
+                         and self.identify(w) and self.identify(w).type == "airplay"), None)
+        if incoming:
+            await self.activate(incoming.id)
             return
         focused = next((w for w in views if w.get("focused")), None)
         active = self.identify(focused) if focused else self.apps.get(self.active)

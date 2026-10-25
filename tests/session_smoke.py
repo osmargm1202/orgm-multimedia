@@ -540,6 +540,13 @@ try:
         kiosk_page.wait_for_selector('.is-kiosk .masthead')
         native=touch_status()['panels'][0]['controls']
         assert kiosk_page.locator('.masthead').bounding_box()['y'] >= native['y']+native['height']
+        # Closing a background source from the real dashboard must never
+        # activate it first or affect the independently running browser.
+        kiosk_page.locator('[data-close-app="netflix"]').click()
+        wait_for(lambda: 'netflix' not in client.get('/api/status').json()['open'])
+        assert client.get('/api/status').json()['app'] == 'home'
+        assert not any(w['id'] == app_mode['id'] for w in leaves(tree()))
+        assert any(w['id'] in before for w in leaves(tree()))
         client.close()
         browser.close()
     print(
@@ -558,6 +565,7 @@ try:
                     "native X closes popup and retains original webapp",
                     "private Wi-Fi credential entry with real QML keyboard focus",
                     "authenticated per-window preview while Home retains focus",
+                    "dashboard X closes a background app without changing Home or other sources",
                 ],
             }
         )

@@ -498,6 +498,29 @@ def test_airplay_starts_receiver_and_prefers_stream_over_waiting_page(controller
     controller.sway.assert_any_await('[con_id=101] focus')
 
 
+def test_incoming_native_airplay_video_selects_receiver_from_home(controller):
+    controller.apps['airplay']=App('airplay','airplay','AirPlay','14',match='uxplay|orgm-home-airplay')
+    home, stream = window('home',1), window('airplay',101)
+    stream['app_id']='uxplay'; stream['focused']=False
+    controller.known_windows={1}
+    controller.tree=AsyncMock(return_value={'nodes':[home,stream]})
+    controller.activate=AsyncMock()
+    run(controller.reconcile_windows())
+    controller.activate.assert_awaited_once_with('airplay')
+
+
+def test_airplay_waiting_page_never_steals_focus_from_home(controller):
+    controller.apps['airplay']=App('airplay','airplay','AirPlay','14',match='uxplay|orgm-home-airplay')
+    home, waiting = window('home',1), window('airplay',101)
+    waiting['focused']=False
+    controller.known_windows={1}
+    controller.tree=AsyncMock(return_value={'nodes':[home,waiting]})
+    controller.activate=AsyncMock()
+    run(controller.reconcile_windows())
+    controller.activate.assert_not_called()
+    controller.sway.assert_not_called()
+
+
 def test_reboot_is_scheduled_outside_session_target(controller, monkeypatch):
     command=AsyncMock(return_value='')
     monkeypatch.setattr('orgm_home.agent.command',command)

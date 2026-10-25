@@ -37,8 +37,15 @@ activado; viene activado en la instalación comprobada de Jarq.
 
 En Jarq, el mando tiene además una entrada privada por Wi-Fi en
 `http://10.0.0.98`, con la misma vinculación y protección CSRF. El nombre
-`http://home.or-gm.com` sigue resolviendo a la IP de Tailscale: para usar ese
-nombre hace falta Tailscale conectado o una resolución DNS local equivalente.
+`home.or-gm.com` sigue resolviendo a la IP de Tailscale. El dominio padre aplica
+HSTS con `includeSubDomains`: un navegador que lo haya visitado exige HTTPS
+también para Home. Hasta instalar un certificado válido, usar la IP por HTTP;
+tener Tailscale conectado no evita esa actualización automática a HTTPS.
+
+UxPlay recibe video directo de YouTube con `-hls`. Al aparecer una ventana nativa
+de video AirPlay, el launcher muestra esa fuente automáticamente; la pantalla de
+espera y los popups web en segundo plano no cambian el foco. El receptor arranca
+con la sesión; cerrarlo con la X lo detiene hasta volver a abrir AirPlay.
 
 **Max:** Opciones → Desde el teléfono permite enviar un enlace HTTPS de
 `max.com` o `hbomax.com` a su webapp, usando el perfil y la sesión de Max en Jarq.
