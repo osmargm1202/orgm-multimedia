@@ -19,6 +19,7 @@ from urllib.request import urlopen
 
 import httpx
 from playwright.sync_api import sync_playwright
+from helpers.wayland_pointer import Pointer
 
 root = Path(tempfile.mkdtemp(prefix="orgm-sway-smoke-"))
 system = Path(sys.argv[1]).resolve()
@@ -40,7 +41,11 @@ chrome.write_text(
 chrome.chmod(0o700)
 config = root / "sway.conf"
 config.write_text(
-    "output * mode 1280x720\noutput * bg #161b27 solid_color\ndefault_border none\nfocus_follows_mouse no\n"
+    "output * mode 1920x1080\noutput HEADLESS-1 position 0 0\noutput HEADLESS-2 position 1920 0\n"
+    "output * bg #161b27 solid_color\ndefault_border none\nfocus_follows_mouse no\n"
+    "workspace 1 output HEADLESS-1\nworkspace 7 output HEADLESS-1\nworkspace 99 output HEADLESS-2\n"
+    'no_focus [app_id="at.yrlf.wl_mirror"]\n'
+    'for_window [app_id="at.yrlf.wl_mirror"] move container to workspace number 99, fullscreen enable\n'
 )
 apps = json.loads((system / "etc/orgm-home/apps.json").read_text())
 # The fixed test-only browser destination is a local input fixture.
@@ -65,6 +70,13 @@ env.update(
     XDG_DATA_HOME=str(home / ".local/share"),
     PATH=f"{wrappers}:{bin_dir}:" + os.environ["PATH"],
     WLR_BACKENDS="headless",
+    WLR_HEADLESS_OUTPUTS="2",
+    ORGM_DISPLAY_SOURCE="HEADLESS-1",
+    ORGM_DISPLAY_TARGET="HEADLESS-2",
+    ORGM_DISPLAY_MODE="1920x1080",
+    QT_QPA_PLATFORM="wayland",
+    QT_QUICK_BACKEND="software",
+    LIBGL_ALWAYS_SOFTWARE="1",
     WLR_RENDERER="pixman",
     WLR_LIBINPUT_NO_DEVICES="1",
     ORGM_CATALOG=str(catalog),
@@ -75,6 +87,7 @@ env.update(
 )
 logs = []
 processes = []
+pointer = None
 
 
 def start(args, name):
@@ -160,6 +173,38 @@ try:
         "fixture",
     )
     agent = start([str(app_bin / "orgm-home-agent")], "agent")
+    display_manager = start([str(app_bin / "orgm-home-display")], "display")
+    touch_process = start([str(app_bin / "orgm-home-touch")], "touch")
+    ui = next(
+        (app_bin / "orgm-home-touch")
+        .resolve()
+        .parent.parent.glob("lib/python*/site-packages/orgm_home/touch/shell.qml"),
+        None,
+    )
+    if os.getenv("ORGM_TEST_TOUCH_UI"):
+        ui = Path(os.environ["ORGM_TEST_TOUCH_UI"])
+    assert ui is not None, "Packaged touch QML not found"
+
+    def touch_status():
+        return json.loads(
+            subprocess.check_output(
+                [
+                    str(bin_dir / "qs"),
+                    "--path",
+                    str(ui),
+                    "ipc",
+                    "call",
+                    "--",
+                    "touch",
+                    "status",
+                ],
+                env=env,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+        )
+
+    wait_for(lambda: touch_status().get("ready"))
     api_env = env.copy()
     # Start the real packaged API without any compositor environment.
     saved = {k: env.pop(k) for k in ("SWAYSOCK", "WAYLAND_DISPLAY")}
@@ -211,6 +256,78 @@ try:
         assert response.status_code == 200, response.text
         wait_for(lambda: page.locator("#target").input_value() == text[:-1])
         page.screenshot(path=str(root / "input.png"))
+        # Drive the actual QML keys through Wayland pointer events, not JS.
+        page.fill("#target", "")
+        subprocess.check_call(
+            [
+                str(bin_dir / "qs"),
+                "--path",
+                str(ui),
+                "ipc",
+                "call",
+                "--",
+                "touch",
+                "show",
+            ],
+            env=env,
+            stdout=subprocess.DEVNULL,
+        )
+        wait_for(lambda: touch_status()["open"] and bool(touch_status()["panels"]))
+        pointer = Pointer(wayland)
+        for code in [46, 30, 33, 26, 18]:
+            panel = touch_status()["panels"][0]
+            key = next(k for k in panel["keys"] if k["code"] == code)
+            origin = panel["keyboard"]
+            pointer.move(
+                origin["x"] + key["x"] + key["width"] / 2,
+                origin["y"] + key["y"] + key["height"] / 2,
+                3840,
+                1080,
+            )
+            pointer.button(True)
+            pointer.button(False)
+            time.sleep(0.12)
+        wait_for(lambda: page.locator("#target").input_value() == "café")
+        subprocess.check_call(
+            [
+                str(bin_dir / "qs"),
+                "--path",
+                str(ui),
+                "ipc",
+                "call",
+                "--",
+                "touch",
+                "hide",
+            ],
+            env=env,
+            stdout=subprocess.DEVNULL,
+        )
+        wait_for(
+            lambda: any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
+        )
+        assert client.get("/api/status").json()["app"] == "browser", (
+            "Mirror must not steal app focus"
+        )
+        # Unplug and reconnect the virtual fixed HDMI. The source stays active.
+        subprocess.check_call(
+            [str(bin_dir / "swaymsg"), "output HEADLESS-2 unplug"],
+            env=env,
+            stdout=subprocess.DEVNULL,
+        )
+        wait_for(
+            lambda: (
+                not any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
+            )
+        )
+        assert client.get("/api/status").json()["app"] == "browser"
+        subprocess.check_call(
+            [str(bin_dir / "swaymsg"), "output HEADLESS-2 enable"],
+            env=env,
+            stdout=subprocess.DEVNULL,
+        )
+        wait_for(
+            lambda: any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
+        )
         destination = "https://example.com/?q=orgm%20home#prueba"
         response = client.post("/api/browser/open-url", json={"url": destination})
         assert response.status_code == 200, response.text
@@ -277,6 +394,8 @@ try:
         )
     )
 finally:
+    if pointer:
+        pointer.close()
     # The compositor is private; exiting it closes only the fixture windows.
     if env.get("SWAYSOCK"):
         with contextlib.suppress(Exception):

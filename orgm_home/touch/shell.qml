@@ -83,7 +83,7 @@ Scope {
             id: surface
             required property var modelData
             function reset() { board.reset(); }
-            function snapshot() { return {screen:modelData.name,keyboard:{visible:keyboard.visible,height:keyboard.height},keys:board.snapshot()}; }
+            function snapshot() { return {screen:modelData.name,keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
             Component.onCompleted: root.panels=[...root.panels,surface]
             Component.onDestruction: root.panels=root.panels.filter(p=>p!==surface)
             PanelWindow {
