@@ -47,7 +47,8 @@
       <div class="screen-settings">
         <label for="brightness">Brillo de la laptop <output id="brightness-value" for="brightness">—</output></label>
         <input id="brightness" type="range" min="5" max="100" step="1" value="35" aria-describedby="brightness-hint" disabled>
-        <p id="brightness-hint">Ajusta solo la pantalla táctil.</p>
+        <div class="brightness-presets"><button data-brightness="100" disabled>100%</button><button data-brightness="20" disabled>20%</button><button data-brightness="5" disabled>Atenuar</button><button id="rotate-screen" disabled>Voltear</button></div>
+        <p id="brightness-hint">Al tocar vuelve al 100%. Baja al 10% en un minuto.</p>
       </div>
       <p class="kiosk-hint" hidden>Abre home.or-gm.com en tu teléfono para usar el mando.</p>
     </section>

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 import re
 
 from .agent import command
@@ -54,6 +55,12 @@ class DisplayManager:
                 f"output {self.source} enable mode {self.mode} scale 1 position 0 0 power on",
             )
             await command("swaymsg", f"input type:touch map_to_output {self.source}")
+            rotation = Path(os.getenv("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "orgm-home/rotation"
+            try:
+                if rotation.read_text().strip() == "180":
+                    await command("swaymsg", f"output {self.source} transform 180")
+            except OSError:
+                pass
         if target:
             if changed or not target.get("active") or not target.get("power", True):
                 width = int(self.mode.split("x")[0])

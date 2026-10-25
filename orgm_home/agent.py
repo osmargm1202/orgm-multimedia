@@ -506,6 +506,16 @@ class Controller:
                     raise ControlError("El brillo debe estar entre 5 y 100", 422)
                 await command("brightnessctl", "--device=intel_backlight", "set", f"{value}%")
                 return {"updated": True}
+            if action == "rotate":
+                outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs"))
+                output = next((o for o in outputs if o.get("name") == "eDP-1"), None)
+                if output is None:
+                    raise ControlError("No está disponible la pantalla táctil", 409)
+                rotation = "normal" if output.get("transform") == "180" else "180"
+                await self.sway(f"output eDP-1 transform {rotation}")
+                await self.sway("input type:touch map_to_output eDP-1")
+                (self.state_dir / "rotation").write_text(rotation)
+                return {"rotation": rotation}
             if action == "mute":
                 await command("wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle")
                 return {"updated": True}

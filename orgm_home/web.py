@@ -348,6 +348,10 @@ def create_app(settings=None, agent=None):
     async def brightness(payload: Brightness):
         return await client.call("brightness", value=payload.value)
 
+    @app.post("/api/display/rotate")
+    async def rotate():
+        return await client.call("rotate")
+
     @app.get("/api/videos")
     async def local_files():
         return await client.call("local-files")

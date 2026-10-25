@@ -315,15 +315,13 @@ try:
             lambda: any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
         )
         if shutil.which("grim"):
-            time.sleep(0.5)
-            for output, name in [
-                ("HEADLESS-1", "touch-source"),
-                ("HEADLESS-2", "mirror-target"),
-            ]:
-                subprocess.check_call(
-                    ["grim", "-o", output, str(root / (name + ".png"))], env=env
-                )
-            if shutil.which("magick"):
+            # Client fullscreen resizes and screencopy frames settle asynchronously.
+            for attempt in range(12):
+                time.sleep(0.5)
+                for output, name in [("HEADLESS-1", "touch-source"), ("HEADLESS-2", "mirror-target")]:
+                    subprocess.check_call(["grim", "-o", output, str(root / (name + ".png"))], env=env)
+                if not shutil.which("magick"):
+                    break
                 comparison = subprocess.run(
                     [
                         "magick",
@@ -338,7 +336,11 @@ try:
                     text=True,
                 )
                 match = re.search(r"\(([0-9.eE+-]+)\)", comparison.stderr)
-                assert match and float(match[1]) < 0.03, comparison.stderr
+                if match and float(match[1]) < 0.03:
+                    break
+            else:
+                (root / "failed-tree.json").write_text(json.dumps(tree()))
+                raise AssertionError(comparison.stderr)
 
         subprocess.check_call(
             [

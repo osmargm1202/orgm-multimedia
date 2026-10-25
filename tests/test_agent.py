@@ -220,3 +220,15 @@ def test_brightness_controls_only_fixed_internal_backlight(controller, monkeypat
     for value in [0, True, '35', 101]:
         with pytest.raises(ControlError):
             run(controller.dispatch({'action': 'brightness', 'value': value}))
+
+
+def test_rotation_toggles_only_internal_output_and_preserves_choice(controller, monkeypatch):
+    command = AsyncMock(return_value=json.dumps([{'name': 'eDP-1', 'transform': 'normal'}, {'name': 'HDMI-A-1', 'transform': 'normal'}]))
+    monkeypatch.setattr('orgm_home.agent.command', command)
+    assert run(controller.dispatch({'action': 'rotate'})) == {'rotation': '180'}
+    controller.sway.assert_any_await('output eDP-1 transform 180')
+    controller.sway.assert_any_await('input type:touch map_to_output eDP-1')
+    assert (controller.state_dir / 'rotation').read_text() == '180'
+    assert not any('HDMI' in call.args[0] for call in controller.sway.call_args_list)
+    command.return_value=json.dumps([{'name': 'eDP-1', 'transform': '180'}])
+    assert run(controller.dispatch({'action': 'rotate'})) == {'rotation': 'normal'}

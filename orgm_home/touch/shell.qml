@@ -160,12 +160,12 @@ Scope {
                                 {label:"Play / pausa",action:"play",cap:"play"}, {label:"Detener",action:"stop",cap:"stop"},
                                 {label:"Anterior",action:"previous",cap:"next"}, {label:"Siguiente",action:"next",cap:"next"},
                                 {label:"Vol −",action:"volume-down",cap:""}, {label:"Vol +",action:"volume-up",cap:""},
-                                {label:"Teclado",action:"keyboard",cap:""}, {label:"Ocultar",action:"hide",cap:""}
+                                {label:"Teclado",action:"keyboard",cap:""}, {label:"Voltear",action:"rotate",cap:""}, {label:"Ocultar",action:"hide",cap:""}
                             ]
                             delegate: Rectangle {
                                 required property var modelData
                                 readonly property bool available: modelData.action==="keyboard" || modelData.action==="hide" || (root.online && (modelData.cap==="" || !!root.capabilities[modelData.cap]))
-                                width:(controlsBackground.width-16-54)/10
+                                width:(controlsBackground.width-16-60)/11
                                 height:62
                                 radius:10
                                 color:mouse.pressed?"#b9c9ff":"#34415b"

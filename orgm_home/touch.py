@@ -20,6 +20,7 @@ def control():
     actions = {
         "status": ("status", {}),
         "home": ("home", {}),
+        "rotate": ("rotate", {}),
         "back": ("key", {"key": "back"}),
         "play": ("key", {"key": "play"}),
         "stop": ("key", {"key": "stop"}),

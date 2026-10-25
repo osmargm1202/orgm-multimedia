@@ -53,6 +53,8 @@ function render() {
   $('#mute').setAttribute('aria-label',state.muted ? 'Activar audio' : 'Silenciar audio');
   const brightness=$('#brightness');
   brightness.disabled=!online || busy || state.brightness===null || state.brightness===undefined;
+  $$('[data-brightness]').forEach(button=>button.disabled=brightness.disabled);
+  $('#rotate-screen').disabled=!online || busy;
   if(document.activeElement!==brightness) {
     if(state.brightness!==null && state.brightness!==undefined) brightness.value=state.brightness;
     $('#brightness-value').textContent=state.brightness===null || state.brightness===undefined ? 'No disponible' : `${state.brightness}%`;
@@ -98,6 +100,8 @@ $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('aud
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Aplicación cerrada'));
 $('#brightness').addEventListener('input',event=>$('#brightness-value').textContent=`${event.target.value}%`);
 $('#brightness').addEventListener('change',event=>act('display/brightness',{value:Number(event.target.value)}));
+$$('[data-brightness]').forEach(button=>button.addEventListener('click',()=>act('display/brightness',{value:Number(button.dataset.brightness)})));
+$('#rotate-screen').addEventListener('click',()=>act('display/rotate',{},'Pantalla táctil girada'));
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('remote');});
 $('#load-videos').addEventListener('click',async()=>{
