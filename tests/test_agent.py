@@ -64,6 +64,24 @@ def test_home_preserves_other_windows(controller):
     controller.mute_application.assert_any_await(controller.apps["youtube"], True)
 
 
+def test_chrome_app_mode_recovered_from_own_profile(controller, monkeypatch):
+    controller.apps["netflix"] = App(
+        id="netflix", name="Netflix", type="chrome", workspace="4",
+        match="orgm-home-netflix", url="https://www.netflix.com",
+    )
+    item = window("netflix")
+    item["app_id"] = "chrome-www.netflix.com__-Default"
+    item["name"] = "A redirected login page"
+    profile = Path.home() / ".local/share/orgm-home/chrome/netflix"
+    monkeypatch.setattr(
+        Path, "read_bytes",
+        lambda self: b"chrome\0" + str(f"--user-data-dir={profile}").encode() + b"\0",
+    )
+    assert controller.identify(item).id == "netflix"
+    monkeypatch.setattr(Path, "read_bytes", lambda self: b"chrome\0--user-data-dir=/unmanaged\0")
+    assert controller.identify(item) is None
+
+
 def test_concurrent_activation_only_launches_once(controller):
     item = None
 

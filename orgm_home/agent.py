@@ -117,6 +117,20 @@ class Controller:
         for app in self.apps.values():
             if app.match and re.search(app.match, value, re.IGNORECASE):
                 return app
+        # Chrome app-mode Wayland windows replace --class with a URL-derived
+        # app_id. Match the compositor-owned PID to its dedicated profile;
+        # titles and redirects must not affect application identity.
+        pid = window.get("pid")
+        if isinstance(pid, int) and pid > 0 and "chrome-" in value:
+            try:
+                args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+            except OSError:
+                return None
+            for app in self.apps.values():
+                if app.type == "chrome":
+                    profile = Path.home() / ".local/share/orgm-home/chrome" / app.id
+                    if os.fsencode(f"--user-data-dir={profile}") in args:
+                        return app
         return None
 
     async def find(self, app):
