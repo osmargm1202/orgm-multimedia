@@ -19,7 +19,7 @@ orgm-home-kiosk = "orgm_home.kiosk:main"
 orgm-home-display = "orgm_home.display:main"
 
 [tool.setuptools.package-data]
-orgm_home = ["templates/*.html", "static/*"]
+orgm_home = ["templates/*.html", "static/*", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
