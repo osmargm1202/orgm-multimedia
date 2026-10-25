@@ -384,6 +384,19 @@ def test_close_already_closed_app_is_idempotent(controller, monkeypatch):
     controller.activate.assert_not_called()
 
 
+def test_close_airplay_does_not_kill_the_video_window_already_removed_by_systemd(controller, monkeypatch):
+    controller.apps['airplay']=App('airplay','airplay','AirPlay','14',match='uxplay|orgm-home-airplay')
+    home, waiting, stream = window('home',1), window('airplay',100), window('airplay',101)
+    waiting['focused']=stream['focused']=False;stream['app_id']='uxplay'
+    controller.tree=AsyncMock(side_effect=[{'nodes':[home,waiting,stream]},{'nodes':[home,waiting]},{'nodes':[home]}])
+    controller.activate=AsyncMock()
+    command=AsyncMock(return_value='');monkeypatch.setattr('orgm_home.agent.command',command)
+    assert run(controller.dispatch({'action':'close-app','id':'airplay'}))=={'closed':'airplay'}
+    command.assert_awaited_once_with('systemctl','--user','stop','orgm-home-airplay.service')
+    controller.sway.assert_awaited_once_with('[con_id=100] kill')
+    controller.activate.assert_not_called()
+
+
 def test_max_link_reuses_its_saved_profile_without_opening_browser(controller, monkeypatch):
     controller.apps["max"] = App("max", "chrome", "Max", "5", url="https://play.max.com", match="orgm-home-max")
     url = "https://play.max.com/video/fixture"

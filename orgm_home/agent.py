@@ -794,6 +794,7 @@ class Controller:
                 was_focused = focused is not None and self.identify(focused) == app
                 if app.type == "airplay":
                     await command("systemctl", "--user", "stop", "orgm-home-airplay.service")
+                    targets = [w for w in windows(await self.tree()) if self.identify(w) == app]
                 ids = {int(w["id"]) for w in targets}
                 for con_id in ids:
                     await self.sway(f"[con_id={con_id}] kill")

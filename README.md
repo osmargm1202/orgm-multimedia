@@ -39,8 +39,9 @@ En Jarq, el mando tiene además una entrada privada por Wi-Fi en
 `http://10.0.0.98`, con la misma vinculación y protección CSRF. El nombre
 `home.or-gm.com` sigue resolviendo a la IP de Tailscale. El dominio padre aplica
 HSTS con `includeSubDomains`: un navegador que lo haya visitado exige HTTPS
-también para Home. Hasta instalar un certificado válido, usar la IP por HTTP;
-tener Tailscale conectado no evita esa actualización automática a HTTPS.
+también para Home. El perfil sirve `https://home.or-gm.com` con certificado ACME
+validado por DNS de Cloudflare y renovación automática. HTTP del dominio redirige
+a HTTPS; la IP local conserva su entrada HTTP independiente.
 
 UxPlay recibe video directo de YouTube con `-hls`. Al aparecer una ventana nativa
 de video AirPlay, el launcher muestra esa fuente automáticamente; la pantalla de
