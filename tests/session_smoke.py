@@ -308,26 +308,25 @@ try:
         assert client.get("/api/status").json()["app"] == "browser", (
             "Mirror must not steal app focus"
         )
-        # Unplug and reconnect the virtual fixed HDMI. The source stays active.
+        # Restart the mirror client and confirm the display service repairs it
+        # while the application remains on the touch source. Physical cable
+        # removal is modeled separately in test_display.py.
+        mirror_window = next(
+            w for w in leaves(tree()) if w.get("app_id") == "at.yrlf.wl_mirror"
+        )
         subprocess.check_call(
-            [str(bin_dir / "swaymsg"), "output HEADLESS-2 unplug"],
+            [str(bin_dir / "swaymsg"), f"[con_id={mirror_window['id']}] kill"],
             env=env,
             stdout=subprocess.DEVNULL,
         )
         wait_for(
-            lambda: (
-                not any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
+            lambda: any(
+                w.get("app_id") == "at.yrlf.wl_mirror"
+                and w["id"] != mirror_window["id"]
+                for w in leaves(tree())
             )
         )
         assert client.get("/api/status").json()["app"] == "browser"
-        subprocess.check_call(
-            [str(bin_dir / "swaymsg"), "output HEADLESS-2 enable"],
-            env=env,
-            stdout=subprocess.DEVNULL,
-        )
-        wait_for(
-            lambda: any(w.get("app_id") == "at.yrlf.wl_mirror" for w in leaves(tree()))
-        )
         destination = "https://example.com/?q=orgm%20home#prueba"
         response = client.post("/api/browser/open-url", json={"url": destination})
         assert response.status_code == 200, response.text
