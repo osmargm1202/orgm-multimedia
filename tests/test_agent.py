@@ -21,6 +21,7 @@ def controller(configured, tmp_path, monkeypatch):
     result = Controller(configured[0])
     result.sway = AsyncMock(return_value=[])
     result.mute_application = AsyncMock(return_value=True)
+    result.native_key = AsyncMock()
     return result
 
 

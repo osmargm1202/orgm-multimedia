@@ -97,6 +97,7 @@ class Controller:
         self.active = "home"
         self.warning = None
         self.processes = {}
+        self.keyboard = None
 
     async def sway(self, value):
         raw = await command("swaymsg", "-r", value)
@@ -272,21 +273,54 @@ class Controller:
                         "1" if muted else "0",
                     )
 
+    async def close_keyboard(self):
+        process, self.keyboard = self.keyboard, None
+        if process and process.returncode is None:
+            process.stdin.close()
+            try:
+                await asyncio.wait_for(process.wait(), 2)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+
     async def native_key(self, code, modifiers=0):
-        payload = (
-            json.dumps(
-                {"action": "tap", "code": code, "modifiers": modifiers, "text": ""}
+        # Keep one complete native keymap alive. Removing a synthetic keyboard
+        # between actions can crash Electron's libxkbcommon on keymap changes.
+        try:
+            if self.keyboard is None or self.keyboard.returncode is not None:
+                self.keyboard = await asyncio.create_subprocess_exec(
+                    os.getenv("ORGM_OSK_ENGINE", "orgm-osk-engine"),
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                ready = json.loads(
+                    await asyncio.wait_for(self.keyboard.stdout.readline(), 4)
+                )
+                if ready.get("event") != "ready":
+                    raise ValueError("Keyboard unavailable")
+            self.keyboard.stdin.write(
+                (
+                    json.dumps(
+                        {
+                            "action": "tap",
+                            "code": code,
+                            "modifiers": modifiers,
+                            "text": "",
+                        }
+                    )
+                    + "\n"
+                ).encode()
             )
-            + "\n"
-        )
-        output = await command(
-            os.getenv("ORGM_OSK_ENGINE", "orgm-osk-engine"), input_text=payload
-        )
-        messages = [json.loads(line) for line in output.splitlines() if line.strip()]
-        if not any(row.get("event") == "done" for row in messages) or any(
-            row.get("event") == "error" for row in messages
-        ):
-            raise ControlError("No se pudo enviar la tecla a la aplicación")
+            await self.keyboard.stdin.drain()
+            result = json.loads(
+                await asyncio.wait_for(self.keyboard.stdout.readline(), 4)
+            )
+            if result.get("event") != "done":
+                raise ValueError("Keyboard action failed")
+        except (OSError, ValueError, TimeoutError) as exc:
+            await self.close_keyboard()
+            raise ControlError("No se pudo enviar la tecla a la aplicación") from exc
 
     async def mpv(self, payload):
         reader, writer = await asyncio.wait_for(
@@ -328,43 +362,17 @@ class Controller:
             )
 
     async def enter_text(self, value, navigate=False):
-        # The profile patch starts at evdev 30 (A). Register a stable US
-        # printable row so Chromium sees both logical and physical L/V.
-        physical = [
-            "a",
-            "s",
-            "d",
-            "f",
-            "g",
-            "h",
-            "j",
-            "k",
-            "l",
-            "semicolon",
-            "apostrophe",
-            "grave",
-            "Shift_L",
-            "backslash",
-            "z",
-            "x",
-            "c",
-            "v",
-        ]
-        prefix = [arg for name in physical for arg in ("-p", name)]
-        keys = ["wtype", *prefix, "-s", "150"]
-        if navigate:
-            keys += ["-M", "ctrl", "-k", "l", "-m", "ctrl", "-s", "150"]
-        keys += ["-M", "ctrl", "-k", "v", "-m", "ctrl", "-s", "250"]
-        if navigate:
-            keys += ["-k", "Return", "-s", "150"]
-        # One virtual keyboard/keymap spans focus, paste and Enter: switching
-        # keymaps while Chrome's address bar is focused can discard the URL.
         await command(
             "wl-copy", "--type", "text/plain", input_text=value, capture=False
         )
         try:
-            await command(*keys)
+            if navigate:
+                await self.native_key(38, modifiers=4)  # Ctrl+L
+                await asyncio.sleep(0.15)
+            await self.native_key(47, modifiers=4)  # Ctrl+V, native physical layout
             await asyncio.sleep(0.25)
+            if navigate:
+                await self.native_key(28)
         finally:
             await command("wl-copy", "--clear", capture=False)
 
@@ -744,6 +752,7 @@ async def serve():
     audio_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await audio_task
+    await controller.close_keyboard()
     path.unlink(missing_ok=True)
 
 
