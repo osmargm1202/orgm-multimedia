@@ -171,6 +171,7 @@ class Controller:
         app = self.apps[app_id]
         await self.pause_previous(app)
         window = await self.find(app)
+        navigate_existing = window is not None and url is not None
         if url is not None and app.id != "browser":
             raise ControlError("Destino de navegador inválido", 422)
         if not window:
@@ -201,7 +202,7 @@ class Controller:
         await self.sway(f"[con_id={con_id}] move container to workspace number {app.workspace}")
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
-        if url and app.id == "browser":
+        if navigate_existing and app.id == "browser":
             await command("wtype", "-M", "ctrl", "-k", "l", "-m", "ctrl")
             await command("wtype", "-d", "10", "-s", "150", "--", url, timeout=25)
             await command("wtype", "-k", "Return")
