@@ -45,7 +45,7 @@ config = root / "sway.conf"
 config.write_text(
     "output * mode 1920x1080\noutput HEADLESS-1 position 0 0\noutput HEADLESS-2 position 1920 0\n"
     "output * bg #161b27 solid_color\ndefault_border none\nfocus_follows_mouse no\n"
-    "workspace 1 output HEADLESS-1\nworkspace 7 output HEADLESS-1\nworkspace 99 output HEADLESS-2\n"
+    "workspace 1 output HEADLESS-1\nworkspace 4 output HEADLESS-1\nworkspace 7 output HEADLESS-1\nworkspace 99 output HEADLESS-2\n"
     'no_focus [app_id="at.yrlf.wl_mirror"]\n'
     'for_window [app_id="at.yrlf.wl_mirror"] move container to workspace number 99, fullscreen enable\n'
 )

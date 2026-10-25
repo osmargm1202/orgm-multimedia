@@ -176,12 +176,11 @@ class Controller:
             "--no-first-run",
             "--no-default-browser-check",
             "--password-store=basic",
-            "--start-fullscreen",
             "--blink-settings=hideScrollbars=true",
             f"--class=orgm-home-{app.id}",
             f"--user-data-dir={profile}",
             *(
-                [*(["--new-window"] if new_window else []), url]
+                [*(["--kiosk"] if new_window else []), url]
                 if app.id == "browser"
                 else [f"--app={url}"]
             ),

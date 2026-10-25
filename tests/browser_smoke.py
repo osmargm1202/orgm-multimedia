@@ -15,6 +15,7 @@ class PreviewAgent:
     def __init__(self):
         self.active = "home"
         self.calls = []
+        self.brightness = 35
 
     async def call(self, action, **data):
         self.calls.append((action, data))
@@ -22,6 +23,8 @@ class PreviewAgent:
             self.active = data["id"]
         if action == "home":
             self.active = "home"
+        if action == "brightness":
+            self.brightness = data["value"]
         if action == "status":
             return {
                 "session": True,
@@ -30,6 +33,7 @@ class PreviewAgent:
                 if self.active == "home"
                 else "Reproducción de prueba",
                 "volume": 45,
+                "brightness": self.brightness,
                 "muted": False,
                 "open": ["home", self.active],
                 "capabilities": {
@@ -119,6 +123,15 @@ with sync_playwright() as p:
     assert kiosk.evaluate("location.hash") == ""
     assert kiosk.locator(".remote").is_hidden()
     kiosk.screenshot(path=str(root / "kiosk.png"), full_page=True)
+    for width, height in [(1536, 864), (1280, 720)]:
+        kiosk.set_viewport_size({"width": width, "height": height})
+        assert kiosk.evaluate("document.documentElement.scrollHeight <= innerHeight"), (width, height)
+        assert kiosk.locator('#brightness').bounding_box()['y'] < height - 48
+    kiosk.locator('#brightness').fill('25')
+    kiosk.locator('#brightness').dispatch_event('change')
+    expect(kiosk.locator('#brightness-value')).to_have_text('25%')
+    kiosk.wait_for_timeout(150)
+    assert ('brightness', {'value': 25}) in agent.calls
     assert not errors, errors
     browser.close()
 server.should_exit = True
