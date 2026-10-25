@@ -82,7 +82,7 @@ class Controller:
         return None
 
     async def find(self, app):
-        return next((w for w in windows(await self.tree()) if (self.identify(w) or App("unknown", "internal", "", "99")).id == app.id), None)
+        return next((w for w in windows(await self.tree()) if self.identify(w) == app), None)
 
     async def spawn(self, args):
         log = (self.state_dir / "applications.log").open("ab")
@@ -100,7 +100,7 @@ class Controller:
     def chrome_args(self, app, url):
         profile = Path.home() / ".local/share/orgm-home/chrome" / app.id
         profile.mkdir(parents=True, exist_ok=True)
-        return ["google-chrome-stable", "--ozone-platform=wayland", "--no-first-run", "--no-default-browser-check", "--password-store=basic", f"--class=orgm-home-{app.id}", f"--user-data-dir={profile}", f"--app={url}"]
+        return ["google-chrome-stable", "--ozone-platform=wayland", "--no-first-run", "--no-default-browser-check", "--password-store=basic", f"--class=orgm-home-{app.id}", f"--user-data-dir={profile}", *(["--new-window", url] if app.id == "browser" else [f"--app={url}"])]
 
     async def mute_application(self, app, muted):
         """Mute only matching Pulse streams; never mute every application."""
@@ -196,14 +196,15 @@ class Controller:
                 await asyncio.sleep(.2)
             if not window:
                 raise ControlError(f"No apareció la ventana de {app.name}", 504)
-        elif url:
-            # Same persistent profile: Chrome forwards to its existing process.
-            await self.spawn(self.chrome_args(app, url))
         con_id = int(window["id"])
         await self.sway(f"[con_id={con_id}] mark --add orgm-home-{app.id}")
         await self.sway(f"[con_id={con_id}] move container to workspace number {app.workspace}")
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
+        if url and app.id == "browser":
+            await command("wtype", "-M", "ctrl", "-k", "l", "-m", "ctrl")
+            await command("wtype", "--", url)
+            await command("wtype", "-k", "Return")
         self.active = app.id
         await self.mute_application(app, False)
         return {"app": app.id, "warning": self.warning}
@@ -280,10 +281,7 @@ class Controller:
                     await self.sway(f"[con_id={int(window['id'])}] kill")
                 return await self.activate("home")
             if action == "local-files":
-                root = Path.home() / "Videos"
-                root.mkdir(exist_ok=True)
-                files = sorted(p.name for p in root.iterdir() if p.is_file() and not p.is_symlink() and p.suffix.lower() in {".mp4", ".mkv", ".webm", ".avi", ".mp3", ".flac", ".ogg", ".mov"})[:200]
-                return {"files": files}
+                return await self.list_files()
             if action == "play-file":
                 name = request.get("name")
                 if not isinstance(name, str) or name not in (await self.list_files())["files"]:

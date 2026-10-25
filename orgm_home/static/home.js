@@ -45,6 +45,7 @@ function render() {
   $('#connection-label').textContent=online ? 'Sala conectada' : 'Sala sin conexión';
   $('#connection').className=`connection ${online ? 'online' : 'error'}`;
   const active=labels[state.app] || 'Selecciona una aplicación';
+  $('#remote-title').textContent=state.app && state.app!=='home' ? active : 'Mando';
   $('#current-label').textContent=online ? active : 'La sala no está disponible';
   $('#current-detail').textContent=online ? (state.title || 'Lista para empezar') : (state.warning || 'Comprueba que el equipo esté encendido');
   $('#volume-value').textContent=state.volume===null || state.volume===undefined ? '—' : `${state.volume}%`;
@@ -79,7 +80,10 @@ $$('[data-app]').forEach(button=>button.addEventListener('click',async()=>{
   button.setAttribute('aria-busy','true');
   const result=await act(`apps/${button.dataset.app}/activate`,{},`Abriendo ${labels[button.dataset.app]}`);
   button.removeAttribute('aria-busy');
-  if(result && !kiosk) showPanel('remote');
+  if(result && !kiosk) {
+    if(button.dataset.app==='videos'){showPanel('typing');$('#load-videos').click();}
+    else showPanel('remote');
+  }
 }));
 $$('[data-panel]').forEach(button=>button.addEventListener('click',()=>showPanel(button.dataset.panel)));
 $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote/key',{key:button.dataset.key})));
