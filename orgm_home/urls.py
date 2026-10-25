@@ -10,6 +10,18 @@ from urllib.parse import urlsplit, urlunsplit
 from .protocol import ControlError
 
 
+async def validate_max_url(value: str) -> str:
+    if not isinstance(value, str):
+        raise ControlError("Copia un enlace HTTPS de Max o HBO Max", 422)
+    url = await validate_url(value)
+    parts = urlsplit(url)
+    host = parts.hostname.lower()
+    if parts.scheme != "https" or not any(host == domain or host.endswith("." + domain)
+                                          for domain in ("max.com", "hbomax.com")):
+        raise ControlError("Copia un enlace HTTPS de Max o HBO Max", 422)
+    return url
+
+
 async def validate_url(value: str) -> str:
     if (
         len(value) > 2048

@@ -345,6 +345,58 @@ def test_close_last_window_returns_home_without_relaunching(controller):
     controller.activate.assert_awaited_once_with("home")
 
 
+def test_close_app_closes_all_its_windows_without_changing_home_focus(controller):
+    home, original, popup = window("home", 1), window("browser", 50), window("browser", 51)
+    original["focused"] = popup["focused"] = False
+    controller.tree = AsyncMock(side_effect=[{"nodes": [home, original, popup]}, {"nodes": [home]}])
+    controller.activate = AsyncMock()
+    assert run(controller.dispatch({"action": "close-app", "id": "browser"})) == {"closed": "browser"}
+    assert {call.args[0] for call in controller.sway.call_args_list} == {"[con_id=50] kill", "[con_id=51] kill"}
+    controller.activate.assert_not_called()
+
+
+def test_close_app_focused_returns_home_and_preserves_other_sources(controller, monkeypatch):
+    command = AsyncMock(return_value="")
+    monkeypatch.setattr("orgm_home.agent.command", command)
+    youtube, browser = window("youtube", 50), window("browser", 51)
+    browser["focused"] = False
+    controller.tree = AsyncMock(side_effect=[{"nodes": [youtube, browser]}, {"nodes": [browser]}])
+    controller.activate = AsyncMock(return_value={"app": "home"})
+    assert run(controller.dispatch({"action": "close-app", "id": "youtube"})) == {"app": "home"}
+    controller.sway.assert_awaited_once_with("[con_id=50] kill")
+    controller.activate.assert_awaited_once_with("home")
+    command.assert_awaited_once_with("flatpak", "kill", "rocks.shy.VacuumTube", check=False)
+
+
+@pytest.mark.parametrize("app", ["home", "unknown"])
+def test_close_app_protects_home_and_unknown_apps(controller, app):
+    with pytest.raises(ControlError):
+        run(controller.dispatch({"action": "close-app", "id": app}))
+    controller.sway.assert_not_called()
+
+
+def test_close_already_closed_app_is_idempotent(controller, monkeypatch):
+    monkeypatch.setattr("orgm_home.agent.command", AsyncMock(return_value=""))
+    controller.tree = AsyncMock(return_value={"nodes": [window("home")]})
+    controller.activate = AsyncMock()
+    assert run(controller.dispatch({"action": "close-app", "id": "youtube"})) == {"closed": "youtube"}
+    controller.sway.assert_not_called()
+    controller.activate.assert_not_called()
+
+
+def test_max_link_reuses_its_saved_profile_without_opening_browser(controller, monkeypatch):
+    controller.apps["max"] = App("max", "chrome", "Max", "5", url="https://play.max.com", match="orgm-home-max")
+    url = "https://play.max.com/video/fixture"
+    monkeypatch.setattr("orgm_home.agent.validate_max_url", AsyncMock(return_value=url))
+    controller.tree = AsyncMock(return_value={"nodes": [window("max")]})
+    controller.spawn = AsyncMock()
+    assert run(controller.dispatch({"action": "open-max", "url": url}))["app"] == "max"
+    args = controller.spawn.call_args.args[0]
+    assert f"--app={url}" in args
+    assert any(arg.endswith("orgm-home/chrome/max") for arg in args)
+    assert "--class=orgm-home-max" in args
+
+
 @pytest.mark.parametrize("focused", [window("home"), {**window(), "app_id": "unmanaged"}])
 def test_close_never_targets_home_or_an_unmanaged_window(controller, focused):
     controller.tree = AsyncMock(return_value={"nodes": [focused]})

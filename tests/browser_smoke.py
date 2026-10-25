@@ -27,6 +27,13 @@ class PreviewAgent:
             self.opened.add(self.active)
         if action == "home":
             self.active = "home"
+        if action == "close-app":
+            self.opened.discard(data["id"])
+            if self.active == data["id"]:
+                self.active = "home"
+        if action == "open-max":
+            self.active = "max"
+            self.opened.add("max")
         if action == "brightness":
             self.brightness = data["value"]
         if action == "background":
@@ -112,6 +119,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(100)
     assert ('key',{'key':'back'}) in agent.calls
     page.locator('.side-nav [data-home]').click()
+    close = page.locator('[data-close-app=youtube]')
+    expect(close).to_be_visible()
+    assert close.bounding_box()['width'] >= 44 and close.bounding_box()['height'] >= 44
+    close.click()
+    expect(page.locator('[data-close-app=youtube]')).to_have_count(0)
+    assert agent.active == 'home' and ('close-app', {'id':'youtube'}) in agent.calls
+    page.locator('.app-youtube').click()
+    page.locator('.side-nav [data-home]').click()
     page.locator('#spotify-toggle').click()
     expect(page.locator('#spotify-toggle')).to_have_attribute('aria-label','Pausar Spotify')
     for verb in ['previous','next']:
@@ -146,6 +161,14 @@ with sync_playwright() as p:
     page.locator('[data-background=bosque]').click()
     expect(page.locator('body')).to_have_attribute('data-background','bosque')
     page.locator('#backgrounds-view [data-settings-view=menu]').click()
+    page.locator('[data-settings-view=cast]').click()
+    expect(page.locator('#cast-view')).to_be_visible()
+    assert page.locator('#admin-view').is_hidden() and page.locator('#backgrounds-view').is_hidden()
+    page.fill('#max-url','https://play.max.com/video/fixture')
+    page.locator('#max-form button').click()
+    expect(page.locator('#current-label')).to_have_text('Max')
+    assert ('open-max',{'url':'https://play.max.com/video/fixture'}) in agent.calls
+    page.locator('.side-nav [data-panel=settings]').click()
     page.locator('[data-settings-view=admin]').click()
     page.locator('[data-admin=reboot]').click()
     expect(page.locator('#reboot-confirm')).to_be_visible()
@@ -161,6 +184,8 @@ with sync_playwright() as p:
         if width>=1280:
             assert page.locator('.music-controls').bounding_box()['width']>=150
         page.screenshot(path=str(root/(name+'.png')),full_page=True)
+        for close in page.locator('[data-close-app]').all():
+            assert close.bounding_box()['width'] >= 44 and close.bounding_box()['height'] >= 44
     kiosk=browser.new_page(viewport={'width':1920,'height':1080})
     kiosk.on('pageerror',lambda e:errors.append(str(e)))
     kiosk.goto(f'http://127.0.0.1:{port}/#pair={token.read_text()}')

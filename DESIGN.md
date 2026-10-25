@@ -8,6 +8,12 @@ Una sala cinematográfica: navegación lateral, ORGM Home y reloj reales, catego
 
 Las tarjetas usan las 22 portadas raster generadas y empaquetadas en `static/cards/`; el nombre permanece como texto accesible. Una aplicación abierta puede mostrar su captura en la tarjeta y en la fila Abiertas. La captura usa el identificador de ventana, no enfoca la app ni fotografía los controles superpuestos. El estado vacío explica que las apps abiertas aparecerán aquí.
 
+La fila Abiertas añade una X discreta arriba a la derecha de cada captura,
+con área táctil de 44 px y etiqueta «Cerrar [aplicación]». Es un botón hermano
+del acceso a la fuente: cerrar no abre ni enfoca primero la aplicación. Opciones
+→ Desde el teléfono explica YouTube y permite enviar enlaces de Max; sus funciones
+se presentan según su compatibilidad real, sin prometer Cast para contenido DRM.
+
 Paleta: noche #161b27, panel #0c1723, control #34415b, texto #f2f5fc, secundario #b5c2d9 y selección #8ec9ff. Manrope conserva la identidad: marca 800, títulos/nombres 600–700, texto 500. Los colores de las portadas identifican servicios, no estados inventados.
 
 ## Controles y adaptación

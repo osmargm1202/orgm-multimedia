@@ -24,7 +24,7 @@ from .agent import KEYS
 from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .pump import install_routes as install_pump_routes
-from .urls import validate_url
+from .urls import validate_url, validate_max_url
 from .preferences import gallery
 from .previews import directory as preview_directory
 
@@ -337,6 +337,18 @@ def create_app(settings=None, agent=None):
         if app_id not in apps:
             raise ControlError("Aplicación desconocida", 404)
         return await client.call("activate", id=app_id)
+
+    @app.post("/api/apps/{app_id}/close")
+    async def close_app(app_id: str):
+        if app_id not in apps:
+            raise ControlError("Aplicación desconocida", 404)
+        return await client.call("close-app", id=app_id)
+
+    @app.post("/api/apps/max/open-url")
+    async def open_max(payload: Url):
+        if "max" not in apps:
+            raise ControlError("Max no está en el catálogo de esta sala", 404)
+        return await client.call("open-max", url=await validate_max_url(payload.url))
 
     @app.post("/api/remote/key")
     async def key(payload: Key):

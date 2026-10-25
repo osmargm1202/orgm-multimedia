@@ -19,7 +19,7 @@ import shutil
 
 from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
-from .urls import validate_url
+from .urls import validate_url, validate_max_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
@@ -474,7 +474,7 @@ class Controller:
             await command("systemctl", "--user", "start", "orgm-home-airplay.service")
         window = await self.find(app)
         navigate_existing = window is not None and url is not None
-        if url is not None and app.id != "browser":
+        if url is not None and app.id not in {"browser", "max"}:
             raise ControlError("Destino de navegador inválido", 422)
         if not window:
             await self.sway(f"workspace number {app.workspace}")
@@ -526,7 +526,7 @@ class Controller:
         await self.sway(f"workspace number {app.workspace}")
         await self.sway(f"[con_id={con_id}] focus")
         await self.sway(f"[con_id={con_id}] fullscreen enable")
-        if navigate_existing and app.id == "browser":
+        if navigate_existing:
             # Chrome forwards this URL as a tab to the same profile/window.
             await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
@@ -601,6 +601,8 @@ class Controller:
                 return await self.activate(
                     "browser", await validate_url(request.get("url", ""))
                 )
+            if action == "open-max":
+                return await self.activate("max", await validate_max_url(request.get("url", "")))
             if action == "key":
                 key = request.get("key")
                 current = await self.status()
@@ -759,6 +761,34 @@ class Controller:
             if action == "mute":
                 await command("wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle")
                 return {"updated": True}
+            if action == "close-app":
+                app = self.apps.get(request.get("id"))
+                if not app:
+                    raise ControlError("Aplicación desconocida", 404)
+                if app.id == "home":
+                    raise ControlError("El inicio permanece abierto", 409)
+                tree = await self.tree()
+                targets = [w for w in windows(tree) if self.identify(w) == app]
+                focused = next((w for w in windows(tree) if w.get("focused")), None)
+                was_focused = focused is not None and self.identify(focused) == app
+                if app.type == "airplay":
+                    await command("systemctl", "--user", "stop", "orgm-home-airplay.service")
+                ids = {int(w["id"]) for w in targets}
+                for con_id in ids:
+                    await self.sway(f"[con_id={con_id}] kill")
+                if app.type == "flatpak":
+                    # Spotify can keep playing after its last window closes.
+                    # Closing a dashboard source also ends its own sandbox.
+                    await command("flatpak", "kill", app.appId, check=False)
+                deadline = time.monotonic() + 3
+                while any(w["id"] in ids for w in windows(await self.tree())):
+                    if time.monotonic() >= deadline:
+                        raise ControlError("La aplicación no se cerró. Revisa si pide confirmación.", 409)
+                    await asyncio.sleep(0.1)
+                self.processes.pop(app.id, None)
+                if was_focused:
+                    return await self.activate("home")
+                return {"closed": app.id}
             if action == "close":
                 focused = next(
                     (w for w in windows(await self.tree()) if w.get("focused")), None

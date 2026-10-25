@@ -356,3 +356,12 @@ def test_admin_routes_still_require_csrf(paired):
             == 403
         )
     assert not agent.calls
+
+
+def test_close_by_id_requires_pairing_and_csrf(configured, paired):
+    client, agent, headers = paired
+    assert client.post("/api/apps/youtube/close", json={}, headers={"origin": "http://testserver"}).status_code == 403
+    assert client.post("/api/apps/unknown/close", json={}, headers=headers).status_code == 404
+    assert not agent.calls
+    assert client.post("/api/apps/youtube/close", json={}, headers=headers).status_code == 200
+    assert agent.calls == [("close-app", {"id": "youtube"})]

@@ -53,7 +53,7 @@ function filterSources() {
   $('#source-title').textContent=category==='all'?'Todas las aplicaciones':$('.category-tabs [data-category='+category+'] span').textContent;
 }
 function settingsView(view='menu') {
-  for(const name of ['menu','backgrounds','admin'])$('#'+(name==='menu'?'settings-menu':name+'-view')).hidden=name!==view;
+  for(const name of ['menu','backgrounds','admin','cast'])$('#'+(name==='menu'?'settings-menu':name+'-view')).hidden=name!==view;
 }
 function showPairing() { $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
 function render() {
@@ -76,12 +76,14 @@ function render() {
   $('#spotify-toggle').setAttribute('aria-label',song.playing?'Pausar Spotify':'Reproducir Spotify');
   $('#spotify-glyph').setAttribute('d',song.playing?'M7 4v16M17 4v16':'m8 4 12 8-12 8Z');
   renderSessions();
+  $$('[data-close-app]').forEach(button=>button.disabled=!online || busy);
   document.body.dataset.background=state.background || 'costa';
   $$('button[data-background]').forEach(button=>{
     button.disabled=!online || busy;
     button.setAttribute('aria-pressed',String(button.dataset.background===state.background));
   });
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
+  $('#max-form button').disabled=!online || busy;
   $$('[data-app]').forEach(button=>{
     button.disabled=!online || busy;
     button.classList.toggle('is-active',button.dataset.app===state.app);
@@ -110,12 +112,24 @@ function renderSessions() {
   $('#sessions-empty').hidden=Boolean(opened.length);
   $('#session-count').textContent=opened.length ? `${opened.length} abiertas` : '';
   for(const id of opened){
+    const card=document.createElement('div');card.className='session-item';
     const button=document.createElement('button');button.className='session-card';button.dataset.app=id;
     const image=document.createElement('img');image.alt='';image.src=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:`/static/cards/${id}.png`;
     const caption=document.createElement('span');caption.className='session-caption';caption.textContent=labels[id];
     const hint=document.createElement('span');hint.className='session-hint';hint.textContent=state.previews?.[id]?'Captura reciente':'Abierta';
     button.append(image,caption,hint);button.setAttribute('aria-label',`Volver a ${labels[id]}`);
-    button.addEventListener('click',()=>selectApp(id,button));grid.append(button);
+    button.addEventListener('click',()=>selectApp(id,button));
+    const close=document.createElement('button');close.className='session-close';close.dataset.closeApp=id;close.type='button';
+    close.setAttribute('aria-label',`Cerrar ${labels[id]}`);close.title=`Cerrar ${labels[id]}`;
+    const icon=document.createElement('img');icon.src='/static/icons/close.svg';icon.alt='';close.append(icon);
+    close.addEventListener('click',async()=>{
+      const index=opened.indexOf(id);
+      if(await act(`apps/${id}/close`,{},`${labels[id]} cerrada`)){
+        const remaining=$$('#session-grid [data-close-app]');
+        (remaining[Math.min(index,remaining.length-1)] || $('.side-nav [data-home]')).focus({preventScroll:true});
+      }
+    });
+    card.append(button,close);grid.append(card);
   }
 }
 async function refresh() {
@@ -159,6 +173,7 @@ $('#reboot-cancel').addEventListener('click',()=>$('#reboot-confirm').close());
 $('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();act('admin/reboot',{},'Reiniciando Jarq');});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('sources');});
+$('#max-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('apps/max/open-url',{url:$('#max-url').value},'Enlace abierto en Max')){$('#max-url').value='';showPanel('sources');}});
 $('#load-videos').addEventListener('click',async()=>{
   try {const data=await api('videos');$('#video-list').replaceChildren();
     if(!data.files.length){const item=document.createElement('li');item.textContent='Todavía no hay archivos en Videos.';$('#video-list').append(item);}

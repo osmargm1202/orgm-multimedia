@@ -12,6 +12,34 @@ Opciones permite conectar Wi-Fi desde la pantalla local: buscar redes, reconecta
 
 AirPlay se inicia desde su tarjeta y anuncia el nombre configurado por NixOS. Requiere la misma red local; Jarq permite los puertos TCP/UDP 7000–7002 desde 10.0.0.0/24 y usa Avahi para descubrimiento. El receptor se cierra con la X. Referencia del servidor: [FDH2/UxPlay](https://github.com/FDH2/UxPlay).
 
+Las tarjetas de «Abiertas en tu sala» tienen una X independiente para cerrar esa
+aplicación y sus ventanas desde Inicio. El foco de las demás fuentes se conserva;
+si se cierra la fuente que estaba en pantalla, vuelve a Inicio. Cerrar Spotify
+termina también su sandbox para que no quede audio sin ventana. La X de la barra
+superior sigue cerrando únicamente la página actual.
+
+## Desde el teléfono
+
+En YouTube, conecta el teléfono al mismo Wi-Fi y selecciona **ORGM Jarq · YouTube**
+en Transmitir. El servicio `orgm-home-cast` anuncia DIAL por UDP 1900 y ofrece su
+entrada HTTP en TCP 8766, incluso con VacuumTube cerrado. Una solicitud de inicio
+abre/enfoca YouTube mediante la API autenticada y entrega el emparejamiento a su
+receptor nativo. Las consultas de estado no cambian el foco. La compatibilidad
+final con Android/iOS se comprueba con un teléfono real.
+
+El servicio corre con un usuario dinámico diferente de `media`, recibe la clave
+por `LoadCredential` y solo permite la LAN declarada, rutas fijas de YouTube y
+cuerpos limitados. La política de salida privada de `media` permanece intacta;
+no se abren los puertos variables de VacuumTube ni se publica DIAL por Internet.
+Variables: `ORGM_DIAL_NETWORKS` contiene las subredes IPv4 autorizadas y
+`ORGM_DIAL_NAME` el nombre anunciado. VacuumTube necesita Device Discoverability
+activado; viene activado en la instalación comprobada de Jarq.
+
+**Max:** Opciones → Desde el teléfono permite enviar un enlace HTTPS de
+`max.com` o `hbomax.com` a su webapp, usando el perfil y la sesión de Max en Jarq.
+Requiere un mando vinculado. No emula un Chromecast ni un receptor certificado
+para contenido protegido; iniciar sesión y reproducir siguen dependiendo de Max.
+
 Un único proceso FastAPI sirve HTML, CSS, JavaScript y la API. Un agente de la sesión `media` ejecuta una lista fija de acciones por socket Unix privado y verifica el UID del cliente. No hay base de datos, runtime Node ni túnel adicional.
 
 ## Instalación NixOS

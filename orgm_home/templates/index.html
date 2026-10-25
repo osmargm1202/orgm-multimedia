@@ -99,8 +99,17 @@
       <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-panel="sources" aria-label="Cerrar opciones"><img src="/static/icons/close.svg" alt=""></button></div>
       <div id="settings-menu" class="settings-menu">
         <button data-settings-view="backgrounds"><img src="/static/icons/background.svg" alt=""><span>Fondos</span></button>
+        <button data-settings-view="cast"><img src="/static/icons/cast.svg" alt=""><span>Desde el teléfono</span></button>
         <button data-settings-view="admin"><img src="/static/icons/options.svg" alt=""><span>Administración</span></button>
       </div>
+      <section id="cast-view" class="cast-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
+        <h3>Desde el teléfono</h3>
+        <div class="cast-service"><h4>YouTube</h4><p class="field-hint">Conecta el teléfono al mismo Wi-Fi que Jarq. En YouTube, toca Transmitir y elige «ORGM Jarq · YouTube»; la aplicación se abrirá en la sala.</p><button class="secondary" data-app="youtube">Abrir YouTube</button></div>
+        <div class="cast-service"><h4>Max</h4><p class="field-hint">Copia el enlace de una película o episodio y envíalo aquí. Se abrirá con la sesión de Max guardada en Jarq. La transmisión Cast de Max requiere un receptor compatible.</p>
+          <form id="max-form"><label for="max-url">Enlace de Max</label><div class="input-row"><input id="max-url" type="url" maxlength="2048" placeholder="https://play.max.com/…" autocomplete="url" required><button type="submit" class="primary">Abrir en Max</button></div></form>
+          <button class="text-button" data-app="max">Abrir Max sin enlace</button>
+        </div>
+      </section>
       <section id="backgrounds-view" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
       <h3>Fondos</h3><p class="field-hint">Elige el ambiente de tu sala.</p>
       <div class="background-grid">
