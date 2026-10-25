@@ -56,6 +56,7 @@ class Settings:
     access_aud: str = ""
     access_emails: tuple[str, ...] = ()
     cookie_age: int = 43200
+    require_access: bool = True
 
     @classmethod
     def from_env(cls):
@@ -78,6 +79,7 @@ class Settings:
             public_host=os.getenv("ORGM_PUBLIC_HOST", "home.or-gm.com"),
             access_team=os.getenv("ORGM_ACCESS_TEAM", "").rstrip("/"),
             access_aud=os.getenv("ORGM_ACCESS_AUD", ""),
+            require_access=os.getenv("ORGM_REQUIRE_ACCESS", "true").lower() != "false",
             access_emails=tuple(
                 x.strip().lower()
                 for x in os.getenv("ORGM_ACCESS_EMAILS", "").split(",")

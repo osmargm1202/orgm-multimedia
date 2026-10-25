@@ -288,3 +288,36 @@ def test_login_rate_limit(configured):
         ).status_code
         == 429
     )
+
+
+def test_private_tailnet_mode_still_requires_pairing_and_csrf(configured):
+    settings, agent, _, _ = configured
+    settings = replace(settings, require_access=False)
+    with TestClient(
+        create_app(settings, agent), base_url="https://home.or-gm.com"
+    ) as client:
+        assert client.get("/api/apps").status_code == 401
+        response = client.post(
+            "/api/session",
+            json={"token": settings.token_file.read_text()},
+            headers={"origin": "https://home.or-gm.com"},
+        )
+        assert response.status_code == 200
+        assert (
+            client.post(
+                "/api/apps/youtube/activate",
+                json={},
+                headers={"origin": "https://home.or-gm.com"},
+            ).status_code
+            == 403
+        )
+        headers = {
+            "origin": "https://home.or-gm.com",
+            "x-csrf-token": response.json()["csrf"],
+        }
+        assert (
+            client.post(
+                "/api/apps/youtube/activate", json={}, headers=headers
+            ).status_code
+            == 200
+        )

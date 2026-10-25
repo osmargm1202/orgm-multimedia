@@ -188,7 +188,7 @@ def create_app(settings=None, agent=None):
         if is_api:
             if not limits.allow((peer, "api"), 180, 60):
                 return reject("Demasiadas acciones; espera unos segundos", 429)
-            if public:
+            if public and settings.require_access:
                 try:
                     await access.verify(request.headers.get("cf-access-jwt-assertion"))
                 except ControlError as exc:

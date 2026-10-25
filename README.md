@@ -32,7 +32,7 @@ ssh -L 8765:127.0.0.1:8765 jarq@jarq
 # Abrir http://127.0.0.1:8765 en ese mismo cliente.
 ```
 
-El origen público `https://home.or-gm.com` requiere, además de vincular el mando, un JWT Cloudflare Access firmado y válido para la audiencia e issuer configurados. Sin configuración, el control público responde 503. El hostname no demuestra que Access esté habilitado: verificar la política de usuarios en Cloudflare antes de anunciar la publicación.
+El modo público requiere, además de vincular el mando, un JWT Cloudflare Access firmado y válido para la audiencia e issuer configurados. El usuario aclaró que `home.or-gm.com` apunta a la IP Tailscale de Jarq: en ese despliegue privado Nginx escucha únicamente en esa dirección, el firewall permite su puerto solo por `tailscale0` y la autenticación usa vinculación + CSRF. `ORGM_REQUIRE_ACCESS=false` se configura exclusivamente para ese modo privado; nunca deshabilitarlo en un origen publicado por Internet. Sin configuración, el control público responde 503. El hostname no demuestra que Access esté habilitado: verificar la política de usuarios en Cloudflare antes de anunciar la publicación.
 
 Un administrador crea `/var/lib/orgm-home/access.env`, propietario root, modo 0600:
 
@@ -80,4 +80,4 @@ La UI mostrará sesión no disponible mientras no exista un agente conectado. Un
 
 ## Estado de aceptación
 
-Las 43 pruebas unitarias verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados, HDMI y reutilización de ventanas. `tests/browser_smoke.py` prueba la UI con un agente simulado; `tests/session_smoke.py` usa Sway, Chrome y wtype reales en una sesión aislada. El check NixOS `multimedia-boot` verifica greetd autologin, kiosk, nftables, reinicios de servicios y retorno al inicio tras apagar/arrancar una VM. No certifican el hardware de Jarq, HDMI hotplug físico, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.
+Las 44 pruebas unitarias verifican autenticación, CSRF, límites de entrada, allowlists, URL/destinos privados, HDMI y reutilización de ventanas. `tests/browser_smoke.py` prueba la UI con un agente simulado; `tests/session_smoke.py` usa Sway, Chrome y wtype reales en una sesión aislada. El check NixOS `multimedia-boot` verifica greetd autologin, kiosk, nftables, reinicios de servicios y retorno al inicio tras apagar/arrancar una VM. No certifican el hardware de Jarq, HDMI hotplug físico, cuentas comerciales, DRM, teléfono ni la configuración externa de Cloudflare. Registrar esas comprobaciones en el informe de despliegue de NixOS antes de marcar Fase 1 aceptada.
