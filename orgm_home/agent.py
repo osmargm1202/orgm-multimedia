@@ -23,6 +23,7 @@ from .urls import validate_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
+from .playback import Playback
 
 LOG = logging.getLogger(__name__)
 KEYS = {
@@ -106,6 +107,7 @@ class Controller:
         self.audio_app = None
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
         self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
+        self.playback = Playback(self.state_dir, self.apps, lambda *a, **k: command(*a, **k), self.identify, self.ancestors, self.mpv)
 
     async def refresh_media(self):
         views = list(windows(await self.tree()))
@@ -440,17 +442,14 @@ class Controller:
             return
         if previous.id == "spotify":
             return
-        if previous.player:
-            await command(
-                "playerctl", f"--player={previous.player}", "pause", check=False
-            )
-            # A matching Pulse stream below also covers an unsupported MPRIS player.
-        if previous.type == "mpv":
-            with contextlib.suppress(OSError, TimeoutError, ControlError):
-                await self.mpv(["set_property", "pause", True])
+        await self.playback.pause(previous, list(windows(await self.tree())))
         await self.mute_application(previous, True)
-        # A quiet web page or terminal has no stream to pause. The continuous
-        # audio policy also catches streams created after changing sources.
+
+    async def reconcile_playback(self):
+        views = list(windows(await self.tree()))
+        focused = next((w for w in views if w.get("focused")), None)
+        active = self.identify(focused) if focused else self.apps.get(self.active)
+        await self.playback.background(active.id if active else self.active, views)
 
     async def enter_text(self, value, navigate=False, terminal=False):
         await command(
@@ -533,6 +532,8 @@ class Controller:
         self.active = app.id
         with contextlib.suppress(ControlError):
             await self.mute_application(app, False)
+        with contextlib.suppress(ControlError, OSError, TimeoutError):
+            await self.playback.resume(app, list(windows(await self.tree())))
         return {"app": app.id, "warning": self.warning}
 
     async def status(self):
@@ -736,9 +737,9 @@ class Controller:
                 ui = Path(__file__).parent / "touch/shell.qml"
                 await command("qs", "--path", str(ui), "ipc", "call", "--", "touch", "wifi")
                 return {"accepted": True}
-            if action == "spotify-toggle":
+            if action in {"spotify-toggle", "spotify-next", "spotify-previous"}:
                 try:
-                    await command("playerctl", "--player=spotify", "play-pause")
+                    await command("playerctl", "--player=spotify", {"spotify-toggle":"play-pause", "spotify-next":"next", "spotify-previous":"previous"}[action])
                 except ControlError as exc:
                     raise ControlError("Abre Spotify y elige música primero", 409) from exc
                 await self.refresh_spotify()
@@ -876,6 +877,7 @@ async def serve():
             try:
                 async with controller.lock:
                     await controller.reconcile_windows()
+                    await controller.reconcile_playback()
                     await controller.reconcile_audio()
             except (ControlError, ValueError, OSError):
                 LOG.warning("Audio reconciliation unavailable; retrying")

@@ -17,7 +17,6 @@ Scope {
     property bool online: false
     property string activeName: "ORGM Home"
     property bool optionsOpened: false
-    property string optionsTab: "backgrounds"
     property string background: "costa"
     property int volume: 0
     property bool muted: false
@@ -92,8 +91,7 @@ Scope {
         function toggle(): void { root.toggle(); }
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
-        function options(): void { root.optionsOpened=true; root.controlsOpened=true; }
-        function wifi(): void { root.optionsTab="wifi";root.optionsOpened=true;root.controlsOpened=true; }
+        function wifi(): void { root.optionsOpened=true;root.controlsOpened=true; }
         function controls(): void { if (!root.controlsCollapsed) root.revealControls(); }
         function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,panels:root.panels.map(p=>p.snapshot())}); }
     }
@@ -160,19 +158,18 @@ Scope {
                 Rectangle {
                     id:controlsBackground
                     anchors.horizontalCenter:parent.horizontalCenter
-                    width:Math.min(parent.width-24,root.error?940:620); height:parent.height; radius:16; color:"#f520293b"
+                    width:Math.min(parent.width-24,root.error?880:560); height:parent.height; radius:16; color:"#f520293b"
                     Row {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:4
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
                         IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
                         IconButton { id:closePage;icon:"close";label:"Cerrar página";available:root.online && !!root.capabilities.close;onClicked:root.act("close") }
-                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-621); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
+                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-561); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
                         IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
                         IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
                         Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }
                         IconButton { icon:"volume-up";label:"Subir volumen";available:root.online;onClicked:root.act("volume-up") }
                         IconButton { icon:"keyboard";label:"Teclado";onClicked:root.toggle() }
-                        IconButton { icon:"options";label:"Opciones";onClicked:{root.optionsOpened=!root.optionsOpened;hideControls.restart();} }
                         IconButton { id:collapse;icon:"hide";label:"Ocultar controles";onClicked:root.collapseControls() }
                     }
                 }
@@ -185,11 +182,11 @@ Scope {
                 implicitWidth:Math.min(screen.width-24,640)
                 implicitHeight:Math.min(screen.height-126,620)
                 exclusionMode:ExclusionMode.Ignore
-                WlrLayershell.keyboardFocus:optionsView.tab==="wifi"?WlrKeyboardFocus.Exclusive:WlrKeyboardFocus.None
+                WlrLayershell.keyboardFocus:WlrKeyboardFocus.Exclusive
                 aboveWindows:true
                 color:"transparent"
                 Component.onCompleted:root.overlay(this)
-                OptionsPanel { id:optionsView; anchors.fill:parent;controller:root;tab:root.optionsTab }
+                OptionsPanel { id:optionsView; anchors.fill:parent;controller:root }
             }
         }
     }

@@ -409,16 +409,8 @@ try:
             )
         )
         assert client.get("/api/status").json()["app"] == "browser"
-        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','options'],env=env,stdout=subprocess.DEVNULL)
-        wait_for(lambda:touch_status().get('options'))
-        if shutil.which('grim'):
-            time.sleep(.5)
-            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'options-native.png')],env=env)
-        # Native top-right picker: select Bosque without stealing app focus.
-        pointer.move(1740,336,3840,1080);pointer.button(True);pointer.button(False)
-        wait_for(lambda:client.get('/api/preferences').json().get('background')=='bosque')
-        pointer.move(1882,138,3840,1080);pointer.button(True);pointer.button(False)
-        wait_for(lambda:not touch_status().get('options'))
+        client.post('/api/preferences/background',json={'id':'bosque'}).raise_for_status()
+        assert client.get('/api/preferences').json()['background']=='bosque'
         # Collapse the real bar and recover it using only its subtle arrow.
         def click_at(x, y):
             pointer.move(x, y, 3840, 1080)
@@ -469,16 +461,16 @@ try:
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','wifi'],env=env,stdout=subprocess.DEVNULL)
         time.sleep(1)
         subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-native.png')],env=env)
-        click_at(1430,369)
+        click_at(1430,313)
         time.sleep(.3)
         subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-selected.png')],env=env)
-        click_at(1450,572)
+        click_at(1450,516)
         wait_for(lambda: touch_status()['open'])
         subprocess.check_call([str(bin_dir/'wtype'),'cafepass123'],env=env)
         subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-password.png')],env=env)
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','hide'],env=env,stdout=subprocess.DEVNULL)
         time.sleep(.2)
-        click_at(1500,638)
+        click_at(1500,582)
         time.sleep(1)
         subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'wifi-result.png')],env=env)
         wait_for(wifi_marker.exists)

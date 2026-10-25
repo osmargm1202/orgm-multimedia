@@ -277,9 +277,11 @@ def create_app(settings=None, agent=None):
             raise ControlError("Todavía no hay captura", 404)
         return FileResponse(path, media_type="image/jpeg")
 
-    @app.post("/api/spotify/toggle")
-    async def spotify_toggle():
-        return await client.call("spotify-toggle")
+    @app.post("/api/spotify/{action}")
+    async def spotify_control(action: str):
+        if action not in {"toggle", "next", "previous"}:
+            raise ControlError("Control de Spotify desconocido", 404)
+        return await client.call("spotify-" + action)
 
     @app.post("/api/session")
     async def login(request: Request, payload: Login):

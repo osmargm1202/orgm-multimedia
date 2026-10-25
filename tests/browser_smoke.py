@@ -18,11 +18,13 @@ class PreviewAgent:
         self.brightness = 35
         self.background = "costa"
         self.playing = False
+        self.opened = {"home"}
 
     async def call(self, action, **data):
         self.calls.append((action, data))
         if action == "activate":
             self.active = data["id"]
+            self.opened.add(self.active)
         if action == "home":
             self.active = "home"
         if action == "brightness":
@@ -43,7 +45,7 @@ class PreviewAgent:
                 "background": self.background,
                 "muted": False,
                 "spotify": {"available": True, "playing": self.playing, "title":"Sesión de prueba", "artist":"Spotify"},
-                "open": ["home", self.active],
+                "open": sorted(self.opened),
                 "capabilities": {
                     "keys": self.active != "home",
                     "text": self.active != "home",
@@ -98,90 +100,90 @@ with sync_playwright() as p:
     page.locator("#pairing").wait_for(state="visible")
     page.fill("#pair-token", token.read_text())
     page.locator("#pair-form button").click()
-    page.locator("[data-app=youtube]").wait_for(state="visible")
-    expect(page.locator("[data-app=youtube]")).to_be_enabled()
-    page.screenshot(path=str(root / "desktop.png"), full_page=True)
-    page.locator("[data-app=youtube]").click()
-    expect(page.locator("#current-label")).to_have_text("YouTube")
-    page.locator("[data-key=up]").click()
+    expect(page.locator('.app-youtube')).to_be_enabled()
+    expect(page.locator('.app-tile:not([hidden])')).to_have_count(len(apps)-1)
+    assert page.locator('.side-nav [data-catalog],.side-nav [data-panel=remote],.side-nav [data-panel=typing]').count()==0
+    assert page.locator('[data-panel=settings]').count()==1
+    assert page.locator('#remote .dpad,#remote [data-home],#remote [data-key=ok]').count()==0
+    assert page.locator('[data-wifi]').count()==1
+    page.locator('.app-youtube').click()
+    expect(page.locator('#current-label')).to_have_text('YouTube')
+    page.locator('#remote [data-key=back]').click()
     page.wait_for_timeout(100)
-    assert ("key", {"key": "up"}) in agent.calls
-    page.locator(".remote [data-home]").click()
-    expect(page.locator("#current-label")).to_have_text("ORGM Home")
+    assert ('key',{'key':'back'}) in agent.calls
+    page.locator('.side-nav [data-home]').click()
     page.locator('#spotify-toggle').click()
     expect(page.locator('#spotify-toggle')).to_have_attribute('aria-label','Pausar Spotify')
-    assert ('spotify-toggle',{}) in agent.calls and agent.active=='home'
-    page.set_viewport_size({"width": 390, "height": 844})
-    page.screenshot(path=str(root / "mobile.png"), full_page=True)
-    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-    page.locator("[data-app=netflix]").click()
-    expect(page.locator("#current-label")).to_have_text("Netflix")
-    assert page.locator("#remote").is_visible()
-    page.screenshot(path=str(root / "remote-mobile.png"), full_page=True)
-    page.locator(".mobile-nav [data-panel=typing]").click()
-    page.fill("#remote-text", "Una búsqueda desde el sofá")
-    page.locator("#text-form button[type=submit]").click()
-    page.wait_for_timeout(150)
-    assert ("text", {"text": "Una búsqueda desde el sofá"}) in agent.calls
-    page.screenshot(path=str(root / "typing-mobile.png"), full_page=True)
-    page.set_viewport_size({"width": 320, "height": 640})
-    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-    # Unpaired kiosk bootstrap must remove the fragment and activate without input.
-    kiosk = browser.new_page(viewport={"width": 1920, "height": 1080})
-    kiosk.on("pageerror", lambda e: errors.append(str(e)))
-    kiosk.goto(f"http://127.0.0.1:{port}/#pair={token.read_text()}")
-    expect(kiosk.locator("[data-app=youtube]")).to_be_enabled()
-    assert kiosk.evaluate("location.hash") == ""
-    assert kiosk.locator(".remote").is_visible()
-    kiosk.screenshot(path=str(root / "kiosk.png"), full_page=True)
-    kiosk.locator('.catalog-link').click()
-    for image in kiosk.locator('.app-art').all():
-        image.scroll_into_view_if_needed()
-    kiosk.wait_for_function("[...document.querySelectorAll('.app-art')].every(i=>i.complete && i.naturalWidth>0)")
-    kiosk.screenshot(path=str(root/'catalog.png'),full_page=True)
-    kiosk.locator('.side-nav [data-home]').click()
-    expect(kiosk.locator('body')).to_have_attribute('data-catalog','home')
-    for width, height in [(1536, 864), (1280, 720)]:
-        kiosk.set_viewport_size({"width": width, "height": height})
-        assert kiosk.evaluate("document.documentElement.scrollHeight <= innerHeight"), (width, height, kiosk.evaluate("[...document.querySelectorAll('body,.masthead,.layout,.sources,.sessions,.music,.remote')].map(e=>[e.className,e.getBoundingClientRect().toJSON()])"))
-        assert kiosk.locator('.masthead').bounding_box()['y'] >= 104
-        assert kiosk.locator('.header-actions [data-panel=settings]').bounding_box()['y'] >= 104
-        assert kiosk.locator('.app-youtube .app-art').bounding_box()['width'] >= 100
-    kiosk.locator('.category-tabs [data-category=connect]').click()
-    expect(kiosk.locator('.app-airplay')).to_be_visible()
-    kiosk.locator('.category-tabs [data-category=tools]').click()
-    expect(kiosk.locator('.app-claude')).to_be_visible()
-    expect(kiosk.locator('.app-kitty')).to_be_visible()
-    kiosk.locator('.category-tabs [data-category=photos]').click()
-    expect(kiosk.locator('.app-immich')).to_be_visible()
-    assert kiosk.locator('#brightness').count()==0
-    assert kiosk.locator('[data-key=play]').count()==0
-    kiosk.locator('.header-actions [data-panel=settings]').click()
-    expect(kiosk.locator('#settings')).to_be_visible()
-    expect(kiosk.locator('button[data-background]')).to_have_count(5)
-    kiosk.locator('[data-background=bosque]').click()
-    expect(kiosk.locator('body')).to_have_attribute('data-background','bosque')
-    for _ in range(50):
-        if kiosk.evaluate("[...document.querySelectorAll('.background-choice img')].every(i=>i.complete && i.naturalWidth>0)"): break
-        kiosk.wait_for_timeout(100)
-    kiosk.screenshot(path=str(root/'options-kiosk.png'),full_page=True)
-    page.set_viewport_size({'width':390,'height':844})
-    page.locator('.header-actions [data-panel=settings]').click()
-    expect(page.locator('#settings')).to_be_visible()
-    for _ in range(50):
-        if page.evaluate("[...document.querySelectorAll('.background-choice img')].filter(i=>i.getBoundingClientRect().top<innerHeight).every(i=>i.complete && i.naturalWidth>0)"): break
+    for verb in ['previous','next']:
+        page.locator('[data-spotify='+verb+']').click()
         page.wait_for_timeout(100)
-    page.screenshot(path=str(root/'options-mobile.png'),full_page=True)
-    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-    page.locator('.admin-options summary').click()
+        assert ('spotify-'+verb,{}) in agent.calls and agent.active=='home'
+    page.locator('.music-cover').click()
+    expect(page.locator('#current-label')).to_have_text('Spotify')
+    assert agent.active=='spotify'
+    page.locator('.side-nav [data-home]').click()
+    page.locator('[data-wifi]').click()
+    page.wait_for_timeout(100)
+    assert ('wifi-open',{}) in agent.calls
+    assert page.locator('#settings').is_hidden()
+    for category,app_id in [('connect','airplay'),('tools','claude'),('photos','immich')]:
+        page.locator('.category-tabs [data-category='+category+']').click()
+        expect(page.locator('.app-'+app_id)).to_be_visible()
+        for tile in page.locator('.app-tile:not([hidden])').all():
+            assert tile.get_attribute('data-category')==category
+    page.locator('.side-nav [data-home]').click()
+    page.locator('.app-kick').scroll_into_view_if_needed()
+    assert page.locator('.app-grid').evaluate('e=>e.scrollLeft>0')
+    page.locator('.side-nav [data-home]').click()
+    page.wait_for_function("() => document.querySelector('.app-grid').scrollLeft<8")
+    page.locator('.side-nav [data-panel=settings]').click()
+    expect(page.locator('#settings-menu')).to_be_visible()
+    assert page.locator('#backgrounds-view').is_hidden() and page.locator('#admin-view').is_hidden()
+    page.locator('[data-settings-view=backgrounds]').click()
+    expect(page.locator('#backgrounds-view')).to_be_visible()
+    assert page.locator('#admin-view').is_hidden()
+    expect(page.locator('button[data-background]')).to_have_count(5)
+    page.locator('[data-background=bosque]').click()
+    expect(page.locator('body')).to_have_attribute('data-background','bosque')
+    page.locator('#backgrounds-view [data-settings-view=menu]').click()
+    page.locator('[data-settings-view=admin]').click()
     page.locator('[data-admin=reboot]').click()
     expect(page.locator('#reboot-confirm')).to_be_visible()
     page.locator('#reboot-cancel').click()
     assert not any(action=='reboot' for action,_ in agent.calls)
-    assert not errors, errors
+    page.locator('.side-nav [data-home]').click()
+    expect(page.locator('#music')).to_be_visible()
+    for width,height,name in [(1920,1080,'desktop'),(1280,720,'small'),(390,844,'mobile'),(320,640,'compact')]:
+        page.set_viewport_size({'width':width,'height':height})
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        assert page.locator('.side-nav').is_visible()
+        assert page.locator('.side-nav [data-panel=settings]').is_visible()
+        if width>=1280:
+            assert page.locator('.music-controls').bounding_box()['width']>=150
+        page.screenshot(path=str(root/(name+'.png')),full_page=True)
+    kiosk=browser.new_page(viewport={'width':1920,'height':1080})
+    kiosk.on('pageerror',lambda e:errors.append(str(e)))
+    kiosk.goto(f'http://127.0.0.1:{port}/#pair={token.read_text()}')
+    expect(kiosk.locator('.app-youtube')).to_be_enabled()
+    assert kiosk.evaluate('location.hash')==''
+    expect(kiosk.locator('.app-tile:not([hidden])')).to_have_count(len(apps)-1)
+    assert kiosk.locator('.masthead').bounding_box()['y']>=104
+    for cover in kiosk.locator('.app-art').all():cover.scroll_into_view_if_needed()
+    kiosk.wait_for_function("() => [...document.querySelectorAll('.app-art')].every(i=>i.complete&&i.naturalWidth>0)")
+    kiosk.locator('.side-nav [data-home]').click()
+    expect(kiosk.locator('.app-youtube')).to_be_enabled()
+    kiosk.wait_for_function("() => document.querySelector('.app-grid').scrollLeft<8")
+    kiosk.screenshot(path=str(root/'kiosk.png'),full_page=True)
+    kiosk.locator('.app-browser').click()
+    expect(kiosk.locator('#current-label')).to_have_text('Navegador')
+    kiosk.locator('[data-panel=typing]').click()
+    kiosk.fill('#remote-text','Una búsqueda desde el sofá')
+    kiosk.locator('#text-form button[type=submit]').click()
+    page.wait_for_timeout(100)
+    assert ('text',{'text':'Una búsqueda desde el sofá'}) in agent.calls
+    assert not errors,errors
     page.goto(f'http://127.0.0.1:{port}/airplay')
     expect(page.locator('.receiver-name')).to_have_text('ORGM Jarq')
-    page.screenshot(path=str(root/'airplay-mobile.png'),full_page=True)
     browser.close()
 server.should_exit = True
 thread.join(timeout=5)

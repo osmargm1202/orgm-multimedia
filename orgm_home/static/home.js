@@ -5,13 +5,11 @@ let csrf = null;
 let state = {session:false,capabilities:{}};
 let busy = false;
 let panel = 'sources';
-let catalogMode = 'home';
 let category = 'all';
 let sessionSignature = '';
 let feedbackTimer;
 const mobile = matchMedia('(max-width: 720px)');
 const labels = Object.fromEntries($$('.app-tile[data-app]').map(button => [button.dataset.app, button.querySelector('.app-name').textContent]));
-const favorites = ['youtube','spotify','netflix','max','crunchyroll','browser'];
 labels.home = 'ORGM Home';
 const fragment = new URLSearchParams(location.hash.slice(1));
 const kiosk = location.hostname === '127.0.0.1' && (fragment.has('pair') || sessionStorage.getItem('orgm-kiosk') === 'yes');
@@ -38,26 +36,24 @@ function showPanel(next) {
   panel=next;
   const paired=Boolean(csrf);
   for (const id of ['sources','remote','typing','settings']) {
-    const visible = paired && (mobile.matches ? id===next : ['typing','settings','remote'].includes(next) ? id===next : ['sources','remote'].includes(id));
+    const visible=paired && (next==='sources' ? ['sources','remote'].includes(id) : id===next);
     $(`#${id}`).hidden=!visible;
   }
   document.body.dataset.panel=next;
-  document.body.dataset.catalog=catalogMode;
-  $('#sessions').hidden=!paired || next!=='sources' || catalogMode!=='home' || category!=='all';
-  $('#music').hidden=!paired || next!=='sources' || !((catalogMode==='home' && category==='all') || category==='music');
+  $('#sessions').hidden=!paired || next!=='sources' || category!=='all';
+  $('#music').hidden=!paired || next!=='sources' || !['all','music'].includes(category);
   filterSources();
-  $$('[data-panel]').forEach(button => {if (button.dataset.panel===next) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current');});
+  $$('[data-panel]').forEach(button=>{if(button.dataset.panel===next)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
 }
 function filterSources() {
   document.body.dataset.category=category;
-  $('.category-tabs button[data-category=all]').textContent=catalogMode==='home'?'Destacadas':'Todas';
-  $('.catalog-link').hidden=catalogMode==='apps';
-  $$('.app-tile').forEach(button=>{
-    button.hidden=category!=='all' ? button.dataset.category!==category : catalogMode==='home' && !favorites.includes(button.dataset.app);
-  });
+  $$('.app-tile').forEach(button=>button.hidden=category!=='all' && button.dataset.category!==category);
   $$('.category-tabs button').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.category===category)));
-  $('.side-nav [data-home]').setAttribute('aria-current',panel==='sources' && catalogMode==='home'?'page':'false');
-  $('.side-nav [data-catalog]').setAttribute('aria-current',panel==='sources' && catalogMode==='apps'?'page':'false');
+  $('.side-nav [data-home]').setAttribute('aria-current',panel==='sources' && category==='all'?'page':'false');
+  $('#source-title').textContent=category==='all'?'Todas las aplicaciones':$('.category-tabs [data-category='+category+'] span').textContent;
+}
+function settingsView(view='menu') {
+  for(const name of ['menu','backgrounds','admin'])$('#'+(name==='menu'?'settings-menu':name+'-view')).hidden=name!==view;
 }
 function showPairing() { $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
 function render() {
@@ -65,7 +61,7 @@ function render() {
   $('#connection-label').textContent=online ? 'Sala conectada' : 'Sala sin conexión';
   $('#connection').className=`connection ${online ? 'online' : 'error'}`;
   const active=labels[state.app] || 'Selecciona una aplicación';
-  $('#remote-title').textContent=state.app && state.app!=='home' ? active : 'Mando';
+  $('#remote-title').textContent=state.app && state.app!=='home' ? active : 'Audio';
   const backgroundMusic=state.audio_app==='spotify' && state.app!=='spotify';
   $('#current-label').textContent=online ? (backgroundMusic ? 'Spotify sigue sonando' : active) : 'La sala no está disponible';
   $('#current-detail').textContent=online ? (backgroundMusic ? 'La música continúa hasta que otra aplicación reproduzca audio.' : state.app==='home' ? 'Elige una aplicación para empezar.' : state.title || 'Lista para empezar') : (state.warning || 'Comprueba que el equipo esté encendido');
@@ -76,7 +72,7 @@ function render() {
   $('#song-title').textContent=song.title || 'Elige música en Spotify';
   $('#song-artist').textContent=song.artist || (song.available ? 'Lista para reproducir' : 'Abre Spotify y elige una canción.');
   $('#music-title').textContent=song.playing ? 'Spotify está sonando' : 'Spotify';
-  $('#spotify-toggle').disabled=!online || busy || !song.available;
+  $$('[data-spotify]').forEach(button=>button.disabled=!online || busy || !song.available);
   $('#spotify-toggle').setAttribute('aria-label',song.playing?'Pausar Spotify':'Reproducir Spotify');
   $('#spotify-glyph').setAttribute('d',song.playing?'M7 4v16M17 4v16':'m8 4 12 8-12 8Z');
   renderSessions();
@@ -139,21 +135,20 @@ async function selectApp(id,button) {
   button.removeAttribute('aria-busy');
   if(result && !kiosk) {
     if(id==='videos'){showPanel('typing');$('#load-videos').click();}
-    else showPanel('remote');
+    else showPanel('sources');
   }
 }
 $$('[data-app]').forEach(button=>button.addEventListener('click',()=>selectApp(button.dataset.app,button)));
-$$('[data-catalog]').forEach(button=>button.addEventListener('click',()=>{catalogMode='apps';category='all';showPanel('sources');}));
-$$('.category-tabs button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;showPanel('sources');}));
-$$('.category-tabs button').forEach((button,index)=>button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const tabs=$$('.category-tabs button');const next=tabs[(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];next.focus();next.click();}));
-$$('[data-panel]').forEach(button=>button.addEventListener('click',()=>{if(button.dataset.panel==='sources'){catalogMode='home';category='all';}showPanel(button.dataset.panel);}));
+$$('.category-tabs button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;showPanel('sources');$('.app-grid').scrollLeft=0;}));
+$$('.category-tabs button').forEach((button,index)=>button.addEventListener('keydown',event=>{if(!['ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();const tabs=$$('.category-tabs button');const next=tabs[(index+(event.key==='ArrowDown'?1:-1)+tabs.length)%tabs.length];next.focus();next.click();}));
+$$('[data-panel]').forEach(button=>button.addEventListener('click',()=>{if(button.dataset.panel==='settings')settingsView();showPanel(button.dataset.panel);}));
+$$('[data-settings-view]').forEach(button=>button.addEventListener('click',()=>settingsView(button.dataset.settingsView)));
 $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote/key',{key:button.dataset.key})));
-$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');catalogMode='home';category='all';showPanel('sources');}));
+$$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel('sources');$('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
-$('#open-wifi').addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq'));
 $$('[data-wifi]').forEach(button=>button.addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq')));
-$('#spotify-toggle').addEventListener('click',()=>act('spotify/toggle'));
+$$('[data-spotify]').forEach(button=>button.addEventListener('click',()=>act('spotify/'+button.dataset.spotify)));
 $$('button[data-background]').forEach(button=>button.addEventListener('click',()=>act('preferences/background',{id:button.dataset.background})));
 $$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
   const action=button.dataset.admin;
@@ -163,11 +158,11 @@ $$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
 $('#reboot-cancel').addEventListener('click',()=>$('#reboot-confirm').close());
 $('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();act('admin/reboot',{},'Reiniciando Jarq');});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
-$('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('remote');});
+$('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('sources');});
 $('#load-videos').addEventListener('click',async()=>{
   try {const data=await api('videos');$('#video-list').replaceChildren();
     if(!data.files.length){const item=document.createElement('li');item.textContent='Todavía no hay archivos en Videos.';$('#video-list').append(item);}
-    for(const name of data.files){const item=document.createElement('li'),button=document.createElement('button');button.textContent=name;button.addEventListener('click',async()=>{if(await act('videos/play',{name}))showPanel('remote');});item.append(button);$('#video-list').append(item);}
+    for(const name of data.files){const item=document.createElement('li'),button=document.createElement('button');button.textContent=name;button.addEventListener('click',async()=>{if(await act('videos/play',{name}))showPanel('sources');});item.append(button);$('#video-list').append(item);}
   } catch(error){feedback(error.message,true);}
 });
 $('#pair-form').addEventListener('submit',async event=>{

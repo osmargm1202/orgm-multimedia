@@ -23,6 +23,13 @@
     <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
     <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h1m3 0h1m3 0h1m3 0h1M6 12h1m3 0h1m3 0h1m3 0h1M7 15h10"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-3v13M9 8l11-3"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="15" rx="3" ry="3"/></symbol>
+    <symbol id="i-photos" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3"/><circle cx="8" cy="9" r="2"/><path d="m3 19 6-6 4 4 4-6 5 7"/></symbol>
+    <symbol id="i-games" viewBox="0 0 24 24"><path d="M7 7h10c4 0 6 12 3 12-2 0-3-4-5-4H9c-2 0-3 4-5 4C1 19 3 7 7 7ZM6 10v4M4 12h4M16 11h.01M19 13h.01"/></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24"><path d="m14 6 4 4 3-3a6 6 0 0 1-8 7l-7 7-4-4 7-7a6 6 0 0 1 7-8Z"/></symbol>
+    <symbol id="i-previous" viewBox="0 0 24 24"><path d="M5 5v14M19 5 8 12l11 7Z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M19 5v14M5 5l11 7-11 7Z"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
     <symbol id="i-remote" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="5"/><circle cx="12" cy="10" r="3"/><path d="M10 17h4"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 14 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></symbol>
@@ -30,20 +37,22 @@
   </svg>
   <aside class="side-nav" aria-label="Centro multimedia">
     <button data-home aria-label="Inicio"><svg><use href="#i-home"/></svg><span>Inicio</span></button>
-    <button data-catalog aria-label="Aplicaciones"><svg><use href="#i-grid"/></svg><span>Apps</span></button>
-    <button data-panel="remote" aria-label="Mando"><svg><use href="#i-remote"/></svg><span>Mando</span></button>
-    <button data-panel="typing" aria-label="Biblioteca y teclado"><svg><use href="#i-folder"/></svg><span>Biblioteca</span></button>
+    <nav class="category-tabs" role="tablist" aria-label="Categorías" aria-orientation="vertical">
+      {% for id,label,icon in [('video','Video','video'),('music','Música','music'),('photos','Fotos','photos'),('games','Juegos','games'),('tools','Herramientas','tools'),('connect','Servicios','link')] %}
+      <button role="tab" data-category="{{ id }}" aria-selected="false"><svg><use href="#i-{{ icon }}"/></svg><span>{{ label }}</span></button>
+      {% endfor %}
+    </nav>
     <button data-panel="settings" aria-label="Opciones"><img src="/static/icons/options.svg" alt=""><span>Opciones</span></button>
   </aside>
   <header class="masthead">
     <a class="brand" href="/" aria-label="ORGM Home, inicio"><span>ORGM <strong>Home</strong><small>Centro multimedia</small></span></a>
-    <div class="header-actions"><button id="connection" class="connection" data-wifi aria-label="Conectar Wi-Fi"><img src="/static/icons/wifi.svg" alt=""><span id="connection-label">Conectando</span></button><div class="room-clock"><time id="clock"></time><span id="calendar"></span></div><button class="icon-button" data-panel="settings" aria-label="Opciones" title="Opciones"><img src="/static/icons/options.svg" alt=""></button></div>
+    <div class="header-actions"><button id="connection" class="connection" data-wifi aria-label="Conectar Wi-Fi"><img src="/static/icons/wifi.svg" alt=""><span id="connection-label">Conectando</span></button><div class="room-clock"><time id="clock"></time><span id="calendar"></span></div></div>
   </header>
 
   <main class="layout">
     <section id="sources" class="sources" aria-labelledby="source-title">
-      <div class="source-heading"><div class="catalog-title"><h1 id="source-title">Tus aplicaciones</h1><button class="text-button catalog-link" data-catalog>Ver todas</button></div><nav class="category-tabs" role="tablist" aria-label="Categorías">{% for id,label in [('all','Destacadas'),('video','Video'),('music','Música'),('photos','Fotos'),('games','Juegos'),('tools','Herramientas'),('connect','Servicios')] %}<button role="tab" data-category="{{ id }}" aria-selected="{{ 'true' if id == 'all' else 'false' }}">{{ label }}</button>{% endfor %}</nav></div>
-      <div class="app-grid">
+      <div class="source-heading"><h1 id="source-title">Todas las aplicaciones</h1><span class="scroll-hint">Desliza para ver más</span></div>
+      <div class="app-grid" tabindex="0" aria-label="Aplicaciones, desliza para ver más">
       {% for app in apps %}
         <button class="app-tile app-{{ app.id }}" data-app="{{ app.id }}" data-category="{{ app.category }}" disabled>
           <img class="app-art" src="/static/cards/{{ app.id }}.png" alt="" loading="lazy">
@@ -60,28 +69,25 @@
       <div id="session-grid" class="session-grid"></div><p id="sessions-empty">Las aplicaciones que abras aparecerán aquí.</p>
     </section>
     <section id="music" class="music dashboard-panel" aria-labelledby="music-title">
-      <div class="music-cover"><img src="/static/cards/spotify.png" alt=""></div>
+      <button class="music-cover" data-app="spotify" aria-label="Abrir Spotify"><img src="/static/cards/spotify.png" alt=""></button>
       <div class="music-copy"><h2 id="music-title">Spotify</h2><p id="song-title">Elige música en Spotify</p><span id="song-artist">La música sigue contigo mientras navegas.</span><button class="text-button" data-app="spotify">Abrir Spotify</button></div>
-      <button id="spotify-toggle" class="music-play" aria-label="Reproducir Spotify" disabled><svg viewBox="0 0 24 24"><path id="spotify-glyph" d="m8 4 12 8-12 8Z"/></svg></button>
+      <div class="music-controls" role="group" aria-label="Reproducción de Spotify">
+        <button data-spotify="previous" aria-label="Canción anterior" disabled><svg><use href="#i-previous"/></svg></button>
+        <button id="spotify-toggle" class="music-play" data-spotify="toggle" aria-label="Reproducir Spotify" disabled><svg viewBox="0 0 24 24"><path id="spotify-glyph" d="m8 4 12 8-12 8Z"/></svg></button>
+        <button data-spotify="next" aria-label="Canción siguiente" disabled><svg><use href="#i-next"/></svg></button>
+      </div>
     </section>
 
     <section id="remote" class="remote" aria-labelledby="remote-title">
-      <div class="remote-heading"><h2 id="remote-title">Mando</h2><button class="icon-button home-control" data-home aria-label="Volver al inicio" disabled><svg><use href="#i-home"/></svg></button></div>
-      <div class="dpad" role="group" aria-label="Navegación">
-        <button class="direction up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
-        <button class="direction left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
-        <button class="direction ok" data-key="ok" disabled>OK</button>
-        <button class="direction right" data-key="right" aria-label="Derecha" disabled><svg><use href="#i-right"/></svg></button>
-        <button class="direction down" data-key="down" aria-label="Abajo" disabled><svg><use href="#i-down"/></svg></button>
-      </div>
-      <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span class="sr-only">Atrás</span></button><button data-panel="settings" aria-label="Opciones" title="Opciones"><img src="/static/icons/options.svg" alt=""></button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg><span class="sr-only">Teclado</span></button></div>
+      <div class="remote-heading"><h2 id="remote-title">Audio</h2></div>
+      <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
       <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
       <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
     </section>
 
     <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
       <div class="section-heading"><h2 id="typing-title">Escribe desde aquí</h2><p>Selecciona primero un campo en la pantalla.</p></div>
-      <button class="secondary return-remote" data-panel="remote">Volver al mando</button>
+      <button class="secondary return-remote" data-panel="sources">Volver a las aplicaciones</button>
       <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="ok" disabled>Enter</button></div></form>
       <form id="url-form"><label for="web-url">Abrir una página</label><p class="field-hint">Se abrirá en Navegador.</p><div class="input-row"><input id="web-url" name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="url" required><button type="submit" class="primary" disabled>Abrir</button></div></form>
       <div class="video-section"><h3>Videos locales</h3><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
@@ -89,20 +95,24 @@
 
     <section id="settings" class="settings" aria-labelledby="settings-title" hidden>
       <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-panel="sources" aria-label="Cerrar opciones"><img src="/static/icons/close.svg" alt=""></button></div>
-      <button id="open-wifi" class="secondary"><img src="/static/icons/wifi.svg" width="24" height="24" alt="">Conectar Wi-Fi</button>
-      <p class="field-hint">Elige la red y escribe su contraseña en la pantalla de Jarq.</p>
+      <div id="settings-menu" class="settings-menu">
+        <button data-settings-view="backgrounds"><img src="/static/icons/background.svg" alt=""><span>Fondos</span></button>
+        <button data-settings-view="admin"><img src="/static/icons/options.svg" alt=""><span>Administración</span></button>
+      </div>
+      <section id="backgrounds-view" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
       <h3>Fondos</h3><p class="field-hint">Elige el ambiente de tu sala.</p>
       <div class="background-grid">
       {% for background in backgrounds %}
         <button class="background-choice" data-background="{{ background.id }}" aria-pressed="false"><img src="{{ background.image }}" alt="" loading="lazy"><span>{{ background.name }}</span></button>
       {% endfor %}
       </div>
-      <details class="admin-options"><summary>Administración</summary>
+      </section>
+      <section id="admin-view" class="admin-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button><h3>Administración</h3>
         <p class="field-hint">La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.</p>
         <button data-admin="rotate"><img src="/static/icons/rotate.svg" alt=""><span>Voltear la pantalla</span></button>
         <button data-admin="restart-launcher"><img src="/static/icons/restart-launcher.svg" alt=""><span>Reiniciar el launcher</span></button>
         <button data-admin="reboot"><img src="/static/icons/reboot.svg" alt=""><span>Reiniciar el equipo</span></button>
-      </details>
+      </section>
     </section>
 
     <section id="pairing" class="pairing" aria-labelledby="pairing-title" hidden>
@@ -112,6 +122,6 @@
   </main>
   <dialog id="reboot-confirm"><h2>¿Reiniciar Jarq?</h2><p>Las aplicaciones se cerrarán y el equipo volverá al inicio.</p><div class="form-actions"><button id="reboot-cancel">Cancelar</button><button id="reboot-accept" class="primary">Reiniciar</button></div></dialog>
   <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
-  <nav class="mobile-nav" aria-label="Vistas del mando"><button data-panel="sources" aria-current="page"><svg><use href="#i-grid"/></svg>Inicio</button><button data-panel="remote"><svg><use href="#i-remote"/></svg>Mando</button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg>Escribir</button></nav>
+
 </body>
 </html>

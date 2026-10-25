@@ -455,13 +455,14 @@ def test_reboot_is_scheduled_outside_session_target(controller, monkeypatch):
     assert command.call_args.args[-1]=='/fixed/bin/orgm-home-reboot'
 
 
-def test_spotify_play_from_home_keeps_home_focused(controller,monkeypatch):
+@pytest.mark.parametrize('action,verb',[('spotify-toggle','play-pause'),('spotify-next','next'),('spotify-previous','previous')])
+def test_spotify_play_from_home_keeps_home_focused(controller,monkeypatch,action,verb):
     command=AsyncMock(return_value='')
     monkeypatch.setattr('orgm_home.agent.command',command)
     controller.refresh_spotify=AsyncMock()
     controller.active='home'
-    run(controller.dispatch({'action':'spotify-toggle'}))
-    command.assert_awaited_once_with('playerctl','--player=spotify','play-pause')
+    run(controller.dispatch({'action':action}))
+    command.assert_awaited_once_with('playerctl','--player=spotify',verb)
     controller.sway.assert_not_called()
     assert controller.active=='home'
 
