@@ -321,3 +321,15 @@ def test_private_tailnet_mode_still_requires_pairing_and_csrf(configured):
             ).status_code
             == 200
         )
+
+@pytest.mark.parametrize('value', [0, 4, 101, True, '35', 35.5])
+def test_brightness_rejects_invalid_and_blackout_values(paired, value):
+    client, agent, headers = paired
+    assert client.post('/api/display/brightness', json={'value': value}, headers=headers).status_code == 422
+    assert not agent.calls
+
+
+def test_brightness_forwards_only_percentage(paired):
+    client, agent, headers = paired
+    assert client.post('/api/display/brightness', json={'value': 35}, headers=headers).status_code == 200
+    assert agent.calls == [('brightness', {'value': 35})]

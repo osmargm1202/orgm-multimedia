@@ -51,6 +51,12 @@ function render() {
   $('#volume-value').textContent=state.volume===null || state.volume===undefined ? '—' : `${state.volume}%`;
   $('#mute').setAttribute('aria-pressed',String(Boolean(state.muted)));
   $('#mute').setAttribute('aria-label',state.muted ? 'Activar audio' : 'Silenciar audio');
+  const brightness=$('#brightness');
+  brightness.disabled=!online || busy || state.brightness===null || state.brightness===undefined;
+  if(document.activeElement!==brightness) {
+    if(state.brightness!==null && state.brightness!==undefined) brightness.value=state.brightness;
+    $('#brightness-value').textContent=state.brightness===null || state.brightness===undefined ? 'No disponible' : `${state.brightness}%`;
+  }
   $$('[data-app]').forEach(button=>{
     button.disabled=!online || busy;
     button.classList.toggle('is-active',button.dataset.app===state.app);
@@ -90,6 +96,8 @@ $$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');showPanel('sources');}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Aplicación cerrada'));
+$('#brightness').addEventListener('input',event=>$('#brightness-value').textContent=`${event.target.value}%`);
+$('#brightness').addEventListener('change',event=>act('display/brightness',{value:Number(event.target.value)}));
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel('remote');});
 $('#load-videos').addEventListener('click',async()=>{

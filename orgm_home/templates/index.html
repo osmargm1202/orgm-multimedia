@@ -34,7 +34,7 @@
 
   <main class="layout">
     <section id="sources" class="sources" aria-labelledby="source-title">
-      <div class="section-heading"><h1 id="source-title">Tu sala.<br>Lo que quieras ver.</h1><p>Elige dónde empezar.</p></div>
+      <div class="section-heading"><h1 id="source-title">Tu sala.<br> Lo que quieras ver.</h1><p>Elige dónde empezar.</p></div>
       <div class="app-grid">
       {% for app in apps %}
         <button class="app-tile app-{{ app.id }}" data-app="{{ app.id }}" disabled>
@@ -44,6 +44,11 @@
       {% endfor %}
       </div>
       <div class="now-playing" aria-live="polite"><span class="now-line"></span><div><p id="current-label">La sala se está preparando</p><span id="current-detail">Esperando conexión</span></div><button id="close-app" class="text-button" hidden>Cerrar app</button></div>
+      <div class="screen-settings">
+        <label for="brightness">Brillo de la laptop <output id="brightness-value" for="brightness">—</output></label>
+        <input id="brightness" type="range" min="5" max="100" step="1" value="35" aria-describedby="brightness-hint" disabled>
+        <p id="brightness-hint">Ajusta solo la pantalla táctil.</p>
+      </div>
       <p class="kiosk-hint" hidden>Abre home.or-gm.com en tu teléfono para usar el mando.</p>
     </section>
 

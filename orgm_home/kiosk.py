@@ -35,6 +35,7 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--password-store=basic",
+            "--blink-settings=hideScrollbars=true",
             "--class=orgm-home-home",
             f"--user-data-dir={profile}",
             "--kiosk",

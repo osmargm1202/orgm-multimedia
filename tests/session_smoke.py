@@ -52,7 +52,7 @@ config.write_text(
 apps = json.loads((system / "etc/orgm-home/apps.json").read_text())
 # The fixed test-only browser destination is a local input fixture.
 for app in apps["apps"]:
-    if app["id"] == "browser":
+    if app["id"] in {"browser", "netflix"}:
         app["url"] = "http://127.0.0.1:18766/"
 catalog = root / "apps.json"
 catalog.write_text(json.dumps(apps))
@@ -235,6 +235,11 @@ try:
     response.raise_for_status()
     client.headers["x-csrf-token"] = response.json()["csrf"]
     wait_for(lambda: any(w.get("app_id") == "orgm-home-home" for w in leaves(tree())))
+    response = client.post("/api/apps/netflix/activate", json={})
+    assert response.status_code == 200, response.text
+    assert client.get("/api/status").json()["app"] == "netflix"
+    app_mode = next(w for w in leaves(tree()) if "orgm-home-netflix" in w.get("marks", []))
+    assert app_mode["app_id"].startswith("chrome-") and app_mode["fullscreen_mode"] == 1, app_mode
     response = client.post("/api/apps/browser/activate", json={})
     assert response.status_code == 200, response.text
     before = [w["id"] for w in leaves(tree()) if w.get("app_id") == "orgm-home-browser"]
@@ -246,6 +251,10 @@ try:
         browser = playwright.chromium.connect_over_cdp("http://127.0.0.1:" + debug_port)
         page = browser.contexts[0].pages[0]
         page.wait_for_selector("#target")
+        page.evaluate("document.body.style.minHeight='2000px'")
+        page.wait_for_timeout(150)
+        assert page.evaluate("innerWidth-document.documentElement.clientWidth") == 0
+        assert next(w for w in leaves(tree()) if w["id"] == before[0])["fullscreen_mode"] == 1
         # The text must cross HTTP, Unix IPC and native Wayland keyboard injection.
         text = "Prueba desde el sofá -- $(no-shell) áéíóú ñÑ üÜ ¿¡? @#%&*()[]{} /.:;,_-+= 0123456789 abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 🏠🎬 漢字"
         response = client.post("/api/remote/text", json={"text": text})
@@ -406,6 +415,10 @@ try:
             w["id"] for w in leaves(tree()) if w.get("app_id") == "orgm-home-browser"
         ]
         assert after == before, (before, after)
+        response = client.post("/api/apps/netflix/activate", json={})
+        assert response.status_code == 200, response.text
+        assert next(w for w in leaves(tree()) if "orgm-home-netflix" in w.get("marks", []))["id"] == app_mode["id"]
+        client.post("/api/apps/browser/activate", json={}).raise_for_status()
         web.terminate()
         web.wait(timeout=5)
         saved = {k: env.pop(k) for k in ("SWAYSOCK", "WAYLAND_DISPLAY")}

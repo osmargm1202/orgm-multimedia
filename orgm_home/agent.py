@@ -176,6 +176,8 @@ class Controller:
             "--no-first-run",
             "--no-default-browser-check",
             "--password-store=basic",
+            "--start-fullscreen",
+            "--blink-settings=hideScrollbars=true",
             f"--class=orgm-home-{app.id}",
             f"--user-data-dir={profile}",
             *(
@@ -381,12 +383,18 @@ class Controller:
         opened = list(
             dict.fromkeys(a.id for w in windows(tree) if (a := self.identify(w)))
         )
+        try:
+            backlight = Path("/sys/class/backlight/intel_backlight")
+            brightness = round(100 * int((backlight / "brightness").read_text()) / int((backlight / "max_brightness").read_text()))
+        except (OSError, ValueError, ZeroDivisionError):
+            brightness = None
         return {
             "session": True,
             "app": app.id if app else None,
             "title": str((focused or {}).get("name", ""))[:256],
             "volume": round(float(match[1]) * 100) if match else None,
             "muted": "MUTED" in volume_raw,
+            "brightness": brightness,
             "open": opened,
             "warning": self.warning,
             "capabilities": {
@@ -492,6 +500,12 @@ class Controller:
                     )
                 else:
                     raise ControlError("Volumen fuera de rango", 422)
+                return {"updated": True}
+            if action == "brightness":
+                value = request.get("value")
+                if type(value) is not int or not 5 <= value <= 100:
+                    raise ControlError("El brillo debe estar entre 5 y 100", 422)
+                await command("brightnessctl", "--device=intel_backlight", "set", f"{value}%")
                 return {"updated": True}
             if action == "mute":
                 await command("wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle")

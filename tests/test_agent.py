@@ -210,3 +210,13 @@ def test_unavailable_transport_controls_are_rejected(controller, monkeypatch):
     with pytest.raises(ControlError):
         run(controller.dispatch({"action": "key", "key": "next"}))
     command.assert_not_called()
+
+
+def test_brightness_controls_only_fixed_internal_backlight(controller, monkeypatch):
+    command = AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command', command)
+    run(controller.dispatch({'action': 'brightness', 'value': 35}))
+    command.assert_awaited_once_with('brightnessctl', '--device=intel_backlight', 'set', '35%')
+    for value in [0, True, '35', 101]:
+        with pytest.raises(ControlError):
+            run(controller.dispatch({'action': 'brightness', 'value': value}))

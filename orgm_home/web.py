@@ -54,6 +54,10 @@ class Url(Payload):
     url: StrictStr = Field(min_length=1, max_length=2048)
 
 
+class Brightness(Payload):
+    value: StrictInt = Field(ge=5, le=100)
+
+
 class LocalFile(Payload):
     name: StrictStr = Field(min_length=1, max_length=255)
 
@@ -339,6 +343,10 @@ def create_app(settings=None, agent=None):
     @app.post("/api/browser/open-url")
     async def open_url(payload: Url):
         return await client.call("open-url", url=await validate_url(payload.url))
+
+    @app.post("/api/display/brightness")
+    async def brightness(payload: Brightness):
+        return await client.call("brightness", value=payload.value)
 
     @app.get("/api/videos")
     async def local_files():

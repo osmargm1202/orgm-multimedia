@@ -100,3 +100,22 @@ def test_unrelated_outputs_are_not_reconfigured(monkeypatch):
     monkeypatch.setattr("orgm_home.display.command", command)
     asyncio.run(DisplayManager().update())
     command.assert_awaited_once_with("swaymsg", "-r", "-t", "get_outputs")
+
+
+def test_hdmi_reconnect_moves_existing_audio_and_unmutes_only_once(monkeypatch):
+    async def fake(*args, **kwargs):
+        if args[-1] == 'cards':
+            return '[]'
+        if args[-1] == 'sink-inputs':
+            return '[{"index": 7}]'
+        if args[0] == 'pw-dump':
+            return json.dumps([{'id': 23, 'info': {'props': {'media.class': 'Audio/Sink', 'node.name': 'alsa_output.pci.hdmi-stereo'}}}])
+        return ''
+    command = AsyncMock(side_effect=fake)
+    monkeypatch.setattr('orgm_home.display.command', command)
+    asyncio.run(select_hdmi_audio(reconnect=True))
+    command.assert_any_await('wpctl', 'set-mute', '23', '0')
+    command.assert_any_await('pactl', 'move-sink-input', '7', 'alsa_output.pci.hdmi-stereo')
+    command.reset_mock()
+    asyncio.run(select_hdmi_audio(reconnect=False))
+    assert not any('set-mute' in call.args or 'move-sink-input' in call.args for call in command.call_args_list)

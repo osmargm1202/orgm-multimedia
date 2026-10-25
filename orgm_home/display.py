@@ -77,13 +77,13 @@ class DisplayManager:
                 # output focused when the mirror maps or is restarted.
                 await command("swaymsg", f"focus output {self.source}")
             self.connected = True
-            await select_hdmi_audio()
+            await select_hdmi_audio(reconnect=changed)
         else:
             await self.stop_mirror()
         self.connected = bool(target)
 
 
-async def select_hdmi_audio():
+async def select_hdmi_audio(reconnect=False):
     cards = json.loads(await command("pactl", "-f", "json", "list", "cards"))
     for card in cards:
         candidates = [
@@ -107,6 +107,13 @@ async def select_hdmi_audio():
             and "hdmi" in props.get("node.name", "").lower()
         ):
             await command("wpctl", "set-default", str(int(node["id"])))
+            if reconnect:
+                # A stream opened before the cable may retain the laptop sink.
+                # Reset mute only on connection, preserving the user's later choice.
+                await command("wpctl", "set-mute", str(int(node["id"])), "0")
+                streams = json.loads(await command("pactl", "-f", "json", "list", "sink-inputs"))
+                for stream in streams:
+                    await command("pactl", "move-sink-input", str(int(stream["index"])), props["node.name"])
             break
 
 

@@ -15,13 +15,15 @@ Scope {
     property var capabilities: ({})
     property bool online: false
     property string activeName: "ORGM Home"
+    property bool handleQuiet: false
     readonly property string sourceOutput: Quickshell.env("ORGM_DISPLAY_SOURCE") || "eDP-1"
     readonly property string output: sourceOutput
     readonly property bool tabletMode: true
 
     function overlay(panel) { panel.WlrLayershell.layer = WlrLayer.Overlay; }
     function show() { opened = true; controlsOpened = true; hideControls.stop(); }
-    function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); }
+    function wakeHandle() { handleQuiet=false; quietHandle.restart(); }
+    function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); wakeHandle(); }
     function toggle() { if (opened) hide(); else show(); }
     function retry() { if (!engine.running) { ready = false; error = ""; engine.running = true; } }
     function send(value) { if (engine.running) engine.write(JSON.stringify(value) + "\n"); }
@@ -32,6 +34,7 @@ Scope {
         hideControls.restart();
     }
     Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened) root.controlsOpened = false; } }
+    Timer { id: quietHandle; interval: 6000; running:true; onTriggered:root.handleQuiet=true }
     Process {
         id: engine
         command: [Quickshell.env("ORGM_OSK_ENGINE") || "orgm-osk-engine"]
@@ -75,7 +78,7 @@ Scope {
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
         function controls(): void { root.controlsOpened=true; hideControls.restart(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,panels:root.panels.map(p=>p.snapshot())}); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,handleQuiet:root.handleQuiet,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -112,7 +115,8 @@ Scope {
                 id: handle
                 screen: surface.modelData
                 visible: !root.controlsOpened && !root.opened
-                anchors.bottom: true
+                anchors { bottom:true; left:true }
+                margins { left:12; bottom:8 }
                 implicitWidth: 164
                 implicitHeight: 52
                 exclusionMode: ExclusionMode.Ignore
@@ -120,10 +124,11 @@ Scope {
                 aboveWindows: true
                 color: "transparent"
                 Component.onCompleted: root.overlay(this)
-                Rectangle { anchors.centerIn:parent; width:128; height:34; radius:12; color:"#242d40"
-                    Text { anchors.centerIn:parent; text:"Mando táctil"; font.pixelSize:14; color:"#f2f5fc" }
+                Rectangle { anchors.centerIn:parent; width:128; height:34; radius:12; color:root.handleQuiet?"transparent":"#242d40"
+                    Behavior on color { ColorAnimation { duration:450 } }
+                    Text { anchors.centerIn:parent; text:"Mando táctil"; font.pixelSize:14; color:root.handleQuiet?"#8b8d94":"#f2f5fc"; Behavior on color { ColorAnimation { duration:450 } } }
                 }
-                MouseArea { anchors.fill:parent; onClicked: { root.controlsOpened=true; hideControls.restart(); } }
+                MouseArea { anchors.fill:parent; hoverEnabled:true; onEntered:root.wakeHandle(); onExited:quietHandle.restart(); onClicked: { root.wakeHandle(); root.controlsOpened=true; hideControls.restart(); } }
             }
             PanelWindow {
                 id: controls
