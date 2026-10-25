@@ -471,3 +471,26 @@ def test_terminal_paste_uses_ctrl_shift_v(controller,monkeypatch):
     monkeypatch.setattr('orgm_home.agent.command',command)
     run(controller.enter_text('texto literal',terminal=True))
     controller.native_key.assert_awaited_once_with(47,modifiers=5)
+
+
+def test_native_pipewire_stream_uses_client_pid_for_audio_focus(controller, monkeypatch):
+    spotify_app(controller)
+    view=window('browser',80)
+    controller.tree=AsyncMock(return_value={'nodes':[view]})
+    monkeypatch.setattr(controller,'ancestors',lambda pid:{str(pid)})
+    streams=[{'index':1,'client':'21','mute':False,'corked':False,'properties':{'application.name':'Spotify'}},
+             {'index':2,'client':'22','mute':True,'corked':False,'properties':{'application.name':'mpv'}}]
+    clients=[{'index':21,'properties':{'application.name':'Spotify','application.process.id':'4','pipewire.sec.flatpak':'true','pipewire.sec.pid':'12345'}},
+             {'index':22,'properties':{'application.process.id':str(view['pid'])}}]
+    async def command(*args,**kwargs):
+        if args[-1]=='sink-inputs':return json.dumps(streams)
+        if args[-1]=='clients':return json.dumps(clients)
+        return ''
+    mocked=AsyncMock(side_effect=command)
+    monkeypatch.setattr('orgm_home.agent.command',mocked)
+    run(controller.reconcile_audio())
+    mocked.assert_any_await('playerctl','--player=spotify','pause',check=False)
+    mocked.assert_any_await('pactl','set-sink-input-mute','2','0')
+    assert controller.audio_app=='browser'
+    enriched=run(controller.audio_streams())
+    assert enriched[0]['properties']['application.process.id']=='12345'

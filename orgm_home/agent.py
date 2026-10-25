@@ -278,10 +278,23 @@ class Controller:
                 return app
         return None
 
+    async def audio_streams(self):
+        streams = json.loads(await command("pactl", "-f", "json", "list", "sink-inputs"))
+        # Native PipeWire nodes can omit the PID; their client retains it.
+        # Flatpak's application PID is namespaced, so use its host security PID.
+        if any(not stream.get("properties", {}).get("application.process.id") for stream in streams):
+            clients = {}
+            with contextlib.suppress(ControlError, ValueError):
+                clients = {str(client["index"]): client.get("properties", {}) for client in json.loads(await command("pactl", "-f", "json", "list", "clients"))}
+            for stream in streams:
+                props = {**clients.get(str(stream.get("client")), {}), **stream.get("properties", {})}
+                if str(props.get("pipewire.sec.flatpak", "")).lower() == "true" and props.get("pipewire.sec.pid"):
+                    props["application.process.id"] = props["pipewire.sec.pid"]
+                stream["properties"] = props
+        return streams
+
     async def mute_application(self, app, muted):
-        streams = json.loads(
-            await command("pactl", "-f", "json", "list", "sink-inputs")
-        )
+        streams = await self.audio_streams()
         views = list(windows(await self.tree()))
         matched = False
         for stream in streams:
@@ -303,9 +316,7 @@ class Controller:
         active = self.identify(focused) if focused else self.apps.get(self.active)
         if active:
             self.active = active.id
-        streams = json.loads(
-            await command("pactl", "-f", "json", "list", "sink-inputs")
-        )
+        streams = await self.audio_streams()
         owned = [(stream, self.stream_app(stream, views)) for stream in streams]
         interrupts_music = bool(
             active and active.id not in {"home", "spotify"}
