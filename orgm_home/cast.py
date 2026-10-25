@@ -15,6 +15,7 @@ import socket
 import time
 import uuid
 from contextlib import asynccontextmanager
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -146,7 +147,7 @@ class NativeBridge:
                     headers = {k: v for k, v in response.headers.items()
                                if k.lower() in {"content-type", "location", "application-url"}}
                     return response.status, headers, content, base
-            except (OSError, URLError):
+            except (OSError, URLError, HTTPException):
                 continue
         self.port = None
         raise ControlError("El receptor de YouTube todavía no está listo", 503)
@@ -157,9 +158,6 @@ class Discovery(asyncio.DatagramProtocol):
         self.networks, self.identity = networks, identity
         self.addresses = set()
         self.limits = {}
-        self.reply = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.reply.bind(("0.0.0.0", PORT))
-        self.reply.setblocking(False)
 
     def connection_made(self, transport):
         self.transport = transport
@@ -190,7 +188,7 @@ class Discovery(asyncio.DatagramProtocol):
                       f"SERVER: Linux UPnP/1.0 ORGMHome/1.0\r\nST: {st}\r\n"
                       f"USN: uuid:{self.identity}::{st}\r\n\r\n").encode()
             try:
-                self.reply.sendto(packet, peer)
+                self.transport.sendto(packet, peer)
             except OSError:
                 pass
             break
@@ -234,7 +232,6 @@ def create_app(launcher=None, bridge=None, networks=None, discovery=True):
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
             transport.close()
-            protocol.reply.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 

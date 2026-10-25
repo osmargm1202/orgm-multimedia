@@ -35,6 +35,11 @@ Variables: `ORGM_DIAL_NETWORKS` contiene las subredes IPv4 autorizadas y
 `ORGM_DIAL_NAME` el nombre anunciado. VacuumTube necesita Device Discoverability
 activado; viene activado en la instalación comprobada de Jarq.
 
+En Jarq, el mando tiene además una entrada privada por Wi-Fi en
+`http://10.0.0.98`, con la misma vinculación y protección CSRF. El nombre
+`http://home.or-gm.com` sigue resolviendo a la IP de Tailscale: para usar ese
+nombre hace falta Tailscale conectado o una resolución DNS local equivalente.
+
 **Max:** Opciones → Desde el teléfono permite enviar un enlace HTTPS de
 `max.com` o `hbomax.com` a su webapp, usando el perfil y la sesión de Max en Jarq.
 Requiere un mando vinculado. No emula un Chromecast ni un receptor certificado

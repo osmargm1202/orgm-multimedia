@@ -1,6 +1,7 @@
 import io
 import ipaddress
 import json
+from http.client import BadStatusLine
 from unittest.mock import Mock
 
 import pytest
@@ -92,6 +93,7 @@ def test_discovery_only_answers_trusted_dial_searches(monkeypatch):
     reply = Mock()
     monkeypatch.setattr(cast.socket, "socket", lambda *a, **kw: reply)
     protocol = cast.Discovery([ipaddress.ip_network("10.0.0.0/24")], "test-uuid")
+    protocol.connection_made(reply)
     protocol.addresses = {"10.0.0.98"}
     packet = f'M-SEARCH * HTTP/1.1\r\nMAN: "ssdp:discover"\r\nST: {cast.SERVICE}\r\n\r\n'.encode()
     protocol.datagram_received(packet, ("8.8.8.8", 1234))
@@ -129,3 +131,19 @@ def test_launcher_pairs_once_then_reuses_its_cookie_and_csrf(monkeypatch, tmp_pa
     launcher.activate()
     launcher.activate()
     assert len(requests) == 3
+
+
+def test_native_bridge_skips_non_http_media_sockets(monkeypatch):
+    monkeypatch.setattr(cast, "native_ports", lambda: [40000, 40001])
+    bridge = cast.NativeBridge()
+    def open_request(request, timeout):
+        if ':40000/' in request.full_url:
+            raise BadStatusLine('{"type":"Tier1"}')
+        response = io.BytesIO(b'<service><name>YouTube</name><state>running</state></service>')
+        response.status = 200
+        response.headers = {"Content-Type": "text/xml"}
+        return response
+    bridge.client = Mock(open=open_request)
+    code, _, content, base = bridge.request("GET", "/apps/YouTube")
+    assert code == 200 and b'<name>YouTube</name>' in content
+    assert base == 'http://127.0.0.1:40001' and bridge.port == 40001
