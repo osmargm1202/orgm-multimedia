@@ -12,6 +12,7 @@ import re
 import signal
 import socket
 import struct
+import subprocess
 import time
 
 from .config import Settings, load_catalog
@@ -126,15 +127,18 @@ class Controller:
     async def spawn(self, args):
         log = (self.state_dir / "applications.log").open("ab")
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *args, stdout=log, stderr=log, start_new_session=True
+            # Popen is intentional: asyncio subprocess transports kill their
+            # child on interpreter shutdown, closing apps on agent restart.
+            proc = subprocess.Popen(
+                args, stdout=log, stderr=log, start_new_session=True
             )
         finally:
             log.close()
         self.children.add(proc)
 
         async def reap():
-            await proc.wait()
+            while proc.poll() is None:
+                await asyncio.sleep(1)
             self.children.discard(proc)
 
         asyncio.create_task(reap())
