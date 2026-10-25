@@ -8,6 +8,7 @@ Scope {
     id: root
     property bool opened: false
     property bool controlsOpened: false
+    property bool controlsCollapsed: false
     property bool ready: false
     property string error: ""
     property real keyScale: 1
@@ -34,6 +35,8 @@ Scope {
     function show() { opened = true; controlsOpened = true; hideControls.stop(); }
     function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); }
     function toggle() { if (opened) hide(); else show(); }
+    function collapseControls() { optionsOpened = false; hide(); controlsOpened = false; controlsCollapsed = true; hideControls.stop(); }
+    function revealControls() { controlsCollapsed = false; controlsOpened = true; hideControls.restart(); }
     function retry() { if (!engine.running) { ready = false; error = ""; engine.running = true; } }
     function send(value) { if (engine.running) engine.write(JSON.stringify(value) + "\n"); }
     function act(action, argument) {
@@ -89,8 +92,8 @@ Scope {
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
         function options(): void { root.optionsOpened=true; root.controlsOpened=true; }
-        function controls(): void { root.controlsOpened=true; hideControls.restart(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,options:root.optionsOpened,panels:root.panels.map(p=>p.snapshot())}); }
+        function controls(): void { if (!root.controlsCollapsed) root.revealControls(); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -98,9 +101,24 @@ Scope {
             id: surface
             required property var modelData
             function reset() { board.reset(); }
-            function snapshot() { return {screen:modelData.name,keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
+            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2+12,y:24,buttonWidth:52,buttonStep:57},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
             Component.onCompleted: root.panels=[...root.panels,surface]
             Component.onDestruction: root.panels=root.panels.filter(p=>p!==surface)
+            PanelWindow {
+                id: handle
+                screen: surface.modelData
+                visible: !root.controlsOpened && !root.opened && !root.optionsOpened
+                anchors { top:true; left:true }
+                margins { top:12; left:12 }
+                implicitWidth:52
+                implicitHeight:44
+                exclusionMode:ExclusionMode.Ignore
+                focusable:false
+                aboveWindows:true
+                color:"transparent"
+                Component.onCompleted:root.overlay(this)
+                IconButton { anchors.fill:parent; icon:"show";label:"Mostrar controles";color:"#30161b27";onClicked:root.revealControls() }
+            }
             PanelWindow {
                 id: keyboard
                 screen: surface.modelData
@@ -144,14 +162,15 @@ Scope {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:5
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
                         IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
-                        Text { width:Math.max(90,controlsBackground.width-564); anchors.verticalCenter:parent.verticalCenter; text:root.error || root.activeName; elide:Text.ElideRight; color:root.error?"#ffc0b6":"#b5c2d9"; font.pixelSize:14 }
+                        IconButton { icon:"close";label:"Cerrar página";available:root.online && !!root.capabilities.close;onClicked:root.act("close") }
+                        Text { width:Math.max(90,controlsBackground.width-621); anchors.verticalCenter:parent.verticalCenter; text:root.error || root.activeName; elide:Text.ElideRight; color:root.error?"#ffc0b6":"#b5c2d9"; font.pixelSize:14 }
                         IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
                         IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
                         Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }
                         IconButton { icon:"volume-up";label:"Subir volumen";available:root.online;onClicked:root.act("volume-up") }
                         IconButton { icon:"keyboard";label:"Teclado";onClicked:root.toggle() }
                         IconButton { icon:"options";label:"Opciones";onClicked:{root.optionsOpened=!root.optionsOpened;hideControls.restart();} }
-                        IconButton { icon:"hide";label:"Ocultar controles";onClicked:{root.optionsOpened=false;root.hide();root.controlsOpened=false;} }
+                        IconButton { icon:"hide";label:"Ocultar controles";onClicked:root.collapseControls() }
                     }
                 }
             }

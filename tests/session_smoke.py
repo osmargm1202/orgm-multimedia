@@ -401,6 +401,50 @@ try:
         wait_for(lambda:client.get('/api/preferences').json().get('background')=='bosque')
         pointer.move(1882,138,3840,1080);pointer.button(True);pointer.button(False)
         wait_for(lambda:not touch_status().get('options'))
+        # Collapse the real bar and recover it using only its subtle arrow.
+        def click_at(x, y):
+            pointer.move(x, y, 3840, 1080)
+            pointer.button(True)
+            pointer.button(False)
+
+        panel = touch_status()['panels'][0]
+        click_at(panel['controls']['x'] + 855, 50)
+        wait_for(lambda: touch_status()['collapsed'] and touch_status()['panels'][0]['handle']['visible'])
+        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
+        assert not touch_status()['controls'], 'Physical wake must respect manual collapse'
+        if shutil.which('grim'):
+            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'controls-collapsed.png')],env=env)
+        click_at(38, 34)
+        wait_for(lambda: touch_status()['controls'] and not touch_status()['collapsed'])
+        # A real app-mode popup must close without destroying its original window.
+        netflix_port_file = home / '.local/share/orgm-home/chrome/netflix/DevToolsActivePort'
+        netflix_browser = playwright.chromium.connect_over_cdp('http://127.0.0.1:' + netflix_port_file.read_text().splitlines()[0])
+        original_page = netflix_browser.contexts[0].pages[0]
+        client.post('/api/apps/netflix/activate', json={}).raise_for_status()
+        original_page.evaluate("""() => {
+            const button = document.createElement('button');
+            button.id = 'extra';
+            button.textContent = 'Abrir página adicional';
+            button.onclick = () => window.open(location.href, 'extra', 'width=700,height=500');
+            document.body.append(button);
+        }""")
+        with original_page.expect_popup() as opened_popup:
+            original_page.locator('#extra').click()
+        popup = opened_popup.value
+        popup.wait_for_load_state()
+        popup_window = wait_for(lambda: next((w for w in leaves(tree()) if w.get('focused') and w['id'] != app_mode['id']), None))
+        assert client.get('/api/status').json()['app'] == 'netflix'
+        wait_for(lambda: touch_status()['controls'])
+        time.sleep(1.6)
+        if shutil.which('grim'):
+            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'popup-close-control.png')],env=env)
+        panel = touch_status()['panels'][0]
+        with popup.expect_event('close'):
+            click_at(panel['controls']['x'] + 140, 50)
+        wait_for(lambda: client.get('/api/status').json()['app'] == 'netflix' and any(w['id'] == app_mode['id'] and w.get('focused') for w in leaves(tree())))
+        assert not original_page.is_closed()
+        assert all(w['id'] != popup_window['id'] for w in leaves(tree()))
+        client.post('/api/apps/browser/activate', json={}).raise_for_status()
         destination = "https://example.com/?q=orgm%20home#prueba"
         response = client.post("/api/browser/open-url", json={"url": destination})
         assert response.status_code == 200, response.text
@@ -466,6 +510,8 @@ try:
                     "Home preserves windows",
                     "agent restart reuses window",
                     "API restart retains session",
+                    "collapsed arrow restores controls",
+                    "native X closes popup and retains original webapp",
                 ],
             }
         )

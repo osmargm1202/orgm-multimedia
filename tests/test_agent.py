@@ -308,3 +308,82 @@ def test_web_back_uses_real_alt_left_keycode(controller, monkeypatch):
     controller.native_key = AsyncMock()
     run(controller.dispatch({"action": "key", "key": "back"}))
     controller.native_key.assert_awaited_once_with(105, modifiers=8)
+
+
+def test_activation_prefers_original_window_over_popup(controller):
+    original, popup = window("browser", 50), window("browser", 51)
+    original["marks"] = ["orgm-home-browser"]
+    controller.tree = AsyncMock(return_value={"nodes": [popup, original]})
+    assert run(controller.find(controller.apps["browser"]))["id"] == 50
+
+
+def test_close_targets_focused_popup_and_returns_to_original(controller):
+    original, popup = window("browser", 50), window("browser", 51)
+    original["focused"] = False
+    original["marks"] = ["orgm-home-browser"]
+    controller.tree = AsyncMock(side_effect=[
+        {"nodes": [popup, original]},
+        {"nodes": [original]},
+        {"nodes": [original]},
+    ])
+    controller.activate = AsyncMock(return_value={"app": "browser"})
+    assert run(controller.dispatch({"action": "close"})) == {"app": "browser"}
+    controller.sway.assert_awaited_once_with("[con_id=51] kill")
+    controller.activate.assert_awaited_once_with("browser")
+
+
+def test_close_last_window_returns_home_without_relaunching(controller):
+    controller.tree = AsyncMock(side_effect=[
+        {"nodes": [window("youtube", 50)]}, {"nodes": []}, {"nodes": []}
+    ])
+    controller.activate = AsyncMock(return_value={"app": "home"})
+    run(controller.dispatch({"action": "close"}))
+    controller.sway.assert_awaited_once_with("[con_id=50] kill")
+    controller.activate.assert_awaited_once_with("home")
+
+
+@pytest.mark.parametrize("focused", [window("home"), {**window(), "app_id": "unmanaged"}])
+def test_close_never_targets_home_or_an_unmanaged_window(controller, focused):
+    controller.tree = AsyncMock(return_value={"nodes": [focused]})
+    with pytest.raises(ControlError):
+        run(controller.dispatch({"action": "close"}))
+    controller.sway.assert_not_called()
+
+
+def test_chrome_popup_with_generic_app_id_belongs_to_its_profile(controller, monkeypatch):
+    popup = window("browser")
+    popup["app_id"] = "google-chrome"
+    profile = Path.home() / ".local/share/orgm-home/chrome/browser"
+    monkeypatch.setattr(Path, "read_bytes", lambda self: f"chrome\0--user-data-dir={profile}\0".encode())
+    assert controller.identify(popup).id == "browser"
+
+
+def test_new_chrome_popup_is_visible_over_its_fullscreen_opener(controller):
+    original, popup = window("browser", 50), window("browser", 51)
+    popup["focused"] = False
+    controller.known_windows = {50}
+    controller.tree = AsyncMock(return_value={"nodes": [original, popup]})
+    run(controller.reconcile_windows())
+    controller.sway.assert_any_await("[con_id=51] fullscreen enable")
+    controller.sway.assert_any_await("[con_id=51] focus")
+    controller.sway.reset_mock()
+    run(controller.reconcile_windows())
+    controller.sway.assert_not_called()
+
+
+@pytest.mark.parametrize("focused_app", ["home", "youtube"])
+def test_background_popup_cannot_steal_focus(controller, focused_app):
+    active, popup = window(focused_app, 50), window("browser", 51)
+    popup["focused"] = False
+    controller.known_windows = {50}
+    controller.tree = AsyncMock(return_value={"nodes": [active, popup]})
+    run(controller.reconcile_windows())
+    controller.sway.assert_not_called()
+
+
+def test_restarting_agent_does_not_focus_existing_popups(controller):
+    original, popup = window("browser", 50), window("browser", 51)
+    popup["focused"] = False
+    controller.tree = AsyncMock(return_value={"nodes": [original, popup]})
+    run(controller.reconcile_windows())
+    controller.sway.assert_not_called()

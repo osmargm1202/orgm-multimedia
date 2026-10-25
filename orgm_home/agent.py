@@ -98,6 +98,7 @@ class Controller:
         self.warning = None
         self.processes = {}
         self.keyboard = None
+        self.known_windows = None
 
     async def sway(self, value):
         raw = await command("swaymsg", "-r", value)
@@ -124,7 +125,7 @@ class Controller:
         # app_id. Match the compositor-owned PID to its dedicated profile;
         # titles and redirects must not affect application identity.
         pid = window.get("pid")
-        if isinstance(pid, int) and pid > 0 and "chrome-" in value:
+        if isinstance(pid, int) and pid > 0:
             try:
                 args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
             except OSError:
@@ -147,8 +148,12 @@ class Controller:
         return None
 
     async def find(self, app):
+        matches = [w for w in windows(await self.tree()) if self.identify(w) == app]
+        # A popup may precede its opener in Sway's tree. Keep activation tied
+        # to the original marked window rather than replacing it with an ad.
         return next(
-            (w for w in windows(await self.tree()) if self.identify(w) == app), None
+            (w for w in matches if f"orgm-home-{app.id}" in w.get("marks", [])),
+            next(iter(matches), None),
         )
 
     async def spawn(self, args):
@@ -272,6 +277,32 @@ class Controller:
                         str(int(stream["index"])),
                         "1" if muted else "0",
                     )
+
+    async def reconcile_windows(self):
+        views = list(windows(await self.tree()))
+        current_ids = {w["id"] for w in views}
+        previous, self.known_windows = self.known_windows, current_ids
+        if previous is None:
+            return
+        focused = next((w for w in views if w.get("focused")), None)
+        active = self.identify(focused) if focused else self.apps.get(self.active)
+        # Chromium popups can map behind a fullscreen opener. Show a new
+        # window only for the app currently in use; background ads cannot
+        # switch the household away from Home or a different application.
+        fresh = [
+            w for w in views
+            if w["id"] not in previous
+            and (owner := self.identify(w))
+            and owner.type == "chrome" and owner == active
+        ]
+        if fresh:
+            popup = max(fresh, key=lambda w: w["id"])
+            con_id = int(popup["id"])
+            await self.sway(
+                f"[con_id={con_id}] move container to workspace number {active.workspace}"
+            )
+            await self.sway(f"[con_id={con_id}] fullscreen enable")
+            await self.sway(f"[con_id={con_id}] focus")
 
     async def close_keyboard(self):
         process, self.keyboard = self.keyboard, None
@@ -639,14 +670,22 @@ class Controller:
                 await command("wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle")
                 return {"updated": True}
             if action == "close":
-                current = await self.status()
-                app = self.apps.get(current["app"])
+                focused = next(
+                    (w for w in windows(await self.tree()) if w.get("focused")), None
+                )
+                app = self.identify(focused) if focused else None
                 if not app or app.id == "home":
                     raise ControlError("El inicio permanece abierto", 409)
-                window = await self.find(app)
-                if window:
-                    await self.sway(f"[con_id={int(window['id'])}] kill")
-                return await self.activate("home")
+                con_id = int(focused["id"])
+                await self.sway(f"[con_id={con_id}] kill")
+                # xdg_toplevel.close is asynchronous: wait for this exact
+                # window to leave before selecting a surviving sibling.
+                deadline = time.monotonic() + 3
+                while any(w["id"] == con_id for w in windows(await self.tree())):
+                    if time.monotonic() >= deadline:
+                        raise ControlError("La página no se cerró. Inténtalo de nuevo.", 409)
+                    await asyncio.sleep(0.1)
+                return await self.activate(app.id if await self.find(app) else "home")
             if action == "local-files":
                 return await self.list_files()
             if action == "play-file":
@@ -741,6 +780,7 @@ async def serve():
         while not stop.is_set():
             try:
                 async with controller.lock:
+                    await controller.reconcile_windows()
                     await controller.reconcile_audio()
             except (ControlError, ValueError, OSError):
                 LOG.warning("Audio reconciliation unavailable; retrying")
