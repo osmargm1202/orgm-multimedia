@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from .agent import KEYS
 from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
+from .pump import install_routes as install_pump_routes
 from .urls import validate_url
 from .preferences import gallery
 from .previews import directory as preview_directory
@@ -178,6 +179,7 @@ def create_app(settings=None, agent=None):
     hosts = {urlsplit(origin).netloc for origin in origins}
     templates = Jinja2Templates(directory=str(ROOT / "templates"))
     app = FastAPI(title="ORGM Home", docs_url=None, redoc_url=None, openapi_url=None)
+    install_pump_routes(app)
     app.state.sessions = sessions
 
     @app.exception_handler(ControlError)
