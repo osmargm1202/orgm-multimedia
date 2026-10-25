@@ -27,7 +27,7 @@ class AgentClient:
             )
             writer.write(json.dumps({"action": action, **data}).encode() + b"\n")
             await writer.drain()
-            raw = await asyncio.wait_for(reader.readline(), 45 if action.startswith("wifi-") else 30)
+            raw = await asyncio.wait_for(reader.readline(), 90 if action == "wifi-reconnect" else 45 if action.startswith("wifi-") else 30)
             result = json.loads(raw)
             if not result.get("ok"):
                 raise ControlError(

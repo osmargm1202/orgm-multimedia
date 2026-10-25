@@ -106,3 +106,5 @@ El agente reconcilia el mute de los flujos de audio de cada aplicación para rec
 La política de luz pertenece a NixOS: 20% a los 20 segundos y cero al minuto. Además se apaga la retroiluminación con `bl_power=4`, manteniendo activas la salida eDP y su copia HDMI. Actividad restaura `bl_power=0`, brillo 100% y controles. La preferencia de fondo y la rotación se conservan en el estado de `media`.
 
 El inicio muestra todo el catálogo en una banda deslizable y las categorías viven en el lateral. Wi-Fi, fondos y administración tienen vistas independientes. Spotify ofrece anterior, Play/Pausa y siguiente sin cambiar el foco. Los reproductores MPRIS se asocian a su aplicación mediante el PID de D-Bus y el cgroup de Flatpak: al salir se pausan todos los videos en segundo plano, y al volver solo se reanudan las pausas realizadas por el launcher. Una pausa manual se conserva.
+
+«Reconectar» vuelve a asociar el perfil Wi-Fi guardado aunque NetworkManager todavía lo marque conectado; recupera enlaces Broadcom que responden a ping pero dejan de transportar DNS/HTTP. Conserva el perfil y no cambia contraseñas ni permisos de sistema.

@@ -82,3 +82,31 @@ def test_open_network_creates_only_a_user_owned_profile(tmp_path):
     add=next(args for args in calls if 'add' in args)
     assert add[add.index('connection.permissions')+1]=='user:media'
     assert not any('passwd-file' in args for args in calls)
+
+
+@pytest.mark.parametrize('connected',[True,False])
+def test_reconnect_reassociates_same_saved_profile_instead_of_accepting_stale_link(tmp_path,connected):
+    calls=[]
+    profile='67bd44c9-71b8-49d9-8480-bf3071562a1b'
+    async def run(*args,**kwargs):
+        calls.append(args)
+        if args[-2:]==('device','status'):
+            return 'wlp2s0:wifi:'+('connected:Casa' if connected else 'disconnected:')+'\n'
+        if 'GENERAL.CON-UUID' in args:return profile+'\n'
+        return ''
+    asyncio.run(Wifi(run,tmp_path).reconnect())
+    if connected:
+        disconnect=next(i for i,c in enumerate(calls) if 'disconnect' in c)
+        activate=next(i for i,c in enumerate(calls) if 'up' in c)
+        assert disconnect<activate
+        assert profile in calls[activate]
+    else:
+        assert any(c[-3:]==('device','connect','wlp2s0') for c in calls)
+        assert not any('disconnect' in c for c in calls)
+    assert not any('add' in c or 'modify' in c for c in calls)
+
+
+def test_reconnect_never_disconnects_without_a_valid_saved_uuid(tmp_path):
+    wifi,calls,_=backend(tmp_path)
+    with pytest.raises(ControlError):asyncio.run(wifi.reconnect())
+    assert not any('disconnect' in c for c in calls)

@@ -110,7 +110,18 @@ class Wifi:
 
     async def reconnect(self):
         async with self.lock:
-            device = (await self.device())[0]
+            device, _, state, _ = await self.device()
             await self.nm("radio", "wifi", "on")
-            await self.nm("--wait", "22", "device", "connect", device, timeout=26)
+            if state == "connected":
+                # device connect is a no-op on a stale, nominally connected
+                # Broadcom link. Reassociate the same saved profile instead.
+                profile = (await self.nm("-g", "GENERAL.CON-UUID", "device", "show", device)).strip()
+                try:
+                    profile = str(uuid.UUID(profile))
+                except ValueError as exc:
+                    raise ControlError("No se pudo identificar la red guardada", 409) from exc
+                await self.nm("--wait", "8", "device", "disconnect", device, timeout=11)
+                await self.nm("--wait", "35", "connection", "up", "uuid", profile, "ifname", device, timeout=39)
+            else:
+                await self.nm("--wait", "22", "device", "connect", device, timeout=26)
             return await self.status()
