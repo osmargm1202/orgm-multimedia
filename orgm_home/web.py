@@ -223,7 +223,7 @@ def create_app(settings=None, agent=None):
     @app.middleware("http")
     async def guard(request: Request, call_next):
         def reject(message, code):
-            return JSONResponse({"detail": message}, status_code=code)
+            return JSONResponse({"detail": message}, status_code=code, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
         host = request.headers.get("host", "")
         if host not in hosts:

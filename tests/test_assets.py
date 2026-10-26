@@ -22,3 +22,6 @@ def test_public_assets_cache_and_revalidate_but_private_data_does_not(configured
     assert client.get('/').headers['cache-control']=='no-store'
     r=client.get(asset_url('home.js'),headers={'accept-encoding':'gzip'})
     assert r.headers['content-encoding']=='gzip'
+    client.cookies.clear()
+    r=client.get('/api/status')
+    assert r.status_code==401 and r.headers['cache-control']=='no-store'
