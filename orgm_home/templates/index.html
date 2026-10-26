@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#161b27">
   <title>ORGM Home</title>
-  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/home.css">
-  <script src="/static/home.js" defer></script>
-  <link rel="stylesheet" href="/static/cinema.css">
-  <link rel="stylesheet" href="/static/remote.css">
-  <link rel="stylesheet" href="/static/pump.css">
-  <script src="/static/pump.js" defer></script>
+  <link rel="icon" href="{{ asset('icon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ asset('home.css') }}">
+  <script src="{{ asset('home.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ asset('cinema.css') }}">
+  <link rel="stylesheet" href="{{ asset('remote.css') }}">
+  <link rel="stylesheet" href="{{ asset('pump.css') }}">
+  <script src="{{ asset('pump.js') }}" defer></script>
 </head>
-<body>
+<body data-assets="{{ assets_version }}" data-asset-files="{{ asset_files | tojson | forceescape }}">
   <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
@@ -47,11 +47,11 @@
       <button role="tab" data-category="{{ id }}" aria-selected="false"><svg><use href="#i-{{ icon }}"/></svg><span>{{ label }}</span></button>
       {% endfor %}
     </nav>
-    <button data-panel="settings" aria-label="Opciones"><img src="/static/icons/options.svg" alt=""><span>Opciones</span></button>
+    <button data-panel="settings" aria-label="Opciones"><img src="{{ asset('icons/options.svg') }}" alt=""><span>Opciones</span></button>
   </aside>
   <header class="masthead">
     <a class="brand" href="/" aria-label="ORGM Home, inicio"><span>ORGM <strong>Home</strong><small>Centro multimedia</small></span></a>
-    <div class="header-actions"><button id="connection" class="connection" data-wifi aria-label="Conectar Wi-Fi"><img src="/static/icons/wifi.svg" alt=""><span id="connection-label">Conectando</span></button><div class="room-clock"><time id="clock"></time><span id="calendar"></span></div></div>
+    <div class="header-actions"><button id="connection" class="connection" data-wifi aria-label="Conectar Wi-Fi"><img src="{{ asset('icons/wifi.svg') }}" alt=""><span id="connection-label">Conectando</span></button><div class="room-clock"><time id="clock"></time><span id="calendar"></span></div><button class="power-trigger" data-power-menu aria-label="Apagar o reiniciar Jarq" aria-haspopup="dialog" title="Apagar o reiniciar" disabled><img src="{{ asset('icons/power.svg') }}" alt=""><span>Apagar</span></button></div>
   </header>
 
   <main class="layout">
@@ -60,7 +60,7 @@
       <div class="app-grid" tabindex="0" aria-label="Aplicaciones, desliza para ver más">
       {% for app in apps %}
         <button class="app-tile app-{{ app.id }}" data-app="{{ app.id }}" data-category="{{ app.category }}" disabled>
-          <img class="app-art" src="/static/cards/{{ app.id }}.png" alt="" loading="lazy">
+          <img class="app-art" src="{{ asset('cards/' ~ app.id ~ '.webp') }}" alt="" loading="lazy">
           <span class="app-name">{{ app.name }}</span><span class="app-state" aria-hidden="true"></span>
         </button>
       {% endfor %}
@@ -74,7 +74,7 @@
       <div id="session-grid" class="session-grid"></div><p id="sessions-empty">Las aplicaciones que abras aparecerán aquí.</p>
     </section>
     <section id="music" class="music dashboard-panel" aria-labelledby="music-title">
-      <button class="music-cover" data-app="spotify" aria-label="Abrir Spotify"><img src="/static/cards/spotify.png" alt=""></button>
+      <button class="music-cover" data-app="spotify" aria-label="Abrir Spotify"><img src="{{ asset('cards/spotify.webp') }}" alt=""></button>
       <div class="music-copy"><h2 id="music-title">Spotify</h2><p id="song-title">Elige música en Spotify</p><span id="song-artist">La música sigue contigo mientras navegas.</span><button class="text-button" data-app="spotify">Abrir Spotify</button></div>
       <div class="music-controls" role="group" aria-label="Reproducción de Spotify">
         <button data-spotify="previous" aria-label="Canción anterior" disabled><svg><use href="#i-previous"/></svg></button>
@@ -109,11 +109,11 @@
     </section>
 
     <section id="settings" class="settings" aria-labelledby="settings-title" hidden>
-      <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-return aria-label="Cerrar opciones"><img src="/static/icons/close.svg" alt=""></button></div>
+      <div class="settings-heading"><h2 id="settings-title">Opciones</h2><button class="icon-button" data-return aria-label="Cerrar opciones"><img src="{{ asset('icons/close.svg') }}" alt=""></button></div>
       <div id="settings-menu" class="settings-menu">
-        <button data-settings-view="backgrounds"><img src="/static/icons/background.svg" alt=""><span>Fondos</span></button>
-        <button data-settings-view="cast"><img src="/static/icons/cast.svg" alt=""><span>Desde el teléfono</span></button>
-        <button data-settings-view="admin"><img src="/static/icons/options.svg" alt=""><span>Administración</span></button>
+        <button data-settings-view="backgrounds"><img src="{{ asset('icons/background.svg') }}" alt=""><span>Fondos</span></button>
+        <button data-settings-view="cast"><img src="{{ asset('icons/cast.svg') }}" alt=""><span>Desde el teléfono</span></button>
+        <button data-settings-view="admin"><img src="{{ asset('icons/options.svg') }}" alt=""><span>Administración</span></button>
       </div>
       <section id="cast-view" class="cast-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
         <h3>Desde el teléfono</h3>
@@ -134,9 +134,9 @@
       </section>
       <section id="admin-view" class="admin-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button><h3>Administración</h3>
         <p class="field-hint">La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.</p>
-        <button data-admin="rotate"><img src="/static/icons/rotate.svg" alt=""><span>Voltear la pantalla</span></button>
-        <button data-admin="restart-launcher"><img src="/static/icons/restart-launcher.svg" alt=""><span>Reiniciar el launcher</span></button>
-        <button data-admin="reboot"><img src="/static/icons/reboot.svg" alt=""><span>Reiniciar el equipo</span></button>
+        <button data-admin="rotate"><img src="{{ asset('icons/rotate.svg') }}" alt=""><span>Voltear la pantalla</span></button>
+        <button data-admin="restart-launcher"><img src="{{ asset('icons/restart-launcher.svg') }}" alt=""><span>Reiniciar el launcher</span></button>
+        <button data-admin="reboot"><img src="{{ asset('icons/reboot.svg') }}" alt=""><span>Reiniciar el equipo</span></button>
       </section>
     </section>
 
@@ -148,16 +148,18 @@
   <nav id="controller-nav" class="controller-nav" aria-label="Mando de la sala" hidden>
     <button data-panel="remote"><svg><use href="#i-remote"/></svg><span>Mando</span></button>
     <button data-panel="sources"><svg><use href="#i-grid"/></svg><span>Aplicaciones</span></button>
-    <button data-panel="settings"><img src="/static/icons/options.svg" alt=""><span>Opciones</span></button>
+    <button data-panel="settings"><img src="{{ asset('icons/options.svg') }}" alt=""><span>Opciones</span></button>
   </nav>
   <dialog id="app-switcher" class="app-switcher" aria-labelledby="switcher-title">
-    <div class="settings-heading"><h2 id="switcher-title">Cambiar de aplicación</h2><button id="switcher-close" class="icon-button" aria-label="Cerrar selector"><img src="/static/icons/close.svg" alt=""></button></div>
+    <div class="settings-heading"><h2 id="switcher-title">Cambiar de aplicación</h2><button id="switcher-close" class="icon-button" aria-label="Cerrar selector"><img src="{{ asset('icons/close.svg') }}" alt=""></button></div>
     <p class="field-hint">Elige una de las aplicaciones abiertas en Jarq.</p>
     <div id="switcher-list" class="switcher-list"></div>
     <p id="switcher-empty" class="field-hint" hidden>Todavía no hay aplicaciones abiertas.</p>
     <button id="switcher-catalog" class="secondary"><svg><use href="#i-grid"/></svg>Abrir otra aplicación</button>
   </dialog>
   <dialog id="reboot-confirm"><h2>¿Reiniciar Jarq?</h2><p>Las aplicaciones se cerrarán y el equipo volverá al inicio.</p><div class="form-actions"><button id="reboot-cancel">Cancelar</button><button id="reboot-accept" class="primary">Reiniciar</button></div></dialog>
+  <dialog id="power-menu" class="power-menu" aria-labelledby="power-title"><div class="settings-heading"><h2 id="power-title">Encendido</h2><button id="power-close" class="icon-button" aria-label="Cerrar encendido"><img src="{{ asset('icons/close.svg') }}" alt=""></button></div><div class="power-choices"><button data-power-action="poweroff"><img src="{{ asset('icons/power.svg') }}" alt=""><span>Apagar el equipo</span></button><button data-power-action="reboot"><img src="{{ asset('icons/reboot.svg') }}" alt=""><span>Reiniciar</span></button></div></dialog>
+  <dialog id="shutdown-confirm" aria-labelledby="shutdown-title"><h2 id="shutdown-title">¿Apagar Jarq?</h2><p>Se cerrarán las aplicaciones y el equipo se apagará.</p><div class="form-actions"><button id="shutdown-cancel">Cancelar</button><button id="shutdown-accept" class="primary">Apagar</button></div></dialog>
   <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
 
 </body>

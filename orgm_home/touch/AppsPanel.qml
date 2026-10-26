@@ -38,7 +38,7 @@ Rectangle {
                     Accessible.role:Accessible.Button
                     Accessible.name:modelData.name+(selected?", en pantalla":"")
                     Accessible.onPressAction:picker.controller.selectApp(modelData.id)
-                    Image { x:6;y:6;width:parent.width-12;height:86;source:"file://"+(Quickshell.env("ORGM_ASSET_DIR") || Quickshell.shellPath("../static"))+"/cards/"+card.modelData.id+".png";fillMode:Image.PreserveAspectCrop }
+                    Image { x:6;y:6;width:parent.width-12;height:86;source:"file://"+(Quickshell.env("ORGM_ASSET_DIR") || Quickshell.shellPath("../static"))+"/cards/"+card.modelData.id+".webp";fillMode:Image.PreserveAspectCrop }
                     Text { x:10;y:100;width:parent.width-20;text:card.modelData.name;elide:Text.ElideRight;font.pixelSize:16;font.bold:true;color:"#f2f5fc" }
                     Text { x:10;y:122;width:parent.width-20;text:card.selected?"En pantalla":"Cambiar";font.pixelSize:12;color:"#b5c2d9" }
                     MouseArea { id:hit;anchors.fill:parent;hoverEnabled:true;onClicked:picker.controller.selectApp(card.modelData.id) }

@@ -10,6 +10,9 @@ let sessionSignature = '';
 let switcherSignature = '';
 let feedbackTimer;
 let pairingDeadline=0;
+let resourceNotice=null;
+const assetFiles=JSON.parse(document.body.dataset.assetFiles);
+const assetUrl=path=>`/static/${path}?v=${assetFiles[path]}`;
 let homeCursor=null;
 let homeAppSelection=null;
 const mobile = matchMedia('(max-width: 720px)');
@@ -65,6 +68,8 @@ function settingsView(view='menu') {
 function showPairing() { $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
 function render() {
   const online=Boolean(state.session);
+  const notice=state.resources?.notice;
+  if(notice && notice.id!==resourceNotice){resourceNotice=notice.id;feedback(notice.message,true);}
   $('#connection-label').textContent=online ? 'Sala conectada' : 'Sala sin conexión';
   $('#connection').className=`connection ${online ? 'online' : 'error'}`;
   const active=labels[state.app] || 'Selecciona una aplicación';
@@ -92,6 +97,7 @@ function render() {
     button.setAttribute('aria-pressed',String(button.dataset.background===state.background));
   });
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
+  $$('[data-power-menu]').forEach(button=>button.disabled=!online || busy || !csrf);
   $('#max-form button').disabled=!online || busy;
   $('#local-pairing').hidden=!kiosk;
   $('#generate-pair-code').disabled=!online || busy;
@@ -102,7 +108,7 @@ function render() {
     button.setAttribute('aria-pressed',String(button.dataset.app===state.app));
     button.setAttribute('aria-label',`${labels[button.dataset.app]}${button.dataset.app===state.app ? ', en pantalla' : (state.open || []).includes(button.dataset.app) ? ', abierta' : ''}`);
     const art=button.querySelector('.app-art');
-    if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : `/static/cards/${id}.png`;if(art.getAttribute('src')!==url)art.src=url;}
+    if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : assetUrl(`cards/${id}.webp`);if(art.getAttribute('src')!==url)art.src=url;}
   });
   $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && key==='backspace');button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],[data-switcher],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
@@ -172,14 +178,14 @@ function renderSwitcher() {
         if(await act(`apps/${id}/switch`)){$('#app-switcher').close();showPanel(defaultPanel);}
       });
       const close=document.createElement('button');close.className='switcher-remove';close.setAttribute('aria-label',`Cerrar ${labels[id]}`);
-      const icon=document.createElement('img');icon.src='/static/icons/close.svg';icon.alt='';close.append(icon);
+      const icon=document.createElement('img');icon.src=assetUrl('icons/close.svg');icon.alt='';close.append(icon);
       close.addEventListener('click',async()=>{if(await act(`apps/${id}/close`,{},`${labels[id]} cerrada`))($('#switcher-list button') || $('#switcher-catalog')).focus();});
       row.append(button,close);list.append(row);
     }
   }
   $$('#switcher-list [data-switch-app]').forEach(button=>{
     const id=button.dataset.switchApp;
-    const url=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:`/static/cards/${id}.png`;
+    const url=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:assetUrl(`cards/${id}.webp`);
     if(button.querySelector('img').getAttribute('src')!==url)button.querySelector('img').src=url;
   });
   $$('#switcher-list button').forEach(button=>button.disabled=busy || !state.session);
@@ -198,14 +204,14 @@ function renderSessions() {
   for(const id of opened){
     const card=document.createElement('div');card.className='session-item';
     const button=document.createElement('button');button.className='session-card';button.dataset.app=id;
-    const image=document.createElement('img');image.alt='';image.src=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:`/static/cards/${id}.png`;
+    const image=document.createElement('img');image.alt='';image.src=state.previews?.[id]?`/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}`:assetUrl(`cards/${id}.webp`);
     const caption=document.createElement('span');caption.className='session-caption';caption.textContent=labels[id];
     const hint=document.createElement('span');hint.className='session-hint';hint.textContent=state.previews?.[id]?'Captura reciente':'Abierta';
     button.append(image,caption,hint);button.setAttribute('aria-label',`Volver a ${labels[id]}`);
     button.addEventListener('click',()=>selectApp(id,button));
     const close=document.createElement('button');close.className='session-close';close.dataset.closeApp=id;close.type='button';
     close.setAttribute('aria-label',`Cerrar ${labels[id]}`);close.title=`Cerrar ${labels[id]}`;
-    const icon=document.createElement('img');icon.src='/static/icons/close.svg';icon.alt='';close.append(icon);
+    const icon=document.createElement('img');icon.src=assetUrl('icons/close.svg');icon.alt='';close.append(icon);
     close.addEventListener('click',async()=>{
       const index=opened.indexOf(id);
       if(await act(`apps/${id}/close`,{},`${labels[id]} cerrada`)){
@@ -218,7 +224,7 @@ function renderSessions() {
 }
 async function refresh() {
   if (!csrf || busy) return;
-  try { state=await api('status'); render(); } catch(error) {state.session=false;render();if(csrf) $('#current-detail').textContent=error.message;}
+  try { state=await api('status?previews='+String(panel==='sources')); render(); } catch(error) {state.session=false;render();if(csrf) $('#current-detail').textContent=error.message;}
 }
 async function act(path, body={}, message='') {
   if(busy) return;
@@ -259,6 +265,11 @@ $$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
 }));
 $('#reboot-cancel').addEventListener('click',()=>$('#reboot-confirm').close());
 $('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();act('admin/reboot',{},'Reiniciando Jarq');});
+$$('[data-power-menu]').forEach(button=>button.addEventListener('click',()=>$('#power-menu').showModal()));
+$('#power-close').addEventListener('click',()=>$('#power-menu').close());
+$$('[data-power-action]').forEach(button=>button.addEventListener('click',()=>{$('#power-menu').close();$('#'+(button.dataset.powerAction==='poweroff'?'shutdown':'reboot')+'-confirm').showModal();}));
+$('#shutdown-cancel').addEventListener('click',()=>$('#shutdown-confirm').close());
+$('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close();act('admin/poweroff',{},'Apagando Jarq');});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
 $('#max-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('apps/max/open-url',{url:$('#max-url').value},'Enlace abierto en Max')){$('#max-url').value='';showPanel(defaultPanel);}});

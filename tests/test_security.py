@@ -366,7 +366,7 @@ def test_brightness_forwards_only_percentage(paired):
 
 def test_admin_routes_still_require_csrf(paired):
     client, agent, headers = paired
-    for route in ["admin/reboot", "admin/restart-launcher", "display/rotate"]:
+    for route in ["admin/reboot", "admin/poweroff", "admin/restart-launcher", "display/rotate"]:
         assert (
             client.post(
                 "/api/" + route, json={}, headers={"origin": "http://testserver"}
@@ -374,6 +374,15 @@ def test_admin_routes_still_require_csrf(paired):
             == 403
         )
     assert not agent.calls
+
+
+def test_poweroff_requires_a_paired_session(paired):
+    client,agent,headers=paired
+    assert client.post('/api/admin/poweroff',json={},headers=headers).status_code==200
+    assert agent.calls==[('poweroff',{})]
+    client.cookies.clear()
+    assert client.post('/api/admin/poweroff',json={},headers=headers).status_code==401
+    assert agent.calls==[('poweroff',{})]
 
 
 def test_close_by_id_requires_pairing_and_csrf(configured, paired):

@@ -17,10 +17,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.gzip import GZipMiddleware
 import jwt
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
 from .agent import KEYS
+from .assets import asset_url, cache_control, MANIFEST
 from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .pump import install_routes as install_pump_routes
@@ -207,10 +209,12 @@ def create_app(settings=None, agent=None):
     origins = set(settings.origins)
     hosts = {urlsplit(origin).netloc for origin in origins}
     templates = Jinja2Templates(directory=str(ROOT / "templates"))
+    templates.env.globals.update(asset=asset_url, assets_version=MANIFEST['version'], asset_files=MANIFEST['files'])
     app = FastAPI(title="ORGM Home", docs_url=None, redoc_url=None, openapi_url=None)
     install_pump_routes(app)
     app.state.sessions = sessions
     app.state.pairing_codes = PairingCodes()
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=4)
 
     @app.exception_handler(ControlError)
     async def control_error(request, exc):
@@ -268,7 +272,7 @@ def create_app(settings=None, agent=None):
                 "X-Content-Type-Options": "nosniff",
                 "Referrer-Policy": "no-referrer",
                 "X-Frame-Options": "DENY",
-                "Cache-Control": "no-store",
+                "Cache-Control": cache_control(request.query_params.get('v')) if request.url.path.startswith('/static/') and response.status_code < 400 else "no-store",
                 "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
             }
         )
@@ -355,8 +359,10 @@ def create_app(settings=None, agent=None):
         return {"apps": [a.public() for a in apps.values()]}
 
     @app.get("/api/status")
-    async def status():
+    async def status(previews: bool = False):
         try:
+            if previews:
+                await client.call('preview-demand')
             return await client.call("status")
         except ControlError as exc:
             return {
@@ -452,6 +458,10 @@ def create_app(settings=None, agent=None):
     @app.post("/api/admin/reboot")
     async def reboot():
         return await client.call("reboot")
+
+    @app.post("/api/admin/poweroff")
+    async def poweroff():
+        return await client.call("poweroff")
 
     @app.post("/api/display/brightness")
     async def brightness(payload: Brightness):

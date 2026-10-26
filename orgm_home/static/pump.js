@@ -4,6 +4,7 @@
   trigger.type = 'button';
   trigger.id = 'pump-open';
   trigger.className = 'pump-open';
+  trigger.setAttribute('aria-label', 'Bomba de agua');
   trigger.setAttribute('aria-haspopup', 'dialog');
   trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-12Z"/><path d="M8 15a4 4 0 0 0 4 4"/></svg><span>Bomba</span>';
   (document.querySelector('.header-actions') || document.querySelector('.masthead')).append(trigger);

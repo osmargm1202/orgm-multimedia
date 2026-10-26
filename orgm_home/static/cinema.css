@@ -1,9 +1,9 @@
 /* Cinematic launcher: full cover art, real open-window previews and music. */
-body{padding-left:112px;background:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-night.png') center/cover fixed no-repeat}
-body[data-background=bosque]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-bosque.png')}
-body[data-background=dunas]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-dunas.png')}
-body[data-background=orbita]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-orbita.png')}
-body[data-background=aurora]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-aurora.png')}
+body{padding-left:112px;background:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-night.webp?v=8751eee24aed') center/cover fixed no-repeat}
+body[data-background=bosque]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-bosque.webp?v=58b3b7e9a976')}
+body[data-background=dunas]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-dunas.webp?v=64e785c5d8d3')}
+body[data-background=orbita]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-orbita.webp?v=21a77cfb076a')}
+body[data-background=aurora]{background-image:linear-gradient(90deg,#050b14de,#07101ba6),url('/static/home-aurora.webp?v=88ce5b0ccfe9')}
 /* The rail is the category selector; the catalogue always starts complete. */
 body{padding-left:124px}
 .side-nav{position:fixed;left:0;top:0;bottom:0;width:108px;background:#050b13ed;border-right:1px solid #b9c9ff16;padding:18px 8px;display:flex;flex-direction:column;gap:10px;z-index:3;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#445d7a transparent}
@@ -35,6 +35,13 @@ body{padding-left:124px}
 .session-close{position:absolute;top:4px;right:4px;width:44px;height:44px;min-height:44px;padding:12px;display:grid;place-items:center;border-radius:50%;background:#07101bd9;color:#e3ecf8;border:1px solid #b9c9ff33}
 .session-close img{width:18px;height:18px}.session-close:hover:enabled{background:#293e55}.session-close:disabled{opacity:.5}
 .session-close:focus-visible{position:absolute;z-index:1}
+.power-trigger{display:flex;align-items:center;justify-content:center;gap:8px;min-width:48px;min-height:48px;padding:10px 14px;background:var(--control);font-size:.85rem;font-weight:700;flex-shrink:0}
+.power-trigger img{width:24px;height:24px}
+.power-menu{width:min(420px,calc(100vw - 32px));max-width:none;padding:24px}
+.power-menu .settings-heading{margin-bottom:20px}.power-menu h2{font-size:1.4rem}
+.power-choices{display:grid;gap:12px}.power-choices button{display:flex;align-items:center;gap:14px;min-height:64px;padding:16px;text-align:left}.power-choices img{width:26px;height:26px}
+@media(max-width:720px){.masthead,.is-kiosk .masthead{flex-wrap:wrap}.power-trigger{width:44px;min-width:44px;padding:10px}.power-trigger span{display:none}}
+@media(max-width:420px){.header-actions .pump-open{width:44px;min-width:44px;padding:10px}.header-actions .pump-open span{display:none}}
 .is-kiosk .home-selected{outline:3px solid #b9ddff;outline-offset:-4px}
 .cast-options h3{margin-bottom:24px}.cast-service{max-width:65ch;margin-bottom:32px}.cast-service h4{font-size:1.1rem;margin-bottom:10px}.cast-service p{line-height:1.6;margin-bottom:16px}.cast-service .text-button{margin-top:14px}
 #pair-code{display:block;margin:20px 0 8px;font-size:2rem;font-weight:700;letter-spacing:.18em;font-variant-numeric:tabular-nums;color:var(--ink)}

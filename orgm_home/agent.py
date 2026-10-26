@@ -24,6 +24,7 @@ from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
 from .playback import Playback
+from .resources import CpuMeter, PressureGuard, terminate_family
 
 LOG = logging.getLogger(__name__)
 KEYS = {
@@ -107,11 +108,19 @@ class Controller:
         self.known_airplay_audio = None
         self.spotify_interrupted = False
         self.audio_app = None
+        self.resources = PressureGuard()
+        self.preview_until = 0
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
         self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
         self.playback = Playback(self.state_dir, self.apps, lambda *a, **k: command(*a, **k), self.identify, self.ancestors, self.mpv)
 
     async def refresh_media(self):
+        # Don't continuously redraw paused/hidden video sources while the user
+        # is watching a movie. The dashboard and visible remote catalogue opt in.
+        if self.resources.cpu is not None and self.resources.cpu >= self.resources.threshold:
+            return
+        if self.active != 'home' and time.monotonic() >= self.preview_until:
+            return
         views = list(windows(await self.tree()))
         for app in self.apps.values():
             if app.id == "home":
@@ -567,6 +576,7 @@ class Controller:
             # Chrome forwards this URL as a tab to the same profile/window.
             await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
+        self.resources.select(app.id)
         with contextlib.suppress(ControlError):
             await self.mute_application(app, False)
         with contextlib.suppress(ControlError, OSError, TimeoutError):
@@ -608,6 +618,7 @@ class Controller:
             "spotify": self.spotify,
             "open": opened,
             "warning": self.warning,
+            "resources": {"cpu": self.resources.cpu, "notice": self.resources.notice},
             "capabilities": {
                 "keys": bool(app and app.type != "airplay"),
                 "text": bool(app and app.control not in {"internal", "mpv"} and app.type != "airplay"),
@@ -621,6 +632,9 @@ class Controller:
 
     async def dispatch(self, request):
         action = request.get("action")
+        if action == 'preview-demand':
+            self.preview_until = time.monotonic() + 30
+            return {'accepted': True}
         if action in {"wifi-status", "wifi-scan"}:
             return await self.wifi.status(rescan=action == "wifi-scan")
         if action == "wifi-connect":
@@ -779,11 +793,11 @@ class Controller:
                     "orgm-home-touch",
                 )
                 return {"accepted": True}
-            if action == "reboot":
-                helper = shutil.which("orgm-home-reboot")
+            if action in {"reboot", "poweroff"}:
+                helper = shutil.which(f"orgm-home-{action}")
                 if not helper:
-                    raise ControlError("No está disponible el reinicio del equipo")
-                await command("systemd-run", "--user", "--collect", "--on-active=1s", "--timer-property=AccuracySec=1s", "--unit=orgm-home-reboot", helper)
+                    raise ControlError("No está disponible el control de encendido del equipo")
+                await command("systemd-run", "--user", "--collect", "--on-active=1s", "--timer-property=AccuracySec=1s", "--unit=orgm-home-power", helper)
                 return {"accepted": True}
             if action == "wifi-open":
                 ui = Path(__file__).parent / "touch/shell.qml"
@@ -879,6 +893,30 @@ class Controller:
                 return {"playing": name}
             raise ControlError("Acción no permitida", 422)
 
+    async def relieve_pressure(self, app_id):
+        async with self.lock:
+            app = self.apps.get(app_id)
+            if not app or app.id in {'home', 'spotify'} or app.type not in {'chrome', 'flatpak', 'mpv'}:
+                return False
+            views = list(windows(await self.tree()))
+            focused = next((w for w in views if w.get('focused')), None)
+            active = self.identify(focused) if focused else None
+            if not active or active == app:
+                return False
+            targets = [w for w in views if self.identify(w) == app]
+            if not targets:
+                return False
+            if app.type == 'flatpak':
+                await command('flatpak', 'kill', app.appId, check=False)
+            else:
+                roots = {w['pid'] for w in targets if isinstance(w.get('pid'), int) and w['pid'] > 1}
+                if not roots or not await asyncio.to_thread(terminate_family, roots):
+                    return False
+            self.processes.pop(app.id, None)
+            self.resources.closed(app.id, app.name)
+            LOG.warning('CPU sostenida %.0f%%: cerrada fuente en segundo plano %s; activa %s', self.resources.cpu or 0, app.id, active.id)
+            return True
+
     async def list_files(self):
         root = Path.home() / "Videos"
         root.mkdir(exist_ok=True)
@@ -969,7 +1007,22 @@ async def serve():
         while not stop.is_set():
             with contextlib.suppress(ControlError, ValueError, OSError):
                 await controller.refresh_media()
-            await asyncio.sleep(10)
+            await asyncio.sleep(20)
+
+    async def resource_policy():
+        meter = CpuMeter()
+        eligible = {a.id for a in controller.apps.values() if a.id not in {'home', 'spotify'} and a.type in {'chrome', 'flatpak', 'mpv'}}
+        while not stop.is_set():
+            with contextlib.suppress(ControlError, ValueError, OSError):
+                cpu = await asyncio.to_thread(meter.sample)
+                views = list(windows(await controller.tree()))
+                focused = next((w for w in views if w.get('focused')), None)
+                active = controller.identify(focused) if focused else None
+                opened = list(dict.fromkeys(a.id for w in views if (a := controller.identify(w))))
+                candidate = controller.resources.observe(cpu, active.id if active else None, opened, eligible)
+                if candidate:
+                    await controller.relieve_pressure(candidate)
+            await asyncio.sleep(5)
 
     async def music_policy():
         while not stop.is_set():
@@ -979,12 +1032,14 @@ async def serve():
 
     media_task = asyncio.create_task(media_policy())
     music_task = asyncio.create_task(music_policy())
+    resource_task = asyncio.create_task(resource_policy())
     async with server:
         await stop.wait()
     audio_task.cancel()
     media_task.cancel()
     music_task.cancel()
-    await asyncio.gather(media_task, music_task, return_exceptions=True)
+    resource_task.cancel()
+    await asyncio.gather(media_task, music_task, resource_task, return_exceptions=True)
     with contextlib.suppress(asyncio.CancelledError):
         await audio_task
     await controller.close_keyboard()

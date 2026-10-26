@@ -18,6 +18,7 @@ Scope {
     property string activeName: "ORGM Home"
     property bool optionsOpened: false
     property bool appsOpened: false
+    property bool powerOpened: false
     property var apps: []
     property var openedApps: []
     property string activeApp: "home"
@@ -26,34 +27,36 @@ Scope {
     property int volume: 0
     property bool muted: false
     readonly property var backgrounds: [
-        {id:"costa",name:"Costa nocturna",file:"home-night.png"},
-        {id:"bosque",name:"Bosque",file:"home-bosque.png"},
-        {id:"dunas",name:"Dunas",file:"home-dunas.png"},
-        {id:"orbita",name:"Órbita",file:"home-orbita.png"},
-        {id:"aurora",name:"Aurora",file:"home-aurora.png"}
+        {id:"costa",name:"Costa nocturna",file:"home-night.webp"},
+        {id:"bosque",name:"Bosque",file:"home-bosque.webp"},
+        {id:"dunas",name:"Dunas",file:"home-dunas.webp"},
+        {id:"orbita",name:"Órbita",file:"home-orbita.webp"},
+        {id:"aurora",name:"Aurora",file:"home-aurora.webp"}
     ]
     readonly property string sourceOutput: Quickshell.env("ORGM_DISPLAY_SOURCE") || "eDP-1"
     readonly property string output: sourceOutput
     readonly property bool tabletMode: true
 
     function overlay(panel) { panel.WlrLayershell.layer = WlrLayer.Overlay; }
-    function show() { appsOpened = false; opened = true; controlsOpened = true; hideControls.stop(); }
+    function show() { powerOpened = false; appsOpened = false; opened = true; controlsOpened = true; hideControls.stop(); }
     function hide() { opened = false; for (var panel of panels) panel.reset(); send({action:"release"}); hideControls.restart(); }
     function toggle() { if (opened) hide(); else show(); }
-    function collapseControls() { appsOpened = false; optionsOpened = false; hide(); controlsOpened = false; controlsCollapsed = true; hideControls.stop(); }
+    function collapseControls() { powerOpened = false; appsOpened = false; optionsOpened = false; hide(); controlsOpened = false; controlsCollapsed = true; hideControls.stop(); }
     function revealControls() { controlsCollapsed = false; controlsOpened = true; hideControls.restart(); }
     function retry() { if (!engine.running) { ready = false; error = ""; engine.running = true; } }
-    function toggleApps() { var next=!appsOpened; optionsOpened=false; hide(); appsOpened=next; controlsOpened=true; if(next)hideControls.stop(); }
+    function toggleApps() { var next=!appsOpened; powerOpened=false; optionsOpened=false; hide(); appsOpened=next; controlsOpened=true; if(next)hideControls.stop(); }
+    function togglePower() { var next=!powerOpened; appsOpened=false; optionsOpened=false; hide(); powerOpened=next; controlsOpened=true; if(next)hideControls.stop(); }
+    function closePower() { powerOpened=false; hideControls.restart(); }
     function selectApp(id) { if(control.running)return; appsOpened=false; act("switch-app",id); }
     function send(value) { if (engine.running) engine.write(JSON.stringify(value) + "\n"); }
     function act(action, argument) {
         if (control.running) return;
-        if (action === "home") appsOpened = false;
+        if (action === "home") { appsOpened = false; powerOpened = false; }
         control.command = argument === undefined ? ["orgm-home-control", action] : ["orgm-home-control", action, argument];
         control.running = true;
         hideControls.restart();
     }
-    Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened && !root.optionsOpened && !root.appsOpened) root.controlsOpened = false; } }
+    Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened && !root.optionsOpened && !root.appsOpened && !root.powerOpened) root.controlsOpened = false; } }
     Process {
         id: engine
         command: [Quickshell.env("ORGM_OSK_ENGINE") || "orgm-osk-engine"]
@@ -106,10 +109,10 @@ Scope {
         function toggle(): void { root.toggle(); }
         function hide(): void { root.hide(); }
         function show(): void { root.show(); }
-        function wifi(): void { root.appsOpened=false;root.optionsOpened=true;root.controlsOpened=true; }
+        function wifi(): void { root.powerOpened=false;root.appsOpened=false;root.optionsOpened=true;root.controlsOpened=true; }
         function apps(): void { root.toggleApps(); }
         function controls(): void { if (!root.controlsCollapsed) root.revealControls(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,apps:root.appsOpened,panels:root.panels.map(p=>p.snapshot())}); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,apps:root.appsOpened,power:root.powerOpened,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -118,13 +121,13 @@ Scope {
             required property var modelData
             function reset() { board.reset(); }
             function buttonRect(button) { var pos=button.mapToItem(controls.contentItem,0,0);return {x:pos.x,y:pos.y+controls.margins.top,width:button.width,height:button.height}; }
-            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),hide:buttonRect(collapse)},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
+            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),power:buttonRect(powerButton),hide:buttonRect(collapse)},power:{visible:powerPicker.visible,x:(modelData.width-powerView.width)/2,y:100,buttons:powerView.snapshot()},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
             Component.onCompleted: root.panels=[...root.panels,surface]
             Component.onDestruction: root.panels=root.panels.filter(p=>p!==surface)
             PanelWindow {
                 id: handle
                 screen: surface.modelData
-                visible: !root.controlsOpened && !root.opened && !root.optionsOpened && !root.appsOpened
+                visible: !root.controlsOpened && !root.opened && !root.optionsOpened && !root.appsOpened && !root.powerOpened
                 anchors { top:true; left:true }
                 margins { top:12; left:12 }
                 implicitWidth:52
@@ -161,7 +164,7 @@ Scope {
             PanelWindow {
                 id: controls
                 screen: surface.modelData
-                visible: root.controlsOpened || root.opened || root.optionsOpened || root.appsOpened
+                visible: root.controlsOpened || root.opened || root.optionsOpened || root.appsOpened || root.powerOpened
                 anchors { top:true; left:true; right:true }
                 margins.top:12
                 implicitHeight:80
@@ -174,19 +177,20 @@ Scope {
                 Rectangle {
                     id:controlsBackground
                     anchors.horizontalCenter:parent.horizontalCenter
-                    width:Math.min(parent.width-24,root.error?940:620); height:parent.height; radius:16; color:"#f520293b"
+                    width:Math.min(parent.width-24,root.error?1000:680); height:parent.height; radius:16; color:"#f520293b"
                     Row {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:4
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
                         IconButton { id:switchApps;icon:"apps";label:"Cambiar de aplicación";available:root.online;onClicked:root.toggleApps() }
                         IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
                         IconButton { id:closePage;icon:"close";label:"Cerrar página";available:root.online && !!root.capabilities.close;onClicked:root.act("close") }
-                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-621); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
+                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-681); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
                         IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
                         IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
                         Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }
                         IconButton { icon:"volume-up";label:"Subir volumen";available:root.online;onClicked:root.act("volume-up") }
                         IconButton { icon:"keyboard";label:"Teclado";onClicked:root.toggle() }
+                        IconButton { id:powerButton;icon:"power";label:"Apagar o reiniciar";available:root.online;onClicked:root.togglePower() }
                         IconButton { id:collapse;icon:"hide";label:"Ocultar controles";onClicked:root.collapseControls() }
                     }
                 }
@@ -206,6 +210,21 @@ Scope {
                 Component.onCompleted:root.overlay(this)
                 mask:Region { item:appView }
                 AppsPanel { id:appView;anchors.horizontalCenter:parent.horizontalCenter;width:Math.min(parent.width-24,640);height:parent.height;controller:root }
+            }
+            PanelWindow {
+                id:powerPicker
+                screen:surface.modelData
+                visible:root.powerOpened
+                anchors {top:true;left:true;right:true}
+                margins.top:100
+                implicitHeight:300
+                exclusionMode:ExclusionMode.Ignore
+                focusable:false
+                aboveWindows:true
+                color:"transparent"
+                Component.onCompleted:root.overlay(this)
+                mask:Region { item:powerView }
+                PowerPanel { id:powerView;anchors.horizontalCenter:parent.horizontalCenter;width:Math.min(parent.width-24,440);height:parent.height;controller:root }
             }
             PanelWindow {
                 screen:surface.modelData

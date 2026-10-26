@@ -112,6 +112,22 @@ with sync_playwright() as p:
     page.fill("#pair-token", token.read_text())
     page.locator("#pair-form button").click()
     expect(page.locator('.app-youtube')).to_be_enabled()
+    page.locator('#feedback').wait_for(state='hidden')
+    expect(page.locator('[data-power-menu]')).to_be_enabled()
+    page.locator('[data-power-menu]').click()
+    expect(page.locator('#power-menu')).to_be_visible()
+    assert not any(action in {'poweroff','reboot'} for action,_ in agent.calls)
+    page.locator('[data-power-action=poweroff]').click()
+    expect(page.locator('#shutdown-confirm')).to_be_visible()
+    expect(page.locator('#shutdown-cancel')).to_be_focused()
+    page.screenshot(path=str(root/'power-desktop.png'),full_page=True)
+    page.locator('#shutdown-cancel').click()
+    assert not any(action in {'poweroff','reboot'} for action,_ in agent.calls)
+    page.locator('[data-power-menu]').click()
+    page.locator('[data-power-action=poweroff]').click()
+    page.locator('#shutdown-accept').click()
+    page.wait_for_timeout(100)
+    assert ('poweroff',{}) in agent.calls
     expect(page.locator('.app-tile:not([hidden])')).to_have_count(len(apps)-1)
     assert page.locator('.side-nav [data-catalog],.side-nav [data-panel=remote],.side-nav [data-panel=typing]').count()==0
     assert page.locator('[data-panel=settings]:visible').count()==1
@@ -184,6 +200,7 @@ with sync_playwright() as p:
     for width,height,name in [(1920,1080,'desktop'),(1280,720,'small'),(390,844,'mobile'),(320,640,'compact')]:
         page.set_viewport_size({'width':width,'height':height})
         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        expect(page.locator('[data-power-menu]')).to_be_visible()
         assert page.locator('.side-nav').is_visible()
         assert page.locator('.side-nav [data-panel=settings]').is_visible()
         if width>=1280:
@@ -212,6 +229,10 @@ with sync_playwright() as p:
     phone.fill('#pair-token',invitation)
     phone.locator('#pair-form button').click()
     expect(phone.locator('#remote')).to_be_visible()
+    phone.locator('[data-power-menu]').click()
+    phone.locator('[data-power-action=poweroff]').click()
+    phone.screenshot(path=str(root/'power-mobile.png'),full_page=True)
+    phone.locator('#shutdown-cancel').click()
     expect(phone.locator('#remote .dpad')).to_be_visible()
     assert phone.locator('#local-pairing').is_hidden()
     assert phone.locator('#sources').is_hidden()

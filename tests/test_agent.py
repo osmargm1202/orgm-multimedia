@@ -66,6 +66,49 @@ def test_home_preserves_other_windows(controller):
     controller.native_key.assert_awaited_once_with(102)
 
 
+@pytest.mark.parametrize('target',['home','spotify','youtube'])
+def test_pressure_never_closes_home_music_or_the_current_source(controller,monkeypatch,target):
+    controller.tree=AsyncMock(return_value={'nodes':[window('youtube')]})
+    killer=AsyncMock()
+    monkeypatch.setattr('orgm_home.agent.asyncio.to_thread',killer)
+    assert not run(controller.relieve_pressure(target))
+    killer.assert_not_called()
+
+
+def test_pressure_closes_only_the_requested_background_family(controller,monkeypatch):
+    background=window('browser',7);background['focused']=False;background['pid']=321
+    controller.tree=AsyncMock(return_value={'nodes':[window('youtube'),background]})
+    killer=AsyncMock(return_value=True)
+    monkeypatch.setattr('orgm_home.agent.asyncio.to_thread',killer)
+    assert run(controller.relieve_pressure('browser'))
+    assert killer.call_args.args[1]=={321}
+    controller.sway.assert_not_called()
+    assert controller.resources.notice['app']=='browser'
+
+
+def test_sustained_pressure_terminates_a_real_background_process_only(controller):
+    import subprocess
+    import sys
+    foreground=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+    background=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+    try:
+        active=window('youtube');active['pid']=foreground.pid
+        hidden=window('browser',7);hidden['pid']=background.pid;hidden['focused']=False
+        controller.tree=AsyncMock(return_value={'nodes':[active,hidden]})
+        guard=controller.resources
+        assert guard.observe(95,'youtube',['youtube','browser'],{'browser'},now=0) is None
+        target=guard.observe(95,'youtube',['youtube','browser'],{'browser'},now=60)
+        assert target=='browser' and run(controller.relieve_pressure(target))
+        assert background.wait(timeout=3)<0
+        assert foreground.poll() is None
+        assert controller.resources.notice['app']=='browser'
+    finally:
+        for process in [foreground,background]:
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=3)
+
+
 @pytest.mark.parametrize('key,code,modifiers', [('up',103,0),('down',108,0),('left',105,0),('right',106,0),('ok',28,0),('back',1,0),('tab',15,0),('shift-tab',15,1)])
 def test_home_accepts_remote_navigation(controller, monkeypatch, key, code, modifiers):
     monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value=''))
@@ -603,13 +646,15 @@ def test_new_airplay_audio_selects_the_receiver_once_but_home_remains_respected(
     command.assert_awaited_once_with('pactl','set-sink-input-mute','7','1')
 
 
-def test_reboot_is_scheduled_outside_session_target(controller, monkeypatch):
+@pytest.mark.parametrize('action',['reboot','poweroff'])
+def test_power_is_scheduled_outside_session_target(controller, monkeypatch, action):
     command=AsyncMock(return_value='')
     monkeypatch.setattr('orgm_home.agent.command',command)
-    monkeypatch.setattr('orgm_home.agent.shutil.which',lambda name:'/fixed/bin/orgm-home-reboot')
-    assert run(controller.dispatch({'action':'reboot'}))=={'accepted':True}
+    monkeypatch.setattr('orgm_home.agent.shutil.which',lambda name:'/fixed/bin/'+name)
+    assert run(controller.dispatch({'action':action}))=={'accepted':True}
     assert command.call_args.args[0]=='systemd-run'
-    assert command.call_args.args[-1]=='/fixed/bin/orgm-home-reboot'
+    assert command.call_args.args[-1]=='/fixed/bin/orgm-home-'+action
+    assert '--unit=orgm-home-power' in command.call_args.args
 
 
 @pytest.mark.parametrize('action,verb',[('spotify-toggle','play-pause'),('spotify-next','next'),('spotify-previous','previous')])

@@ -1,6 +1,8 @@
 # Fondo del inicio
 
-Generado con la herramienta integrada `imagegen` el 25 de octubre de 2026. Archivo de producción: `orgm_home/static/home-night.png`. El original se conserva en el directorio de imágenes generadas de Codex; la aplicación sirve su propia copia empaquetada con Nix, sin solicitudes externas.
+Generado con la herramienta integrada `imagegen` el 25 de octubre de 2026. Archivo de producción: `orgm_home/static/home-night.webp`. El original se conserva en el directorio de imágenes generadas de Codex; la aplicación sirve su propia copia empaquetada con Nix, sin solicitudes externas.
+
+El 26 de octubre las copias de producción se convirtieron de PNG a WebP con calidad 83 para reducir transferencia y decodificación. No se alteró la composición ni se generaron imágenes nuevas; los prompts siguientes describen los originales.
 
 Prompt exacto:
 
@@ -8,7 +10,7 @@ Prompt exacto:
 
 ## Cuatro variantes adicionales
 
-Generadas con la herramienta integrada `imagegen`. Se conservan los originales de Codex y se empaquetan las copias `home-bosque.png`, `home-dunas.png`, `home-orbita.png` y `home-aurora.png` en `orgm_home/static/`.
+Generadas con la herramienta integrada `imagegen`. Se conservan los originales de Codex y se empaquetan las copias `home-bosque.webp`, `home-dunas.webp`, `home-orbita.webp` y `home-aurora.webp` en `orgm_home/static/`.
 
 Prompt común exacto (sustituir SUBJECT por cada texto de abajo):
 

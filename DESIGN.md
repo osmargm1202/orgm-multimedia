@@ -18,7 +18,11 @@ Paleta: noche #161b27, panel #0c1723, control #34415b, texto #f2f5fc, secundario
 
 ## Controles y adaptación
 
-Home reserva 104 px para la barra nativa situada en y=12–92, por lo que nunca tapa título, Opciones ni Bomba. La barra usa nueve botones SVG de 56 px y un porcentaje de volumen; el segundo botón abre el selector de aplicaciones sobre la fuente actual. Al plegarla queda una flecha gris sobre fondo semitransparente arriba a la izquierda. No hay transporte global ni controles de brillo manual. Se conserva la atenuación 20%/20 s, retroiluminación apagada/60 s y retorno a 100% por actividad.
+Home reserva 104 px para la barra nativa situada en y=12–92, por lo que nunca tapa título, Opciones ni Bomba. La barra usa diez botones SVG de 56 px y un porcentaje de volumen; el segundo botón abre el selector de aplicaciones sobre la fuente actual y el de encendido precede a la flecha de plegado. Al plegarla queda una flecha gris sobre fondo semitransparente arriba a la izquierda. No hay transporte global ni controles de brillo manual. Se conserva la atenuación 20%/20 s, retroiluminación apagada/60 s y retorno a 100% por actividad.
+
+Apagar aparece también en el encabezado del dashboard y del mando, junto a Wi-Fi, reloj y Bomba. Encendido ofrece Apagar y Reiniciar; cada acción abre su confirmación con Cancelar como primer control. El panel nativo mantiene la aplicación enfocada al abrirse y al cancelar. En móviles pequeños, Apagar y Bomba conservan el icono con nombre accesible para mantener objetivos táctiles de 44 px sin desbordar el encabezado.
+
+Las portadas y fondos existentes se distribuyen en WebP, manteniendo el encuadre y la paleta; no se generan escenas nuevas. La selección, las categorías y las portadas no cambian de función. El cierre automático por CPU se comunica con el mensaje de estado existente para explicar por qué desapareció una fuente de segundo plano.
 
 El dashboard local conserva solo volumen, silencio, Atrás y teclado junto a la música; la pantalla táctil sustituye flechas y OK. El lateral contiene Inicio, categorías y un único acceso a Opciones. La banda de aplicaciones permite deslizar por las 22 fuentes desde el primer arranque. Wi-Fi es un panel nativo independiente; Fondos y Administración tienen páginas propias dentro de Opciones. Los botones tienen foco visible y se respeta movimiento reducido.
 

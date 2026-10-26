@@ -2,13 +2,14 @@
 
 import json
 from pathlib import Path
+from .assets import asset_url
 
 BACKGROUNDS = {
-    "costa": ("Costa nocturna", "home-night.png"),
-    "bosque": ("Bosque", "home-bosque.png"),
-    "dunas": ("Dunas", "home-dunas.png"),
-    "orbita": ("Órbita", "home-orbita.png"),
-    "aurora": ("Aurora", "home-aurora.png"),
+    "costa": ("Costa nocturna", "home-night.webp"),
+    "bosque": ("Bosque", "home-bosque.webp"),
+    "dunas": ("Dunas", "home-dunas.webp"),
+    "orbita": ("Órbita", "home-orbita.webp"),
+    "aurora": ("Aurora", "home-aurora.webp"),
 }
 
 
@@ -34,6 +35,6 @@ def write_background(state: Path, value):
 
 def gallery():
     return [
-        {"id": ident, "name": name, "image": "/static/" + image}
+        {"id": ident, "name": name, "image": asset_url(image)}
         for ident, (name, image) in BACKGROUNDS.items()
     ]

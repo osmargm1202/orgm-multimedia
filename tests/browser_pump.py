@@ -67,7 +67,7 @@ try:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(f"http://localhost:{port}/#pair={token.read_text()}")
-        expect(page.locator("[data-app=youtube]")).to_be_enabled()
+        expect(page.locator(".app-youtube")).to_be_enabled()
         page.locator("#pump-open").click()
         expect(page.locator("#pump-state")).to_have_text("Apagada")
         expect(page.locator("#pump-controller")).to_contain_text("Control local de Jarq")

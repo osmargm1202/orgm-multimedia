@@ -20,6 +20,7 @@ orgm-home-display = "orgm_home.display:main"
 orgm-home-touch = "orgm_home.touch:main"
 orgm-home-control = "orgm_home.touch:control"
 orgm-home-reboot = "orgm_home.touch:reboot"
+orgm-home-poweroff = "orgm_home.touch:poweroff"
 orgm-home-cast = "orgm_home.cast:main"
 
 [tool.setuptools.package-data]

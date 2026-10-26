@@ -18,6 +18,37 @@ si se cierra la fuente que estaba en pantalla, vuelve a Inicio. Cerrar Spotify
 termina también su sandbox para que no quede audio sin ventana. La X de la barra
 superior sigue cerrando únicamente la página actual.
 
+El botón **Apagar** del encabezado abre Encendido, tanto en el dashboard como
+en el mando web. La barra superior nativa también ofrece el símbolo de encendido.
+Apagar y Reiniciar requieren una segunda confirmación; Cancelar conserva la
+aplicación en pantalla. El helper sale de Wayland antes de solicitar la operación
+a logind. Suspender permanece deshabilitado por el perfil.
+
+## Rendimiento y CPU
+
+Si la CPU total se mantiene en **80% o más durante 60 segundos**, se termina
+la última fuente elegible que quedó en segundo plano. La aplicación activa,
+Inicio, Spotify, terminales y AirPlay quedan protegidos. La fuente debe llevar
+al menos 30 segundos en segundo plano; se cierra como máximo una por minuto.
+Se vuelve a comprobar el foco justo antes de actuar. Chrome/mpv terminan solo
+su familia de procesos del mismo usuario, comprobando el inicio del PID para
+evitar reutilizaciones; Flatpak recibe su identificador fijo. Las sesiones web
+conservan sus perfiles, pero el contenido no guardado de la fuente cerrada se
+puede perder. El mando avisa del cierre y el journal registra su motivo.
+
+Las 22 portadas y cinco fondos usan WebP: 54,1 MB de PNG pasan a 1,1 MB, con
+portadas de hasta 640×400. Los originales y sus prompts se conservan en el
+historial/procedencia documentada. `python3 scripts/asset_manifest.py` actualiza
+las versiones de URL tras editar assets. Nginx sirve `/static/` directamente
+con sendfile, caché de archivos y compresión; los recursos versionados admiten
+caché immutable de un año. FastAPI aplica la misma política al acceso local,
+ETag/revalidación y gzip. HTML, sesiones, controles y capturas privadas conservan
+`no-store`. El cambio de versión evita reutilizar CSS/JS antiguos tras desplegar.
+
+Las capturas se refrescan cada veinte segundos cuando Inicio o el catálogo
+remoto las necesitan. Se omiten al ver una aplicación sin catálogo visible y
+durante presión alta de CPU. Se conservan las últimas capturas disponibles.
+
 ## Mando desde el teléfono o el escritorio
 
 Después de vincular el navegador, la vista inicial es **Mando**, con navegación

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AirPlay · {{ receiver }}</title>
-  <link rel="stylesheet" href="/static/home.css">
+  <link rel="stylesheet" href="{{ asset('home.css') }}">
 </head>
 <body class="airplay-screen">
   <main class="airplay-waiting">
-    <img class="airplay-mark" src="/static/icons/airplay.svg" alt="">
+    <img class="airplay-mark" src="{{ asset('icons/airplay.svg') }}" alt="">
     <h1>Tu pantalla, en la sala.</h1>
     <p>Conecta tu iPhone, iPad o Mac a la misma red Wi-Fi.</p>
     <ol><li>Abre <strong>Duplicar pantalla</strong> o AirPlay.</li><li>Elige <strong>{{ receiver }}</strong>.</li></ol>

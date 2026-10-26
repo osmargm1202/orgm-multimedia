@@ -2,6 +2,8 @@
 
 Se generaron 22 imágenes con la herramienta integrada `imagegen` para el rediseño de `/home/osmarg/Downloads/Cinematic Dark Media Center Dashboard.png`. Los archivos de producción están en `orgm_home/static/cards/`; los originales se conservan en el directorio de imágenes generadas de Codex. Las imágenes se sirven localmente desde el paquete Nix.
 
+Para producción se redujeron a un máximo de 640×400 y se convirtieron de PNG a WebP (calidad 83) el 26 de octubre, conservando el contenido y su procedencia. Las 22 portadas y cinco fondos pasan en conjunto de 54,1 MB a 1,1 MB. Las URL usan la versión del archivo; sus originales PNG siguen en el historial y en los archivos de generación.
+
 Las ilustraciones precargadas representan cada aplicación. Si una aplicación está abierta, su tarjeta puede mostrar una captura privada reciente de su ventana; la fila «Abiertas» permite recuperarla. Las capturas requieren un mando vinculado y no incluyen la barra táctil. Claude es la página web `claude.ai`.
 
 ## Prompts exactos seleccionados

@@ -29,6 +29,7 @@ def control():
         "background": ("background", {"id": sys.argv[2] if len(sys.argv) == 3 else ""}),
         "restart-launcher": ("restart-launcher", {}),
         "reboot": ("reboot", {}),
+        "poweroff": ("poweroff", {}),
         "close": ("close", {}),
         "wifi-status": ("wifi-status", {}),
         "wifi-scan": ("wifi-scan", {}),
@@ -64,7 +65,15 @@ def control():
 
 
 def reboot():
+    _finish_session("reboot")
+
+
+def poweroff():
+    _finish_session("poweroff")
+
+
+def _finish_session(action):
     # This helper lives outside the session target it stops. Quickshell and
     # portals leave before the compositor disappears during an admin reboot.
     subprocess.run(["systemctl", "--user", "stop", "orgm-home-session.target", "xdg-desktop-portal-gtk.service", "xdg-desktop-portal-wlr.service"], timeout=25, check=False)
-    subprocess.run(["systemctl", "reboot", "--no-block"], timeout=10, check=True)
+    subprocess.run(["systemctl", action, "--no-block"], timeout=10, check=True)

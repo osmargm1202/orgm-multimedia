@@ -430,6 +430,21 @@ try:
             pointer.button(True)
             pointer.button(False)
 
+        # The native power button requires a second, explicit confirmation.
+        subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
+        button=touch_status()['panels'][0]['controls']['power']
+        click_at(button['x']+button['width']/2,button['y']+button['height']/2)
+        wait_for(lambda:touch_status()['power'])
+        power=touch_status()['panels'][0]['power'];button=power['buttons']['poweroff']
+        click_at(power['x']+button['x']+button['width']/2,power['y']+button['y']+button['height']/2)
+        wait_for(lambda:touch_status()['panels'][0]['power']['buttons']['confirm']['visible'])
+        if shutil.which('grim'):
+            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'power-native.png')],env=env)
+        power=touch_status()['panels'][0]['power'];button=power['buttons']['cancel']
+        click_at(power['x']+button['x']+button['width']/2,power['y']+button['y']+button['height']/2)
+        wait_for(lambda:not touch_status()['power'])
+        assert client.get('/api/status').json()['app']=='browser'
+
         # The native picker switches existing sources without visiting Home.
         for target in ['netflix','browser']:
             panel=touch_status()['panels'][0]
@@ -606,6 +621,7 @@ try:
                     "API restart retains session",
                     "collapsed arrow restores controls",
                     "native picker switches open applications without Home",
+                    "native power menu opens confirmation and Cancel preserves the session",
                     "native X closes popup and retains original webapp",
                     "private Wi-Fi credential entry with real QML keyboard focus",
                     "authenticated per-window preview while Home retains focus",
