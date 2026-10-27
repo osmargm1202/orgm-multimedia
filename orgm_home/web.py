@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 from collections import OrderedDict, deque
-import hashlib
 import hmac
+import ipaddress
 import logging
 import os
 from pathlib import Path
-import secrets
 import time
 from urllib.parse import urlsplit
 
@@ -27,6 +26,7 @@ from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .pump import install_routes as install_pump_routes
 from .urls import validate_url, validate_max_url
+from .pairing import Devices, PairingRequests, Sessions, device_browser
 from .preferences import gallery
 from .previews import directory as preview_directory
 
@@ -40,6 +40,14 @@ class Payload(BaseModel):
 
 class Login(Payload):
     token: StrictStr = Field(min_length=6, max_length=256)
+
+
+class PairRequest(Payload):
+    name: StrictStr = Field(default="", max_length=64)
+
+
+class PairDecision(Payload):
+    approve: bool = Field(strict=True)
 
 
 class Key(Payload):
@@ -69,64 +77,6 @@ class Brightness(Payload):
 
 class LocalFile(Payload):
     name: StrictStr = Field(min_length=1, max_length=255)
-
-
-class Sessions:
-    def __init__(self, token: str, age: int):
-        if len(token) < 32:
-            raise ValueError("Control token needs at least 32 characters")
-        self.token = token
-        self.secret = hashlib.sha256(token.encode()).digest()
-        self.age = age
-
-    def sign(self, value):
-        return hmac.new(self.secret, value.encode(), hashlib.sha256).hexdigest()
-
-    def issue(self):
-        csrf = secrets.token_urlsafe(24)
-        body = f"{int(time.time())}.{csrf}"
-        return f"{body}.{self.sign(body)}", csrf
-
-    def verify(self, value):
-        try:
-            ts, csrf, signature = value.split(".")
-            age = time.time() - int(ts)
-            if not 0 <= age <= self.age or not hmac.compare_digest(
-                signature, self.sign(f"{ts}.{csrf}")
-            ):
-                return None
-            return csrf
-        except (ValueError, AttributeError):
-            return None
-
-
-class PairingCodes:
-    """One invitation at a time, ten guesses maximum, never the room secret."""
-
-    def __init__(self):
-        self.digest = None
-        self.expires = 0
-        self.attempts = 0
-        self.secret = secrets.token_bytes(32)
-
-    def issue(self):
-        code = f"{secrets.randbelow(1_000_000):06d}"
-        self.digest = hmac.digest(self.secret, code.encode(), "sha256")
-        self.expires = time.monotonic() + 120
-        self.attempts = 0
-        return {"code": code, "expires_in": 120}
-
-    def redeem(self, code):
-        if self.digest is None or time.monotonic() >= self.expires:
-            self.digest = None
-            return False
-        if len(code) != 6 or not code.isascii() or not code.isdigit():
-            return False
-        self.attempts += 1
-        valid = hmac.compare_digest(self.digest, hmac.digest(self.secret, code.encode(), "sha256"))
-        if valid or self.attempts >= 10:
-            self.digest = None
-        return valid
 
 
 class RateLimit:
@@ -202,7 +152,8 @@ class Access:
 def create_app(settings=None, agent=None):
     settings = settings or Settings.from_env()
     apps = load_catalog(settings.catalog)
-    sessions = Sessions(settings.token_file.read_text().strip(), settings.cookie_age)
+    devices = Devices(settings.token_file.with_name("devices.json"))
+    sessions = Sessions(settings.token_file.read_text().strip(), settings.cookie_age, devices)
     client = agent or AgentClient(settings.agent_socket)
     access = Access(settings)
     limits = RateLimit()
@@ -213,7 +164,7 @@ def create_app(settings=None, agent=None):
     app = FastAPI(title="ORGM Home", docs_url=None, redoc_url=None, openapi_url=None)
     install_pump_routes(app)
     app.state.sessions = sessions
-    app.state.pairing_codes = PairingCodes()
+    app.state.pairing_requests = PairingRequests(devices)
     app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=4)
 
     @app.exception_handler(ControlError)
@@ -231,6 +182,12 @@ def create_app(settings=None, agent=None):
         public = host.split(":")[0] == settings.public_host
         is_api = request.url.path.startswith("/api/")
         peer = request.client.host if request.client else "unknown"
+        # Nginx overwrites this header; only loopback proxy connections may use it.
+        if public and peer in {"127.0.0.1", "::1"} and request.headers.get("x-real-ip"):
+            try:
+                peer = str(ipaddress.ip_address(request.headers['x-real-ip']))
+            except ValueError:
+                return reject("Dirección del proxy no válida", 400)
         if is_api:
             if not limits.allow((peer, "api"), 180, 60):
                 return reject("Demasiadas acciones; espera unos segundos", 429)
@@ -254,9 +211,9 @@ def create_app(settings=None, agent=None):
                 if len(body) > 8192:
                     return reject("Petición demasiado grande", 413)
             request._body = bytes(body)
-        if is_api and request.url.path not in {"/api/health", "/api/session"}:
+        if is_api and request.url.path not in {"/api/health", "/api/session", "/api/pairing/request", "/api/pairing/status"}:
             csrf = sessions.verify(request.cookies.get("orgm_session", ""))
-            if not csrf:
+            if not csrf or (sessions.identity(request.cookies.get("orgm_session", "")) == "local" and not local_request(request)):
                 return reject("Vincula este mando para continuar", 401)
             if mutating and not hmac.compare_digest(
                 request.headers.get("x-csrf-token", ""), csrf
@@ -319,40 +276,93 @@ def create_app(settings=None, agent=None):
             raise ControlError("Control de Spotify desconocido", 404)
         return await client.call("spotify-" + action)
 
+    def local_request(request):
+        return urlsplit(str(request.url)).hostname in {"127.0.0.1", "localhost"} and request.client and request.client.host in {"127.0.0.1", "::1"}
+
+    def local_admin(request):
+        if not local_request(request) or sessions.identity(request.cookies.get("orgm_session", "")) != "local":
+            raise ControlError("Esta autorización se gestiona en la pantalla de Jarq", 403)
+
+    def session_response(request, device=None, existing=None, **extra):
+        cookie, csrf = (existing, sessions.verify(existing)) if existing else sessions.issue(device)
+        response = JSONResponse({"csrf": csrf, "local": device is None, **extra})
+        response.set_cookie(
+            "orgm_session", cookie, httponly=True,
+            secure=request.url.scheme == "https" or (not local_request(request) and f"https://{request.headers['host']}" in origins),
+            samesite="strict", max_age=34560000 if device else settings.cookie_age, path="/",
+        )
+        return response
+
     @app.post("/api/session")
     async def login(request: Request, payload: Login):
         peer = request.client.host if request.client else "unknown"
         if not limits.allow((peer, "login"), 5, 60):
             raise ControlError("Demasiados intentos; espera un minuto", 429)
-        if not hmac.compare_digest(payload.token.encode(), sessions.token.encode()) and not app.state.pairing_codes.redeem(payload.token):
-            raise ControlError("La clave de vinculación no es válida", 401)
-        cookie, csrf = sessions.issue()
-        response = JSONResponse({"csrf": csrf})
-        response.set_cookie(
-            "orgm_session",
-            cookie,
-            httponly=True,
-            secure=request.headers["origin"].startswith("https:"),
-            samesite="strict",
-            max_age=settings.cookie_age,
-            path="/",
-        )
-        return response
-
-    @app.post("/api/pairing/code")
-    async def pairing_code(request: Request):
-        origin = urlsplit(request.headers.get("origin", ""))
-        peer = request.client.host if request.client else ""
-        if origin.hostname not in {"127.0.0.1", "localhost"} or peer not in {"127.0.0.1", "::1"}:
-            raise ControlError("Genera el código en la pantalla de Jarq", 403)
-        return app.state.pairing_codes.issue()
+        if not local_request(request) or not hmac.compare_digest(payload.token.encode(), sessions.token.encode()):
+            raise ControlError("Solicita permiso desde home.or-gm.com", 401)
+        return session_response(request)
 
     @app.get("/api/session")
     async def session(request: Request):
-        csrf = sessions.verify(request.cookies.get("orgm_session", ""))
-        if not csrf:
+        identity = sessions.identity(request.cookies.get("orgm_session", ""))
+        if not identity or (identity == "local" and not local_request(request)):
             raise ControlError("Vincula este mando para continuar", 401)
-        return {"csrf": csrf}
+        return session_response(request, None if identity == "local" else identity, existing=request.cookies["orgm_session"])
+
+    @app.post("/api/pairing/request")
+    async def pairing_request(request: Request, payload: PairRequest):
+        name = payload.name.strip()
+        if any(ord(char) < 32 or ord(char) == 127 for char in name):
+            raise ControlError("Usa un nombre sin caracteres de control", 422)
+        credential = request.cookies.get("orgm_pairing", "")
+        previous = app.state.pairing_requests.get(credential)
+        # Proxy peers can be shared by the household. Bound fresh requests, not polls/retries.
+        if not previous or previous['status'] != 'pending':
+            if not limits.allow(("pairing", "room"), 12, 600):
+                raise ControlError("Demasiadas solicitudes. Espera unos minutos.", 429)
+        browser = device_browser(request.headers.get("user-agent", ""))
+        credential, item = app.state.pairing_requests.request(credential, name, browser)
+        response = JSONResponse({"status": "pending", "name": item['name'], "expires_in": max(0, int(item['expires'] - time.monotonic()))})
+        response.set_cookie("orgm_pairing", credential, httponly=True, secure=request.url.scheme == "https" or request.headers["origin"].startswith("https:"), samesite="strict", max_age=120, path="/api/pairing")
+        return response
+
+    @app.get("/api/pairing/status")
+    async def pairing_status(request: Request):
+        item = app.state.pairing_requests.get(request.cookies.get("orgm_pairing", ""))
+        if not item:
+            return {"status": "expired"}
+        if item['status'] == 'approved':
+            device = item.get('device')
+            if device not in devices.items:
+                return {"status": "revoked"}
+            response = session_response(request, device, status="approved")
+            response.delete_cookie("orgm_pairing", path="/api/pairing")
+            # Consume the approval; a second request cannot mint another session.
+            item['status'] = 'claimed'
+            return response
+        return {"status": item['status'], "name": item['name'], "expires_in": max(0, int(item['expires'] - time.monotonic()))}
+
+    @app.get("/api/admin/pairing")
+    async def pending_pairing(request: Request):
+        local_admin(request)
+        return {"requests": app.state.pairing_requests.pending()}
+
+    @app.post("/api/admin/pairing/{identity}")
+    async def decide_pairing(identity: str, request: Request, payload: PairDecision):
+        local_admin(request)
+        app.state.pairing_requests.decide(identity, payload.approve)
+        return {"ok": True}
+
+    @app.get("/api/admin/devices")
+    async def authorized_devices(request: Request):
+        local_admin(request)
+        return {"devices": sorted(devices.items.values(), key=lambda item: item['approved_at'], reverse=True)}
+
+    @app.post("/api/admin/devices/{identity}/revoke")
+    async def revoke_device(identity: str, request: Request):
+        local_admin(request)
+        devices.revoke(identity)
+        return {"ok": True}
 
     @app.get("/api/apps")
     async def catalog():

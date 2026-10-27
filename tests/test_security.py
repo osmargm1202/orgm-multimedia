@@ -37,7 +37,7 @@ def test_csrf_and_catalog_allowlist(paired):
         client.post(
             "/api/apps/youtube/activate",
             json={},
-            headers={"origin": "http://testserver"},
+            headers={"origin": "http://127.0.0.1:8765"},
         ).status_code
         == 403
     )
@@ -89,7 +89,7 @@ def test_text_treated_as_data(paired):
 
 def test_switch_requires_pairing_and_csrf(configured, paired):
     client, agent, headers = paired
-    assert client.post('/api/apps/youtube/switch', json={}, headers={'origin':'http://testserver'}).status_code == 403
+    assert client.post('/api/apps/youtube/switch', json={}, headers={'origin':'http://127.0.0.1:8765'}).status_code == 403
     assert not agent.calls
     assert client.post('/api/apps/unknown/switch', json={}, headers=headers).status_code == 404
     assert not agent.calls
@@ -294,7 +294,7 @@ def test_login_rate_limit(configured):
             client.post(
                 "/api/session",
                 json={"token": "wrong" * 10},
-                headers={"origin": "http://testserver"},
+                headers={"origin": "http://127.0.0.1:8765"},
             ).status_code
             == 401
         )
@@ -302,7 +302,7 @@ def test_login_rate_limit(configured):
         client.post(
             "/api/session",
             json={"token": "wrong" * 10},
-            headers={"origin": "http://testserver"},
+            headers={"origin": "http://127.0.0.1:8765"},
         ).status_code
         == 429
     )
@@ -315,11 +315,11 @@ def test_private_tailnet_mode_still_requires_pairing_and_csrf(configured):
         create_app(settings, agent), base_url="https://home.or-gm.com"
     ) as client:
         assert client.get("/api/apps").status_code == 401
-        response = client.post(
-            "/api/session",
-            json={"token": settings.token_file.read_text()},
-            headers={"origin": "https://home.or-gm.com"},
-        )
+        remote_app = client.app
+        device = remote_app.state.sessions.devices.add('Teléfono de prueba', 'iPhone · Safari')
+        cookie, csrf = remote_app.state.sessions.issue(device)
+        client.cookies.set('orgm_session', cookie)
+        response = client.get('/api/session')
         assert response.status_code == 200
         assert (
             client.post(
@@ -369,7 +369,7 @@ def test_admin_routes_still_require_csrf(paired):
     for route in ["admin/reboot", "admin/poweroff", "admin/restart-launcher", "display/rotate"]:
         assert (
             client.post(
-                "/api/" + route, json={}, headers={"origin": "http://testserver"}
+                "/api/" + route, json={}, headers={"origin": "http://127.0.0.1:8765"}
             ).status_code
             == 403
         )
@@ -387,7 +387,7 @@ def test_poweroff_requires_a_paired_session(paired):
 
 def test_close_by_id_requires_pairing_and_csrf(configured, paired):
     client, agent, headers = paired
-    assert client.post("/api/apps/youtube/close", json={}, headers={"origin": "http://testserver"}).status_code == 403
+    assert client.post("/api/apps/youtube/close", json={}, headers={"origin": "http://127.0.0.1:8765"}).status_code == 403
     assert client.post("/api/apps/unknown/close", json={}, headers=headers).status_code == 404
     assert not agent.calls
     assert client.post("/api/apps/youtube/close", json={}, headers=headers).status_code == 200

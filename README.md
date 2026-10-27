@@ -98,13 +98,12 @@ Variables: `ORGM_DIAL_NETWORKS` contiene las subredes IPv4 autorizadas y
 `ORGM_DIAL_NAME` el nombre anunciado. VacuumTube necesita Device Discoverability
 activado; viene activado en la instalación comprobada de Jarq.
 
-En Jarq, el mando tiene además una entrada privada por Wi-Fi en
-`http://10.0.0.98`, con la misma vinculación y protección CSRF. El nombre
-`home.or-gm.com` sigue resolviendo a la IP de Tailscale. El dominio padre aplica
-HSTS con `includeSubDomains`: un navegador que lo haya visitado exige HTTPS
-también para Home. El perfil sirve `https://home.or-gm.com` con certificado ACME
-validado por DNS de Cloudflare y renovación automática. HTTP del dominio redirige
-a HTTPS; la IP local conserva su entrada HTTP independiente.
+El mando de Jarq se abre exclusivamente en **https://home.or-gm.com**, con
+Tailscale conectado. El nombre resuelve a su IP Tailscale; escribir las IP LAN o
+Tailscale en el navegador no sirve el multimedia. Nginx rechaza esos hosts y los
+nombres desconocidos, y HTTP del dominio redirige a HTTPS. El certificado ACME
+se valida por DNS de Cloudflare y se renueva automáticamente. La API loopback
+interna y DIAL conservan sus puertos privados para el launcher y YouTube.
 
 UxPlay recibe video directo de YouTube con `-hls`. Al aparecer una ventana nativa
 de video AirPlay, el launcher muestra esa fuente automáticamente; la pantalla de
@@ -133,15 +132,34 @@ Revisar antes el hardware y los cambios de servicios de la máquina concreta. La
 
 ## Vincular un mando
 
-En la pantalla de Jarq: **Opciones → Desde el teléfono → Generar código**.
-Escribir esos seis dígitos en el teléfono. El código dura dos minutos, se usa
-una vez y se invalida tras diez intentos incorrectos o al generar otro. Solo
-la pantalla local ya vinculada puede emitirlo; el mando remoto no expone la
-clave permanente. El registro de un código no modifica las sesiones existentes.
+En **https://home.or-gm.com**, escribe un nombre reconocible y toca
+**Solicitar permiso**. En el centro de la pantalla táctil de Jarq aparece
+«¿Autorizar este mando?», con nombre, navegador y botones **No, rechazar** y
+**Sí, autorizar**. Aparece sobre cualquier aplicación, sin cambiar la fuente;
+la pantalla interna despierta para mostrarlo. La solicitud vence en dos minutos.
+No hay códigos que copiar ni aprobación desde otro mando remoto.
 
-En el equipo, `orgm-home-pair` muestra mediante sudo la clave aleatoria generada en `/var/lib/orgm-home/control-token`. Introducirla en el mando autorizado; dura 12 horas la sesión de ese dispositivo. El kiosk recibe la clave por fragmento de URL (no se envía en rutas ni logs HTTP) y la intercambia por una cookie HttpOnly. La aplicación elimina el fragmento de inmediato.
+Tras aceptar, el navegador recibe una cookie firmada HttpOnly, Secure y SameSite
+Strict. El registro `/var/lib/orgm-home/devices.json` conserva los dispositivos
+entre reinicios, con modo 0600 y sin claves de navegador. En Jarq, **Opciones →
+Administración → Dispositivos autorizados** permite revocar uno por uno; el
+siguiente intento de control devuelve 401. Revocar requiere confirmación local.
+Borrar cookies, usar otro navegador o dejar que el navegador caduque la cookie
+requiere solicitar permiso de nuevo. La cookie se renueva al volver a abrir el
+mando; no se promete persistencia fuera de las políticas del navegador.
 
-No reutilizar contraseñas de cuentas. Para revocar todos los mandos: reemplazar el archivo de clave por otro valor aleatorio de al menos 32 caracteres, conservar propietario media y modo 0600, reiniciar API y kiosk. El archivo nunca pertenece al repositorio ni al Nix store.
+La clave interna `/var/lib/orgm-home/control-token` solo autentica clientes
+loopback del launcher y de DIAL; ya no permite entrar por el dominio público.
+Las cookies antiguas del sistema de códigos dejan de ser válidas al actualizar.
+La aprobación local requiere además cookie local, Host loopback, conexión
+loopback, Origin exacto y CSRF. El Host público a través del proxy no adquiere
+privilegios locales. El backend tiene un único worker; el registro se actualiza
+atómicamente. La API no registra peticiones ni secretos en sus URLs.
+
+Para invalidar todas las credenciales, se puede reemplazar la clave interna por
+un valor aleatorio de al menos 32 caracteres, conservar propietario media y modo
+0600 y reiniciar API, kiosk y DIAL. La clave no pertenece al repositorio ni al
+Nix store.
 
 ## Red y Cloudflare Access
 
@@ -152,7 +170,7 @@ ssh -L 8765:127.0.0.1:8765 jarq@jarq
 # Abrir http://127.0.0.1:8765 en ese mismo cliente.
 ```
 
-El modo público requiere, además de vincular el mando, un JWT Cloudflare Access firmado y válido para la audiencia e issuer configurados. El usuario confirmó usar `http://home.or-gm.com` por ahora y que el nombre apunta a la IP Tailscale de Jarq: en ese despliegue privado Nginx escucha únicamente en esa dirección, el firewall permite su puerto solo por `tailscale0` y la autenticación usa vinculación + CSRF. `ORGM_REQUIRE_ACCESS=false` se configura exclusivamente para ese modo privado; nunca deshabilitarlo en un origen publicado por Internet. Sin configuración, el control público responde 503. El hostname no demuestra que Access esté habilitado: verificar la política de usuarios en Cloudflare antes de anunciar la publicación.
+El modo público requiere, además de vincular el mando, un JWT Cloudflare Access firmado y válido para la audiencia e issuer configurados. En Jarq, `https://home.or-gm.com` apunta a la IP Tailscale. El firewall limita HTTP(S) a Tailscale y las redes de receptores declaradas; Nginx sirve la interfaz exclusivamente para ese dominio y la autenticación usa aprobación local y CSRF. `ORGM_REQUIRE_ACCESS=false` se configura exclusivamente para ese modo privado; nunca deshabilitarlo en un origen publicado por Internet. Sin configuración, el control público responde 503. El hostname no demuestra que Access esté habilitado: verificar la política de usuarios en Cloudflare antes de anunciar la publicación.
 
 Un administrador crea `/var/lib/orgm-home/access.env`, propietario root, modo 0600:
 

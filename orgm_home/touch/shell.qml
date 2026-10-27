@@ -18,6 +18,8 @@ Scope {
     property string activeName: "ORGM Home"
     property bool optionsOpened: false
     property bool appsOpened: false
+    property var pairingRequests: []
+    property bool pairingBusy: pairingDecision.running
     property bool powerOpened: false
     property var apps: []
     property var openedApps: []
@@ -56,6 +58,32 @@ Scope {
         control.running = true;
         hideControls.restart();
     }
+    function decidePairing(approve) {
+        if(pairingDecision.running || !pairingRequests.length)return;
+        pairingDecision.message=JSON.stringify({id:pairingRequests[0].id,approve:approve});
+        pairingDecision.running=true;
+    }
+    Process {
+        id:pairingStatus
+        command:["orgm-home-control","pairing-pending"]
+        stdout:SplitParser { onRead:data=>{try{var result=JSON.parse(data);var next=result.ok?result.data.requests:[];if(next.length && (!root.pairingRequests.length || root.pairingRequests[0].id!==next[0].id) && !pairingWake.running)pairingWake.running=true;root.pairingRequests=next;}catch(e){root.pairingRequests=[];}} }
+        onExited:if(exitCode!==0)root.pairingRequests=[]
+    }
+    Timer { interval:20000;running:root.pairingRequests.length>0;onTriggered:pairingDim.running=true }
+    Timer { interval:60000;running:root.pairingRequests.length>0;onTriggered:pairingSleep.running=true }
+    Process { id:pairingDim;command:["orgm-home-control","pairing-dim"] }
+    Process { id:pairingSleep;command:["orgm-home-control","pairing-sleep"] }
+    Process { id:pairingWake;command:["orgm-home-control","pairing-wake"] }
+    Process {
+        id:pairingDecision
+        property string message:""
+        command:["orgm-home-control","pairing-decide"]
+        stdinEnabled:true
+        onStarted:{write(message+"\n");message="";}
+        stdout:SplitParser { onRead:data=>{try{var result=JSON.parse(data);if(!result.ok)root.error=result.error;}catch(e){}} }
+        onExited:if(!pairingStatus.running)pairingStatus.running=true
+    }
+    Timer { interval:1500;repeat:true;running:true;triggeredOnStart:true;onTriggered:if(!pairingStatus.running && !pairingDecision.running)pairingStatus.running=true }
     Timer { id: hideControls; interval: 8000; onTriggered: { if (!root.opened && !root.optionsOpened && !root.appsOpened && !root.powerOpened) root.controlsOpened = false; } }
     Process {
         id: engine
@@ -112,7 +140,7 @@ Scope {
         function wifi(): void { root.powerOpened=false;root.appsOpened=false;root.optionsOpened=true;root.controlsOpened=true; }
         function apps(): void { root.toggleApps(); }
         function controls(): void { if (!root.controlsCollapsed) root.revealControls(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,apps:root.appsOpened,power:root.powerOpened,panels:root.panels.map(p=>p.snapshot())}); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,apps:root.appsOpened,power:root.powerOpened,pairing:root.pairingRequests.length>0,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -121,7 +149,7 @@ Scope {
             required property var modelData
             function reset() { board.reset(); }
             function buttonRect(button) { var pos=button.mapToItem(controls.contentItem,0,0);return {x:pos.x,y:pos.y+controls.margins.top,width:button.width,height:button.height}; }
-            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),power:buttonRect(powerButton),hide:buttonRect(collapse)},power:{visible:powerPicker.visible,x:(modelData.width-powerView.width)/2,y:100,buttons:powerView.snapshot()},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
+            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),power:buttonRect(powerButton),hide:buttonRect(collapse)},pairing:{visible:pairingPicker.visible,x:(modelData.width-pairingView.width)/2,y:(modelData.height-pairingView.height)/2,buttons:pairingView.snapshot()},power:{visible:powerPicker.visible,x:(modelData.width-powerView.width)/2,y:100,buttons:powerView.snapshot()},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
             Component.onCompleted: root.panels=[...root.panels,surface]
             Component.onDestruction: root.panels=root.panels.filter(p=>p!==surface)
             PanelWindow {
@@ -142,7 +170,7 @@ Scope {
             PanelWindow {
                 id: keyboard
                 screen: surface.modelData
-                visible: root.opened
+                visible: root.opened && !root.pairingRequests.length
                 anchors { bottom:true; left:true; right:true }
                 implicitHeight: Math.min(screen.height*0.48,330*root.keyScale)
                 exclusionMode: ExclusionMode.Ignore
@@ -196,9 +224,22 @@ Scope {
                 }
             }
             PanelWindow {
+                id:pairingPicker
+                screen:surface.modelData
+                visible:root.pairingRequests.length>0
+                implicitWidth:Math.min(screen.width-32,560)
+                implicitHeight:350
+                exclusionMode:ExclusionMode.Ignore
+                focusable:false
+                aboveWindows:true
+                color:"transparent"
+                Component.onCompleted:root.overlay(this)
+                PairingPanel { id:pairingView;anchors.fill:parent;controller:root }
+            }
+            PanelWindow {
                 id:appPicker
                 screen:surface.modelData
-                visible:root.appsOpened
+                visible:root.appsOpened && !root.pairingRequests.length
                 anchors {top:true;left:true;right:true}
                 margins.top:100
                 implicitWidth:Math.min(screen.width-24,640)
@@ -214,7 +255,7 @@ Scope {
             PanelWindow {
                 id:powerPicker
                 screen:surface.modelData
-                visible:root.powerOpened
+                visible:root.powerOpened && !root.pairingRequests.length
                 anchors {top:true;left:true;right:true}
                 margins.top:100
                 implicitHeight:300
@@ -228,7 +269,7 @@ Scope {
             }
             PanelWindow {
                 screen:surface.modelData
-                visible:root.optionsOpened
+                visible:root.optionsOpened && !root.pairingRequests.length
                 anchors {top:true;right:true}
                 margins {top:100;right:12}
                 implicitWidth:Math.min(screen.width-24,640)

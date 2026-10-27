@@ -9,7 +9,11 @@ let category = 'all';
 let sessionSignature = '';
 let switcherSignature = '';
 let feedbackTimer;
-let pairingDeadline=0;
+let pairingWaiting=false;
+let pairingPolling=false;
+let localSession=false;
+let deviceSignature=null;
+let revokingDevice=null;
 let resourceNotice=null;
 const assetFiles=JSON.parse(document.body.dataset.assetFiles);
 const assetUrl=path=>`/static/${path}?v=${assetFiles[path]}`;
@@ -63,9 +67,10 @@ function filterSources() {
   $('#source-title').textContent=category==='all'?'Todas las aplicaciones':$('.category-tabs [data-category='+category+'] span').textContent;
 }
 function settingsView(view='menu') {
+  if(view==='admin')refreshDevices();
   for(const name of ['menu','backgrounds','admin','cast'])$('#'+(name==='menu'?'settings-menu':name+'-view')).hidden=name!==view;
 }
-function showPairing() { $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
+function showPairing() { for(const dialog of $$('dialog[open]'))dialog.close(); $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
 function render() {
   const online=Boolean(state.session);
   const notice=state.resources?.notice;
@@ -100,7 +105,8 @@ function render() {
   $$('[data-power-menu]').forEach(button=>button.disabled=!online || busy || !csrf);
   $('#max-form button').disabled=!online || busy;
   $('#local-pairing').hidden=!kiosk;
-  $('#generate-pair-code').disabled=!online || busy;
+  $('#device-admin').hidden=!kiosk || !localSession;
+  $('#device-admin-local').hidden=kiosk && localSession;
   $$('[data-app]').forEach(button=>{
     button.disabled=!online || busy;
     button.classList.toggle('is-active',button.dataset.app===state.app);
@@ -273,17 +279,52 @@ $('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
 $('#max-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('apps/max/open-url',{url:$('#max-url').value},'Enlace abierto en Max')){$('#max-url').value='';showPanel(defaultPanel);}});
-$('#generate-pair-code').addEventListener('click',async()=>{
-  const result=await act('pairing/code');
-  if(result){$('#pair-code').textContent=result.code;$('#pair-code').hidden=false;pairingDeadline=Date.now()+result.expires_in*1000;pairingClock();}
-});
-function pairingClock(){
-  if(!pairingDeadline)return;
-  const seconds=Math.max(0,Math.ceil((pairingDeadline-Date.now())/1000));
-  $('#pair-code-time').textContent=seconds?`Caduca en ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}. Se usa una vez.`:'Código vencido. Genera otro.';
-  if(!seconds){pairingDeadline=0;$('#pair-code').textContent='';$('#pair-code').hidden=true;}
+async function refreshDevices() {
+  if(!kiosk || !localSession || !csrf)return;
+  try {
+    const result=await api('admin/devices');
+    const signature=JSON.stringify(result.devices);
+    $('#devices-message').textContent=result.devices.length?'':'Todavía no hay mandos autorizados.';
+    if(signature===deviceSignature)return;
+    deviceSignature=signature;
+    const list=$('#device-list');list.replaceChildren();
+    for(const device of result.devices){
+      const row=document.createElement('div');row.className='device-row';
+      const details=document.createElement('div');
+      const name=document.createElement('strong');name.textContent=device.name;
+      const browser=document.createElement('span');browser.textContent=`${device.browser} · Vinculado el ${new Date(device.approved_at*1000).toLocaleDateString('es-DO')}`;
+      details.append(name,browser);
+      const revoke=document.createElement('button');revoke.type='button';revoke.textContent='Revocar';revoke.className='secondary';revoke.setAttribute('aria-label',`Revocar acceso a ${device.name}`);
+      revoke.addEventListener('click',()=>{revokingDevice=device.id;$('#revoke-name').textContent=`${device.name} dejará de controlar Jarq. Para volver a entrar, tendrá que solicitar permiso.`;$('#revoke-confirm').showModal();});
+      row.append(details,revoke);list.append(row);
+    }
+  }catch(error){$('#devices-message').textContent=error.message;}
 }
-setInterval(pairingClock,1000);
+$('#devices-retry').addEventListener('click',refreshDevices);
+$('#revoke-cancel').addEventListener('click',()=>$('#revoke-confirm').close());
+$('#revoke-accept').addEventListener('click',async()=>{
+  const button=$('#revoke-accept');button.disabled=true;
+  try{await api(`admin/devices/${encodeURIComponent(revokingDevice)}/revoke`,{});$('#revoke-confirm').close();await refreshDevices();feedback('Acceso revocado');}
+  catch(error){feedback(error.message,true);}finally{button.disabled=false;}
+});
+async function pairingStatus(){
+  if(pairingPolling || csrf || document.hidden)return;
+  pairingPolling=true;
+  try{
+    const wasWaiting=pairingWaiting;
+    const result=await api('pairing/status');
+    pairingWaiting=result.status==='pending';
+    if(result.status==='approved'){
+      csrf=result.csrf;localSession=false;$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();feedback('Este dispositivo ya puede controlar Jarq');
+    }else if(pairingWaiting){$('#pair-status').textContent=`Esperando en Jarq. Acepta la solicitud de «${result.name}» en la laptop.`;}
+    else if(result.status==='rejected'){$('#pair-status').textContent='Jarq rechazó la solicitud. Puedes volver a solicitar permiso.';}
+    else if(wasWaiting || ['revoked','claimed'].includes(result.status)){$('#pair-status').textContent='La solicitud venció o el acceso se revocó. Solicita permiso de nuevo.';}
+    $('#pair-form button').disabled=pairingWaiting;
+    $('#pair-form button').textContent=pairingWaiting?'Esperando autorización…':'Solicitar permiso';
+  }catch(error){$('#pair-status').textContent=error.message+' Volveremos a comprobar la solicitud.';}
+  finally{pairingPolling=false;}
+}
+setInterval(()=>{if(pairingWaiting)pairingStatus();if(kiosk && panel==='settings' && !$('#admin-view').hidden)refreshDevices();},2000);
 $('#load-videos').addEventListener('click',async()=>{
   try {const data=await api('videos');$('#video-list').replaceChildren();
     if(!data.files.length){const item=document.createElement('li');item.textContent='Todavía no hay archivos en Videos.';$('#video-list').append(item);}
@@ -292,8 +333,8 @@ $('#load-videos').addEventListener('click',async()=>{
 });
 $('#pair-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=$('#pair-form button');button.disabled=true;
-  try {const result=await api('session',{token:$('#pair-token').value.trim()});csrf=result.csrf;$('#pair-token').value='';$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();}
-  catch(error){feedback(error.message,true);}finally{button.disabled=false;}
+  try{const result=await api('pairing/request',{name:$('#pair-name').value.trim()});pairingWaiting=result.status==='pending';await pairingStatus();}
+  catch(error){$('#pair-status').textContent=error.message;button.disabled=false;}
 });
 document.addEventListener('keydown',event=>{
   if(kiosk || !csrf || busy || $('#app-switcher').open || event.ctrlKey || event.metaKey || event.altKey || ['INPUT','TEXTAREA','BUTTON','A'].includes(event.target.tagName))return;
@@ -331,11 +372,11 @@ if(kiosk){
 mobile.addEventListener('change',()=>showPanel(panel));
 function clock(){const now=new Date();$('#clock').textContent=now.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit',hour12:false});$('#calendar').textContent=now.toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short'});}
 clock();setInterval(clock,30000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();if(!csrf)pairingStatus();}});
 async function start() {
   showPanel(defaultPanel);
-  try {const token=fragment.get('pair'); const result=token ? await api('session',{token}) : await api('session');fragment.delete('pair');csrf=result.csrf;$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();if(kiosk)focusHome();}
-  catch(error){fragment.delete('pair');showPairing();if(kiosk)feedback(error.message,true);}
-  setInterval(()=>{if(!document.hidden)refresh();},3000);
+  try {const token=fragment.get('pair'); const result=token ? await api('session',{token}) : await api('session');fragment.delete('pair');csrf=result.csrf;localSession=Boolean(result.local);$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();if(kiosk)focusHome();}
+  catch(error){fragment.delete('pair');showPairing();if(kiosk)feedback(error.message,true);else pairingStatus();}
+  setInterval(()=>{if(!document.hidden){refresh();if(!csrf)pairingStatus();}},3000);
 }
 start();

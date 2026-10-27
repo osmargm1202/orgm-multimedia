@@ -41,3 +41,9 @@ Spotify conserva la reproducción en Inicio y apps silenciosas. La fuente selecc
 Wi-Fi abre un selector local de NetworkManager, con búsqueda, reconexión y contraseña enmascarada mediante el teclado existente. La contraseña viaja por stdin y un archivo temporal privado, nunca por argumentos de proceso. AirPlay usa una pantalla de espera y UxPlay. Administración conserva rotación y reinicios; el reinicio del menú cierra los controles antes que el compositor.
 
 Kitty es una terminal del usuario media. Claude es `https://claude.ai`, una webapp independiente, sin instalar Claude Code.
+
+## Autorización de mandos
+
+El teléfono sin vincular muestra un nombre de dispositivo opcional y Solicitar permiso, sin códigos. La espera explica que debe aceptarse en Jarq; rechazo, caducidad y error de red permiten recuperar el flujo. El aviso nativo centrado se muestra sobre la fuente activa, despierta la pantalla táctil y conserva el foco de la película. Sus controles de 58 px son No, rechazar y Sí, autorizar; se accionan localmente por toque. Nombres externos siempre se muestran como texto, nunca como HTML.
+
+Administración del kiosk añade una lista de dispositivos con nombre, navegador, fecha de vinculación y Revocar. La confirmación enfoca Cancelar primero. La lista conserva el foco al actualizarse, admite nombres largos y ofrece estado vacío y reintento. Los mandos remotos indican que esta administración se hace en Jarq. La entrada de navegador es solo https://home.or-gm.com; no se anuncia acceso por IP.

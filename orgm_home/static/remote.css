@@ -57,3 +57,7 @@
  .app-switcher{padding:18px}.switcher-app>img{width:70px;height:48px}.switcher-app{gap:10px}.switcher-app>span{font-size:.85rem}.switcher-app small{font-size:.7rem}
 }
 @media(max-width:360px){.is-controller .remote{padding:14px}.is-controller .dpad{width:222px;height:222px}.remote-shortcuts button{font-size:.8rem}.focus-controls button{font-size:.7rem}.focus-controls svg{width:20px;height:20px}}
+
+.pairing input{width:100%;font-size:1rem;min-height:52px}.pairing label{font-size:1rem}.pair-status{min-height:3em;color:var(--secondary);margin-top:20px;line-height:1.6;overflow-wrap:anywhere}
+.device-admin{margin-top:40px;padding-top:28px;border-top:1px solid #52617d}.device-list{margin:20px 0}.device-row{display:flex;gap:20px;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid #34415b}.device-row>div{min-width:0}.device-row strong{display:block;font-size:1rem;overflow-wrap:anywhere}.device-row span{display:block;color:var(--secondary);font-size:.875rem;margin-top:6px;overflow-wrap:anywhere}.device-row button{width:auto;flex-shrink:0;min-width:88px;min-height:48px}
+@media(max-width:400px){.device-row{gap:12px}.device-row button{min-width:76px}}

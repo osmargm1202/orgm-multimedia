@@ -31,10 +31,10 @@ def test_max_link_requires_pairing_and_csrf_and_targets_max(configured, public_d
     data = json.loads(settings.catalog.read_text())
     data["apps"].append({"id": "max", "name": "Max", "type": "chrome", "workspace": "5", "url": "https://play.max.com"})
     settings.catalog.write_text(json.dumps(data))
-    with TestClient(create_app(settings, agent)) as client:
+    with TestClient(create_app(settings, agent), base_url="http://127.0.0.1:8765", client=("127.0.0.1", 50000)) as client:
         url = "https://play.max.com/video/fixture"
         route = "/api/apps/max/open-url"
-        headers = {"Origin": "http://testserver"}
+        headers = {"Origin": "http://127.0.0.1:8765"}
         assert client.post(route, json={"url": url}, headers=headers).status_code == 401
         session = client.post("/api/session", json={"token": settings.token_file.read_text()}, headers=headers).json()
         assert client.post(route, json={"url": url}, headers=headers).status_code == 403

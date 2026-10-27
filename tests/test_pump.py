@@ -16,7 +16,7 @@ def test_pump_cannot_be_controlled_without_pairing(configured):
     _, _, app, client = configured
     app.state.pump = FakePump()
     assert client.get("/api/pump/status").status_code == 401
-    assert client.post("/api/pump/time", json={"minutes": 10}, headers={"origin": "http://testserver"}).status_code == 401
+    assert client.post("/api/pump/time", json={"minutes": 10}, headers={"origin": "http://127.0.0.1:8765"}).status_code == 401
     assert app.state.pump.calls == []
 
 
@@ -48,7 +48,7 @@ def test_pump_requires_csrf_and_same_origin(paired):
     client, _, headers = paired
     pump = FakePump()
     client.app.state.pump = pump
-    assert client.post("/api/pump/off", json={}, headers={"origin": "http://testserver"}).status_code == 403
+    assert client.post("/api/pump/off", json={}, headers={"origin": "http://127.0.0.1:8765"}).status_code == 403
     assert client.post("/api/pump/off", json={}, headers={**headers, "origin": "https://evil.example"}).status_code == 403
     assert pump.calls == []
 

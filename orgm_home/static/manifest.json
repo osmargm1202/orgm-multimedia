@@ -1,5 +1,5 @@
 {
-  "version": "c39bc18e5cbc",
+  "version": "7922c5fd12ef",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -23,7 +23,7 @@
     "cards/ubereats.webp": "7907a9c03bfb",
     "cards/videos.webp": "f3c154f53b98",
     "cards/youtube.webp": "c223b6601b01",
-    "cinema.css": "b40f98f5a814",
+    "cinema.css": "a72fcfac40c5",
     "fonts/OFL.txt": "58172e0c0fac",
     "fonts/manrope.ttf": "3ae11c49db04",
     "home-aurora.webp": "88ce5b0ccfe9",
@@ -32,7 +32,7 @@
     "home-night.webp": "8751eee24aed",
     "home-orbita.webp": "21a77cfb076a",
     "home.css": "01c58588dd83",
-    "home.js": "bd4c31c71e73",
+    "home.js": "4404ab77cda0",
     "icon.svg": "5d2b279b8aa2",
     "icons/airplay.svg": "3e68cdd31cb3",
     "icons/apps.svg": "922335ac9949",
@@ -60,6 +60,6 @@
     "icons/wifi.svg": "2ee4063ecf9a",
     "pump.css": "2b20b57ee868",
     "pump.js": "477d5ad88222",
-    "remote.css": "965f3a9dfa17"
+    "remote.css": "c43a73d1fdfb"
   }
 }

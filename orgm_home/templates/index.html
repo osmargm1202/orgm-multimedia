@@ -117,7 +117,7 @@
       </div>
       <section id="cast-view" class="cast-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button>
         <h3>Desde el teléfono</h3>
-        <div id="local-pairing" class="cast-service" hidden><h4>Vincular un mando</h4><p class="field-hint">En el teléfono, abre https://home.or-gm.com con Tailscale o http://10.0.0.98 desde el Wi-Fi de casa. Introduce el código que generes aquí.</p><button id="generate-pair-code" class="secondary">Generar código</button><output id="pair-code" aria-label="Código de vinculación" hidden></output><p id="pair-code-time" class="field-hint"></p></div>
+        <div id="local-pairing" class="cast-service" hidden><h4>Vincular un mando</h4><p class="field-hint">Abre https://home.or-gm.com en el teléfono y toca Solicitar permiso. Jarq mostrará la solicitud sobre la aplicación que tengas abierta. Acéptala en esta pantalla.</p></div>
         <div class="cast-service"><h4>YouTube</h4><p class="field-hint">Conecta el teléfono al mismo Wi-Fi que Jarq. En YouTube, toca Transmitir y elige «ORGM Jarq · YouTube»; la aplicación se abrirá en la sala.</p><button class="secondary" data-app="youtube">Abrir YouTube</button></div>
         <div class="cast-service"><h4>Max</h4><p class="field-hint">Copia el enlace de una película o episodio y envíalo aquí. Se abrirá con la sesión de Max guardada en Jarq. La transmisión Cast de Max requiere un receptor compatible.</p>
           <form id="max-form"><label for="max-url">Enlace de Max</label><div class="input-row"><input id="max-url" type="url" maxlength="2048" placeholder="https://play.max.com/…" autocomplete="url" required><button type="submit" class="primary">Abrir en Max</button></div></form>
@@ -137,12 +137,19 @@
         <button data-admin="rotate"><img src="{{ asset('icons/rotate.svg') }}" alt=""><span>Voltear la pantalla</span></button>
         <button data-admin="restart-launcher"><img src="{{ asset('icons/restart-launcher.svg') }}" alt=""><span>Reiniciar el launcher</span></button>
         <button data-admin="reboot"><img src="{{ asset('icons/reboot.svg') }}" alt=""><span>Reiniciar el equipo</span></button>
+        <div id="device-admin" class="device-admin" hidden>
+          <h3>Dispositivos autorizados</h3><p class="field-hint">El acceso se recuerda en cada navegador. Revocarlo desconecta ese mando de inmediato.</p>
+          <p id="devices-message" class="field-hint" role="status"></p><div id="device-list" class="device-list"></div>
+          <button id="devices-retry" class="secondary" type="button">Actualizar dispositivos</button>
+        </div>
+        <p id="device-admin-local" class="field-hint">Los permisos de dispositivos se gestionan en Administración, en la pantalla de Jarq.</p>
       </section>
     </section>
 
     <section id="pairing" class="pairing" aria-labelledby="pairing-title" hidden>
-      <h2 id="pairing-title">Vincula tu mando</h2><p>En la pantalla de Jarq, abre Opciones → Desde el teléfono → Generar código. Escribe los seis dígitos que aparezcan. El código dura dos minutos y se usa una vez.</p>
-      <form id="pair-form"><label for="pair-token">Código de la pantalla</label><input id="pair-token" type="text" inputmode="numeric" autocomplete="one-time-code" spellcheck="false" required minlength="6" maxlength="256"><button type="submit" class="primary">Vincular este dispositivo</button></form>
+      <h2 id="pairing-title">Usa tu teléfono como mando</h2><p>Solicita acceso y acepta el aviso en la pantalla de Jarq. Este navegador quedará autorizado para las próximas veces.</p>
+      <form id="pair-form"><label for="pair-name">Nombre de este dispositivo</label><input id="pair-name" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Por ejemplo, iPhone de Osmar"><button type="submit" class="primary">Solicitar permiso</button></form>
+      <p id="pair-status" class="pair-status" role="status" aria-live="polite"></p>
     </section>
   </main>
   <nav id="controller-nav" class="controller-nav" aria-label="Mando de la sala" hidden>
@@ -160,6 +167,7 @@
   <dialog id="reboot-confirm"><h2>¿Reiniciar Jarq?</h2><p>Las aplicaciones se cerrarán y el equipo volverá al inicio.</p><div class="form-actions"><button id="reboot-cancel">Cancelar</button><button id="reboot-accept" class="primary">Reiniciar</button></div></dialog>
   <dialog id="power-menu" class="power-menu" aria-labelledby="power-title"><div class="settings-heading"><h2 id="power-title">Encendido</h2><button id="power-close" class="icon-button" aria-label="Cerrar encendido"><img src="{{ asset('icons/close.svg') }}" alt=""></button></div><div class="power-choices"><button data-power-action="poweroff"><img src="{{ asset('icons/power.svg') }}" alt=""><span>Apagar el equipo</span></button><button data-power-action="reboot"><img src="{{ asset('icons/reboot.svg') }}" alt=""><span>Reiniciar</span></button></div></dialog>
   <dialog id="shutdown-confirm" aria-labelledby="shutdown-title"><h2 id="shutdown-title">¿Apagar Jarq?</h2><p>Se cerrarán las aplicaciones y el equipo se apagará.</p><div class="form-actions"><button id="shutdown-cancel">Cancelar</button><button id="shutdown-accept" class="primary">Apagar</button></div></dialog>
+  <dialog id="revoke-confirm" aria-labelledby="revoke-title"><h2 id="revoke-title">¿Revocar acceso?</h2><p id="revoke-name"></p><div class="form-actions"><button id="revoke-cancel">Cancelar</button><button id="revoke-accept" class="primary">Revocar acceso</button></div></dialog>
   <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
 
 </body>

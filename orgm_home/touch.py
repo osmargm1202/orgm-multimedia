@@ -19,6 +19,16 @@ def main():
 
 def control():
     action = sys.argv[1] if len(sys.argv) >= 2 else "status"
+    if action in {"pairing-wake", "pairing-dim", "pairing-sleep"}:
+        backlight = Path("/sys/class/backlight/intel_backlight/bl_power")
+        if backlight.exists():
+            value = {"pairing-wake": 100, "pairing-dim": 20, "pairing-sleep": 0}[action]
+            backlight.write_text("4\n" if value == 0 else "0\n")
+            subprocess.run(["brightnessctl", "--device=intel_backlight", "--min-value=0", "set", f"{value}%"], check=True, timeout=3, stdout=subprocess.DEVNULL)
+        return
+    if action in {"pairing-pending", "pairing-decide"}:
+        _pairing(action)
+        return
     actions = {
         "status": ("status", {}),
         "apps": ("apps", {}),
@@ -77,3 +87,31 @@ def _finish_session(action):
     # portals leave before the compositor disappears during an admin reboot.
     subprocess.run(["systemctl", "--user", "stop", "orgm-home-session.target", "xdg-desktop-portal-gtk.service", "xdg-desktop-portal-wlr.service"], timeout=25, check=False)
     subprocess.run(["systemctl", action, "--no-block"], timeout=10, check=True)
+
+
+def _pairing(action):
+    # A local-only, signed session. No secret is passed in argv or a URL.
+    from urllib.request import Request, build_opener, ProxyHandler
+    from .pairing import Sessions
+
+    settings = Settings.from_env()
+    cookie, csrf = Sessions(settings.token_file.read_text().strip(), settings.cookie_age).issue()
+    headers = {"Origin": "http://127.0.0.1:8765", "Cookie": "orgm_session=" + cookie, "X-CSRF-Token": csrf, "Content-Type": "application/json"}
+    path, body = "/api/admin/pairing", None
+    if action == "pairing-decide":
+        try:
+            import re
+            value = json.loads(sys.stdin.readline(1024))
+            if set(value) != {"id", "approve"} or not re.fullmatch(r"[a-f0-9]{32}", value['id']) or type(value['approve']) is not bool:
+                raise ValueError()
+            path += "/" + value['id']
+            body = json.dumps({"approve": value['approve']}).encode()
+        except (ValueError, TypeError, KeyError):
+            raise SystemExit("Invalid pairing decision")
+    try:
+        request = Request("http://127.0.0.1:8765" + path, data=body, headers=headers)
+        with build_opener(ProxyHandler({})).open(request, timeout=3) as response:
+            print(json.dumps({"ok": True, "data": json.load(response)}))
+    except (OSError, ValueError):
+        print(json.dumps({"ok": False, "error": "No se pudo consultar la autorización. Inténtalo de nuevo."}))
+        raise SystemExit(1)

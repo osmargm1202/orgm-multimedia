@@ -114,7 +114,8 @@ env.update(
     ORGM_CATALOG=str(catalog),
     ORGM_AGENT_SOCKET=str(root / "agent.sock"),
     ORGM_TOKEN_FILE=str(token),
-    ORGM_ORIGINS="http://127.0.0.1:8765",
+    ORGM_ORIGINS="http://127.0.0.1:8765,http://home.or-gm.com",
+    ORGM_REQUIRE_ACCESS="false",
     ORGM_PORT="8765",
 )
 logs = []
@@ -430,6 +431,28 @@ try:
             pointer.button(True)
             pointer.button(False)
 
+        # A phone requests access over the public Host. Only real QML taps approve it.
+        phone=httpx.Client(base_url='http://127.0.0.1:8765',headers={'Host':'home.or-gm.com','Origin':'http://home.or-gm.com'})
+        for approve in [False,True]:
+            phone.post('/api/pairing/request',json={'name':'Teléfono de prueba'}).raise_for_status()
+            wait_for(lambda:touch_status().get('pairing'))
+            assert client.get('/api/status').json()['app']=='browser'
+            if shutil.which('grim'):
+                subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'pairing-native.png')],env=env)
+            prompt=touch_status()['panels'][0]['pairing']
+            button=prompt['buttons']['approve' if approve else 'reject']
+            click_at(prompt['x']+button['x']+button['width']/2,prompt['y']+button['y']+button['height']/2)
+            wait_for(lambda:not touch_status()['pairing'])
+            result=phone.get('/api/pairing/status')
+            assert result.json()['status']==('approved' if approve else 'rejected'),result.text
+            assert phone.get('/api/status').status_code==(200 if approve else 401)
+            assert client.get('/api/status').json()['app']=='browser'
+        devices=client.get('/api/admin/devices').json()['devices']
+        assert len(devices)==1 and devices[0]['name']=='Teléfono de prueba'
+        assert phone.get('/api/admin/devices').status_code==403
+        client.post('/api/admin/devices/'+devices[0]['id']+'/revoke',json={}).raise_for_status()
+        assert phone.get('/api/status').status_code==401
+        phone.close()
         # The native power button requires a second, explicit confirmation.
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
         button=touch_status()['panels'][0]['controls']['power']
@@ -605,6 +628,7 @@ try:
         assert any(w['id'] in before for w in leaves(tree()))
         client.close()
         browser.close()
+    assert "ReferenceError" not in (root / "touch.log").read_text()
     print(
         json.dumps(
             {
@@ -622,6 +646,7 @@ try:
                     "collapsed arrow restores controls",
                     "native picker switches open applications without Home",
                     "native power menu opens confirmation and Cancel preserves the session",
+                    "room approval/rejection uses real native touch, preserves foreground, persists and revokes phone access",
                     "native X closes popup and retains original webapp",
                     "private Wi-Fi credential entry with real QML keyboard focus",
                     "authenticated per-window preview while Home retains focus",

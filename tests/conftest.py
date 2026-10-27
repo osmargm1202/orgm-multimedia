@@ -65,11 +65,11 @@ def configured(tmp_path):
         catalog,
         tmp_path / "agent.sock",
         token,
-        ("http://testserver", "https://home.or-gm.com"),
+        ("http://127.0.0.1:8765", "https://home.or-gm.com"),
     )
     agent = FakeAgent()
     app = create_app(settings, agent)
-    client = TestClient(app)
+    client = TestClient(app, base_url="http://127.0.0.1:8765", client=("127.0.0.1", 50000))
     yield settings, agent, app, client
     client.close()
 
@@ -80,11 +80,11 @@ def paired(configured):
     response = client.post(
         "/api/session",
         json={"token": settings.token_file.read_text()},
-        headers={"origin": "http://testserver"},
+        headers={"origin": "http://127.0.0.1:8765"},
     )
     assert response.status_code == 200, response.text
     return (
         client,
         agent,
-        {"origin": "http://testserver", "x-csrf-token": response.json()["csrf"]},
+        {"origin": "http://127.0.0.1:8765", "x-csrf-token": response.json()["csrf"]},
     )
