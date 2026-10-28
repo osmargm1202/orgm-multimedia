@@ -253,11 +253,27 @@ acepta en Jarq. Una vista previa, un iframe o una petición GET por sí sola no
 cambian la reproducción. La acción usa el POST autenticado con cookie y CSRF;
 `key` contiene el enlace del video, no una credencial.
 
-En **ORGM y Envy**, **Win+Alt+Y** envía el texto seleccionado usando el navegador
-predeterminado y su autorización existente. No hace falta copiarlo primero.
-El atajo lee exclusivamente PRIMARY; no usa el contenido anterior del portapapeles
-si no hay selección. Si ese navegador todavía no tiene permiso, muestra el flujo
-de vinculación habitual. Tailscale sigue siendo necesario para el dominio actual.
+En **ORGM y Envy**, **Win+Alt+Y** envía el texto seleccionado directamente por
+HTTPS a la API de Jarq, sin abrir el navegador ni cambiar la ventana del equipo
+que envía. El atajo tiene su propia autorización, independiente del navegador.
+La primera vez aparece en Jarq «ORGM · atajo YouTube» o «ENVY · atajo YouTube»;
+al aceptarla, su cookie queda guardada en
+`~/.local/state/orgm-home/youtube-send/device.cookies` con modo 0600 y directorio
+0700. Cada equipo conserva su propia identidad hasta que se revoque el permiso.
+
+No hace falta copiar el enlace primero. El atajo lee exclusivamente PRIMARY y
+rechaza selecciones inválidas antes de conectar o pedir permiso; no recurre a un
+video anterior del portapapeles. No repite un envío cuyo resultado se desconoce
+por un timeout. No se leen cookies de navegadores ni se copia el secreto de la
+sala. Tailscale sigue siendo necesario para el dominio actual.
+
+En **Administración → Dispositivos autorizados**, cada atajo aparece como un
+mando independiente y se puede revocar por separado. Si se revoca, el próximo
+uso solicita autorización de nuevo. Para autorizar sin enviar ningún video:
+
+```bash
+orgm-send-youtube --pair
+```
 
 Se admiten enlaces HTTPS de `youtube.com/watch?v=…`, `youtu.be/…`, Shorts, live y
 embed, con un único identificador de video de once caracteres. Se conserva un
@@ -271,7 +287,7 @@ la instancia abierta. Una cuenta sin seleccionar o una restricción de YouTube
 pueden requerir intervención en la sala; «Enviado» confirma que se entregó la
 orden, no que un video externo haya terminado de cargar.
 
-Para comprobar un enlace sin enviarlo:
+Para comprobar la petición POST de un enlace sin enviarlo ni crear credenciales:
 
 ```bash
 orgm-send-youtube --url 'https://youtu.be/pM9H2Pvr_-s' --dry-run

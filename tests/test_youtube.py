@@ -181,39 +181,30 @@ def test_invalid_deeplink_preserves_foreground_and_does_not_spawn(controller):
     controller.activate.assert_not_called()
 
 
-def test_shortcut_invalid_selection_never_opens_browser(monkeypatch):
+def test_shortcut_invalid_selection_does_not_send_or_request_authorization(monkeypatch):
     from orgm_home import send
 
     monkeypatch.setattr("sys.argv", ["orgm-send-youtube"])
     monkeypatch.setattr(send, "selection", lambda: "This is not a link")
-    opened = []
-    monkeypatch.setattr(
-        send.subprocess, "run", lambda args, **kwargs: opened.append(args)
-    )
+    sent = []
+    monkeypatch.setattr(send, "transmit", lambda video=None: sent.append(video))
+    monkeypatch.setattr(send, "notify", lambda message: None)
     with pytest.raises(SystemExit) as error:
         send.main()
-    assert error.value.code == 2
-    assert all(call[0] != "xdg-open" for call in opened)
+    assert error.value.code == 2 and not sent
 
 
-def test_shortcut_valid_selection_passes_one_encoded_url_to_browser(monkeypatch):
+def test_shortcut_valid_selection_sends_canonical_video_directly(monkeypatch):
     from orgm_home import send
 
     monkeypatch.setattr("sys.argv", ["orgm-send-youtube"])
     monkeypatch.setattr(
         send, "selection", lambda: "https://www.youtube.com/shorts/" + ID
     )
-    opened = []
-    monkeypatch.setattr(
-        send.subprocess, "run", lambda args, **kwargs: opened.append(args)
-    )
+    sent = []
+    monkeypatch.setattr(send, "transmit", lambda video=None: sent.append(video))
     send.main()
-    assert opened == [
-        [
-            "xdg-open",
-            "https://home.or-gm.com/youtube/link/?key=" + quote(VIDEO, safe=""),
-        ]
-    ]
+    assert sent == [VIDEO]
 
 
 def test_closed_receiver_launches_once_with_exact_deeplink(controller, monkeypatch):
