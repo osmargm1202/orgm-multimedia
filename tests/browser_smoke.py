@@ -34,9 +34,9 @@ class PreviewAgent:
             self.opened.discard(data["id"])
             if self.active == data["id"]:
                 self.active = "home"
-        if action == "open-max":
-            self.active = "max"
-            self.opened.add("max")
+        if action in {"open-max", "open-youtube"}:
+            self.active = "max" if action=="open-max" else "youtube"
+            self.opened.add(self.active)
         if action == "brightness":
             self.brightness = data["value"]
         if action == "background":
@@ -212,7 +212,8 @@ with sync_playwright() as p:
     kiosk.locator('.side-nav [data-panel=settings]').click()
     kiosk.locator('[data-settings-view=cast]').click()
     expect(kiosk.locator('#local-pairing')).to_be_visible()
-    phone=browser.new_page(viewport={'width':390,'height':844})
+    phone_context=browser.new_context(viewport={'width':390,'height':844})
+    phone=phone_context.new_page()
     phone.on('pageerror',lambda e:errors.append(str(e)))
     phone.goto(f'http://127.0.0.1:{port}/')
     phone.fill('#pair-name','Teléfono de prueba')
@@ -223,6 +224,23 @@ with sync_playwright() as p:
     # Native Quickshell owns the centered approval. Exercise the same local-only API here.
     kiosk.evaluate("""async()=>{const session=await (await fetch('/api/session')).json();const pending=await (await fetch('/api/admin/pairing')).json();await fetch('/api/admin/pairing/'+pending.requests[0].id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({approve:true})});}""")
     expect(phone.locator('#remote')).to_be_visible()
+    before_youtube=len([action for action,_ in agent.calls if action=='open-youtube'])
+    phone.fill('#youtube-url','https://example.com/not-youtube')
+    phone.locator('#youtube-form button').click()
+    expect(phone.locator('#youtube-message')).to_contain_text('No se envió')
+    assert len([action for action,_ in agent.calls if action=='open-youtube'])==before_youtube
+    phone.fill('#youtube-url','https://www.youtube.com/shorts/pM9H2Pvr_-s')
+    phone.locator('#youtube-form button').click()
+    expect(phone.locator('#youtube-message')).to_have_text('Enviado a YouTube en Jarq.')
+    assert ('open-youtube',{'url':'https://www.youtube.com/watch?v=pM9H2Pvr_-s'}) in agent.calls
+    phone.screenshot(path=str(root/'youtube-send-mobile.png'),full_page=True)
+    quick=phone.context.new_page()
+    quick.on('pageerror',lambda e:errors.append(str(e)))
+    quick.goto(f'http://127.0.0.1:{port}/youtube/link/?key=https://youtu.be/pM9H2Pvr_-s')
+    expect(quick.locator('#youtube-message')).to_have_text('Enviado a YouTube en Jarq.')
+    assert len([action for action,_ in agent.calls if action=='open-youtube'])==before_youtube+2
+    quick.screenshot(path=str(root/'youtube-link-desktop.png'),full_page=True)
+    quick.close()
     phone.locator('[data-power-menu]').click()
     phone.locator('[data-power-action=poweroff]').click()
     phone.screenshot(path=str(root/'power-mobile.png'),full_page=True)
@@ -290,7 +308,8 @@ with sync_playwright() as p:
     kiosk.wait_for_function("() => [...document.querySelectorAll('.app-art')].every(i=>i.complete&&i.naturalWidth>0)")
     kiosk.locator('.side-nav [data-home]').click()
     expect(kiosk.locator('.app-youtube')).to_be_enabled()
-    kiosk.wait_for_function("() => document.querySelector('.app-grid').scrollLeft<8")
+    kiosk.locator('.app-youtube').focus()
+    expect(kiosk.locator('.app-youtube')).to_be_in_viewport()
     kiosk.screenshot(path=str(root/'kiosk.png'),full_page=True)
     # Local kiosk consumes native navigation; it must never echo it to the API.
     kiosk.locator('.app-youtube').focus()

@@ -26,6 +26,7 @@ from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .pump import install_routes as install_pump_routes
 from .urls import validate_url, validate_max_url
+from .youtube import canonical_url as youtube_url
 from .pairing import Devices, PairingRequests, Sessions, device_browser
 from .preferences import gallery
 from .previews import directory as preview_directory
@@ -246,6 +247,27 @@ def create_app(settings=None, agent=None):
             },
         )
 
+    @app.get("/youtube/link/", response_class=HTMLResponse)
+    async def youtube_link(request: Request):
+        video, error = "", ""
+        try:
+            keys = request.query_params.getlist("key")
+            if len(keys) != 1:
+                raise ControlError("El enlace debe incluir un único video en key", 422)
+            video = youtube_url(keys[0])
+        except ControlError as exc:
+            error = str(exc)
+        # An explicit top-level user navigation may send automatically after
+        # pairing. Background fetches, previews and frames never trigger playback.
+        auto = (request.headers.get("sec-fetch-user") == "?1"
+                and request.headers.get("sec-fetch-mode") == "navigate"
+                and request.headers.get("sec-fetch-dest") == "document")
+        return templates.TemplateResponse(request=request, name="index.html", context={
+            "apps": [a.public() for a in apps.values() if a.id != "home"],
+            "backgrounds": gallery(), "youtube_link": video,
+            "youtube_error": error, "youtube_auto": auto,
+        })
+
     @app.get("/airplay", response_class=HTMLResponse)
     async def airplay(request: Request):
         return templates.TemplateResponse(
@@ -403,6 +425,14 @@ def create_app(settings=None, agent=None):
         if app_id not in apps:
             raise ControlError("Aplicación desconocida", 404)
         return await client.call("switch-app", id=app_id)
+
+    @app.post("/api/apps/youtube/open-url")
+    async def open_youtube(payload: Url):
+        video = youtube_url(payload.url)
+        if "youtube" not in apps:
+            raise ControlError("YouTube no está en el catálogo de esta sala", 404)
+        result = await client.call("open-youtube", url=video)
+        return {**result, "url": video}
 
     @app.post("/api/apps/max/open-url")
     async def open_max(payload: Url):

@@ -237,3 +237,42 @@ La política de luz pertenece a NixOS: 20% a los 20 segundos y cero al minuto. A
 El inicio muestra todo el catálogo en una banda deslizable y las categorías viven en el lateral. Wi-Fi, fondos y administración tienen vistas independientes. Spotify ofrece anterior, Play/Pausa y siguiente sin cambiar el foco. Los reproductores MPRIS se asocian a su aplicación mediante el PID de D-Bus y el cgroup de Flatpak: al salir se pausan todos los videos en segundo plano, y al volver solo se reanudan las pausas realizadas por el launcher. Una pausa manual se conserva.
 
 «Reconectar» vuelve a asociar el perfil Wi-Fi guardado aunque NetworkManager todavía lo marque conectado; recupera enlaces Broadcom que responden a ping pero dejan de transportar DNS/HTTP. Conserva el perfil y no cambia contraseñas ni permisos de sistema.
+
+## Enviar un video de YouTube a Jarq
+
+En el mando, **YouTube en Jarq** permite pegar un enlace y tocar **Enviar**.
+También se puede abrir un enlace rápido, por ejemplo:
+
+```text
+https://home.or-gm.com/youtube/link/?key=https://www.youtube.com/shorts/pM9H2Pvr_-s
+```
+
+Al abrirlo mediante una navegación explícita, un navegador autorizado envía el
+video automáticamente. Si aún no está vinculado, primero solicita permiso y se
+acepta en Jarq. Una vista previa, un iframe o una petición GET por sí sola no
+cambian la reproducción. La acción usa el POST autenticado con cookie y CSRF;
+`key` contiene el enlace del video, no una credencial.
+
+En **ORGM y Envy**, **Win+Alt+Y** envía el texto seleccionado usando el navegador
+predeterminado y su autorización existente. No hace falta copiarlo primero.
+El atajo lee exclusivamente PRIMARY; no usa el contenido anterior del portapapeles
+si no hay selección. Si ese navegador todavía no tiene permiso, muestra el flujo
+de vinculación habitual. Tailscale sigue siendo necesario para el dominio actual.
+
+Se admiten enlaces HTTPS de `youtube.com/watch?v=…`, `youtu.be/…`, Shorts, live y
+embed, con un único identificador de video de once caracteres. Se conserva un
+inicio `t`/`start` válido y se eliminan seguimiento y listas. Texto adicional,
+dominios parecidos, canales, listas sin video e identificadores ambiguos se
+rechazan antes de enfocar o abrir la aplicación. La misma validación se utiliza
+en el atajo, la API y el agente.
+
+VacuumTube recibe el enlace mediante su interfaz nativa documentada y reutiliza
+la instancia abierta. Una cuenta sin seleccionar o una restricción de YouTube
+pueden requerir intervención en la sala; «Enviado» confirma que se entregó la
+orden, no que un video externo haya terminado de cargar.
+
+Para comprobar un enlace sin enviarlo:
+
+```bash
+orgm-send-youtube --url 'https://youtu.be/pM9H2Pvr_-s' --dry-run
+```

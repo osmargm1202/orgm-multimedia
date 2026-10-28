@@ -15,6 +15,10 @@ let localSession=false;
 let deviceSignature=null;
 let revokingDevice=null;
 let resourceNotice=null;
+let linkedYoutubePending=document.body.dataset.youtubeAuto==='yes';
+const linkedYoutube=document.body.dataset.youtubeLink || '';
+$('#youtube-url').value=linkedYoutube;
+$('#youtube-message').textContent=document.body.dataset.youtubeError || (linkedYoutube?'Este enlace está listo para enviarse a Jarq.':'');
 const assetFiles=JSON.parse(document.body.dataset.assetFiles);
 const assetUrl=path=>`/static/${path}?v=${assetFiles[path]}`;
 let homeCursor=null;
@@ -104,6 +108,7 @@ function render() {
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
   $$('[data-power-menu]').forEach(button=>button.disabled=!online || busy || !csrf);
   $('#max-form button').disabled=!online || busy;
+  $('#youtube-form button').disabled=!online || busy || !csrf;
   $('#local-pairing').hidden=!kiosk;
   $('#device-admin').hidden=!kiosk || !localSession;
   $('#device-admin-local').hidden=kiosk && localSession;
@@ -230,7 +235,7 @@ function renderSessions() {
 }
 async function refresh() {
   if (!csrf || busy) return;
-  try { state=await api('status?previews='+String(panel==='sources')); render(); } catch(error) {state.session=false;render();if(csrf) $('#current-detail').textContent=error.message;}
+  try { state=await api('status?previews='+String(panel==='sources')); render(); if(linkedYoutubePending && linkedYoutube && state.session){linkedYoutubePending=false;await sendYoutube(linkedYoutube);} } catch(error) {state.session=false;render();if(csrf) $('#current-detail').textContent=error.message;}
 }
 async function act(path, body={}, message='') {
   if(busy) return;
@@ -278,6 +283,14 @@ $('#shutdown-cancel').addEventListener('click',()=>$('#shutdown-confirm').close(
 $('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close();act('admin/poweroff',{},'Apagando Jarq');});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
+async function sendYoutube(url){
+  $('#youtube-message').textContent='Enviando el video a Jarq…';
+  const result=await act('apps/youtube/open-url',{url},'Video enviado a YouTube en Jarq');
+  $('#youtube-message').textContent=result?'Enviado a YouTube en Jarq.':'No se envió el enlace. Revisa que sea un video de YouTube y vuelve a intentarlo.';
+  if(result){$('#youtube-url').value=result.url;showPanel(defaultPanel);}
+  return result;
+}
+$('#youtube-form').addEventListener('submit',async event=>{event.preventDefault();linkedYoutubePending=false;await sendYoutube($('#youtube-url').value.trim());});
 $('#max-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('apps/max/open-url',{url:$('#max-url').value},'Enlace abierto en Max')){$('#max-url').value='';showPanel(defaultPanel);}});
 async function refreshDevices() {
   if(!kiosk || !localSession || !csrf)return;

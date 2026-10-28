@@ -20,6 +20,7 @@ import shutil
 from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
 from .urls import validate_url, validate_max_url
+from .youtube import canonical_url as youtube_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
@@ -516,8 +517,17 @@ class Controller:
             await command("systemctl", "--user", "start", "orgm-home-airplay.service")
         window = await self.find(app)
         navigate_existing = window is not None and url is not None
-        if url is not None and app.id not in {"browser", "max"}:
+        if url is not None and app.id not in {"browser", "max", "youtube"}:
             raise ControlError("Destino de navegador inválido", 422)
+        youtube_args = None
+        if app.id == "youtube" and url is not None:
+            url = youtube_url(url)
+            if app.type != "flatpak" or app.appId != "rocks.shy.VacuumTube":
+                raise ControlError("El receptor de YouTube no está configurado", 409)
+            youtube_args = ["flatpak", "run", app.appId, url, "--fullscreen"]
+            if navigate_existing:
+                # VacuumTube forwards the video to its existing single instance.
+                await command(*youtube_args, timeout=12)
         if not window:
             await self.sway(f"workspace number {app.workspace}")
             if app.type == "internal":
@@ -526,7 +536,7 @@ class Controller:
                     "systemctl", "--user", "restart", "orgm-home-kiosk.service"
                 )
             elif app.type == "flatpak":
-                proc = await self.spawn(["flatpak", "run", app.appId])
+                proc = await self.spawn(youtube_args or ["flatpak", "run", app.appId])
                 self.processes[app.id] = proc
             elif app.type in {"chrome", "airplay"}:
                 self.processes[app.id] = await self.spawn(
@@ -572,7 +582,7 @@ class Controller:
             # Reset the kiosk view and restore its visible selection even if
             # the browser still remembers a hidden settings field or button.
             await self.native_key(102)  # Home, handled locally by the kiosk.
-        if navigate_existing:
+        if navigate_existing and app.id != "youtube":
             # Chrome forwards this URL as a tab to the same profile/window.
             await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
@@ -661,6 +671,8 @@ class Controller:
                 return await self.activate(
                     "browser", await validate_url(request.get("url", ""))
                 )
+            if action == "open-youtube":
+                return await self.activate("youtube", youtube_url(request.get("url")))
             if action == "open-max":
                 return await self.activate("max", await validate_max_url(request.get("url", "")))
             if action == "key":

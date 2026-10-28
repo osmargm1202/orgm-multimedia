@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="{{ asset('pump.css') }}">
   <script src="{{ asset('pump.js') }}" defer></script>
 </head>
-<body data-assets="{{ assets_version }}" data-asset-files="{{ asset_files | tojson | forceescape }}">
+<body data-youtube-link="{{ youtube_link | default('') }}" data-youtube-error="{{ youtube_error | default('') }}" data-youtube-auto="{{ 'yes' if youtube_auto | default(false) else 'no' }}" data-assets="{{ assets_version }}" data-asset-files="{{ asset_files | tojson | forceescape }}">
   <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
@@ -98,6 +98,7 @@
       <div class="focus-controls remote-only" role="group" aria-label="Seleccionar elementos en páginas web"><button data-key="shift-tab" aria-label="Elemento anterior" disabled><svg class="reverse"><use href="#i-tab"/></svg><span>Anterior</span></button><button data-key="tab" aria-label="Siguiente elemento" disabled><span>Siguiente elemento</span><svg><use href="#i-tab"/></svg></button></div>
       <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
       <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
+      <form id="youtube-form" class="youtube-send"><label for="youtube-url">YouTube en Jarq</label><p class="field-hint">Pega el enlace de un video o Short para verlo en la sala.</p><div class="input-row"><input id="youtube-url" type="url" maxlength="2048" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" required aria-describedby="youtube-message"><button class="primary" type="submit" disabled>Enviar</button></div><p id="youtube-message" class="youtube-message" role="status" aria-live="polite"></p></form>
     </section>
 
     <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
