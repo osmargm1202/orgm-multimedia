@@ -250,7 +250,7 @@ class Controller:
             "--ozone-platform=wayland",
             "--no-first-run",
             "--remote-debugging-address=127.0.0.1",
-            "--remote-debugging-port=0",
+            f"--remote-debugging-port={32000 + int(app.workspace)}",
             "--no-default-browser-check",
             "--password-store=basic",
             "--blink-settings=hideScrollbars=true",
@@ -690,7 +690,7 @@ class Controller:
                 if app.id == "home" and key not in {"up", "down", "left", "right", "ok", "back", "tab", "shift-tab"}:
                     raise ControlError("Ese control no está disponible en Inicio", 409)
                 if app.type == "chrome" and key in {"up", "down", "left", "right", "ok", "search", "play"}:
-                    result = await BrowserControl(app.id).act(key)
+                    result = await BrowserControl(app.id, 32000 + int(app.workspace)).act(key)
                     if key == "ok" and result.get("navigation") == "input":
                         await self.native_key(28)
                     return {"sent": key, **result}

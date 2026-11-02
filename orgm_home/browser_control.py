@@ -24,12 +24,13 @@ def allowed(url, hosts):
 
 
 class BrowserControl:
-    def __init__(self, app_id):
+    def __init__(self, app_id, port=None):
         self.app_id = app_id
+        self.port = port
 
     def targets(self):
         path = Path.home() / '.local/share/orgm-home/chrome' / self.app_id / 'DevToolsActivePort'
-        port = int(path.read_text().splitlines()[0])
+        port = self.port if self.port is not None else int(path.read_text().splitlines()[0])
         if not 1 <= port <= 65535:
             raise ValueError('Invalid port')
         opener = build_opener(ProxyHandler({}))

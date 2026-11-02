@@ -303,7 +303,7 @@ OK envía Enter. Tab/Shift+Tab siguen disponibles como alternativa.
 
 Los selectores y dominios por servicio están en
 `orgm_home/navigation/profiles.json`; el motor compartido está en `control.js`.
-No se envía JavaScript desde el mando. Chrome abre DevTools en un puerto aleatorio
+No se envía JavaScript desde el mando. Chrome abre DevTools en un puerto fijo por aplicación
 solo en localhost y dentro de su perfil independiente; el agente elige únicamente
 la página enfocada. Los dominios de servicios se comprueban antes de actuar.
 Las ventanas ya abiertas necesitan cerrarse y abrirse una vez para añadir ese
