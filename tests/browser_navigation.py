@@ -36,6 +36,23 @@ async def main():
                 result=await page.evaluate('('+SCRIPT+')', {**profile,'hosts':None,'action':'play'})
                 assert result['ok'],service
                 assert await page.locator('button').get_attribute('data-clicked')=='1',service
+            port=int((root/'.local/share/orgm-home/chrome/browser/DevToolsActivePort').read_text().splitlines()[0])
+            await page.route('https://www.netflix.com/**',lambda route:route.fulfill(body='<button data-uia="play-button" onclick="this.dataset.started=1">Play</button>'))
+            remote=BrowserControl('netflix',port)
+            await remote.navigate('https://www.netflix.com/title/81234567')
+            await page.wait_for_url('https://www.netflix.com/title/81234567')
+            await page.locator('button').wait_for()
+            result=await remote.act('start',expected_id='81234567')
+            assert result['navigation']=='start'
+            assert await page.locator('button').get_attribute('data-started')=='1'
+            await page.locator('button').evaluate('(e)=>e.removeAttribute("data-started")')
+            try:
+                await remote.act('start',expected_id='89999999')
+                raise AssertionError('Wrong content must not start')
+            except Exception as error:
+                from orgm_home.protocol import ControlError
+                assert isinstance(error,ControlError)
+            assert await page.locator('button').get_attribute('data-started') is None
             await page.set_content('<p>No player</p>')
             result=await page.evaluate('('+SCRIPT+')', {'action':'play'})
             assert not result['ok']

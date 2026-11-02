@@ -9,6 +9,7 @@ import uvicorn
 from playwright.sync_api import sync_playwright, expect
 from orgm_home.config import Settings
 from orgm_home.web import create_app
+from orgm_home.media_links import media_link
 
 
 class PreviewAgent:
@@ -22,6 +23,9 @@ class PreviewAgent:
 
     async def call(self, action, **data):
         self.calls.append((action, data))
+        if action == "open-media":
+            self.active=media_link(data["url"]).app
+            self.opened.add(self.active)
         if action == "activate":
             self.active = data["id"]
             self.opened.add(self.active)
@@ -235,6 +239,10 @@ with sync_playwright() as p:
     expect(phone.locator('#youtube-message')).to_have_text('Enviado a YouTube en Jarq.')
     assert ('open-youtube',{'url':'https://www.youtube.com/watch?v=pM9H2Pvr_-s'}) in agent.calls
     phone.screenshot(path=str(root/'youtube-send-mobile.png'),full_page=True)
+    phone.fill('#youtube-url','https://www.netflix.com/title/81234567?trackId=1')
+    phone.locator('#youtube-form button').click()
+    expect(phone.locator('#youtube-message')).to_contain_text('Enlace abierto en Netflix')
+    assert ('open-media',{'url':'https://www.netflix.com/title/81234567'}) in agent.calls
     quick=phone.context.new_page()
     quick.on('pageerror',lambda e:errors.append(str(e)))
     quick.goto(f'http://127.0.0.1:{port}/youtube/link/?key=https://youtu.be/pM9H2Pvr_-s')

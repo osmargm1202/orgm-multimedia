@@ -288,9 +288,11 @@ $('#search-form').addEventListener('submit',async event=>{event.preventDefault()
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
 async function sendYoutube(url){
-  $('#youtube-message').textContent='Enviando el video a Jarq…';
-  const result=await act('apps/youtube/open-url',{url},'Video enviado a YouTube en Jarq');
-  $('#youtube-message').textContent=result?'Enviado a YouTube en Jarq.':'No se envió el enlace. Revisa que sea un video de YouTube y vuelve a intentarlo.';
+  $('#youtube-message').textContent='Enviando el contenido a Jarq…';
+  let youtube=false;
+  try{youtube=['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be'].includes(new URL(url).hostname);}catch{}
+  const result=await act(youtube?'apps/youtube/open-url':'media/open-url',{url},youtube?'Video enviado a YouTube en Jarq':'Enlace enviado a la sala');
+  $('#youtube-message').textContent=result?(youtube?'Enviado a YouTube en Jarq.':`Enlace abierto en ${labels[result.app] || 'la sala'}. La reproducción puede requerir tu perfil.`):'No se envió el enlace. Revisa que sea contenido de un servicio compatible.';
   if(result){$('#youtube-url').value=result.url;showPanel(defaultPanel);}
   return result;
 }

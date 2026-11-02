@@ -331,3 +331,12 @@ llama VacuumTube.
 En smartphone, el mando tiene una carcasa propia de grafito, cruceta circular y
 teclas con relieve al pulsar, con los seis logos a color. Escritorio conserva los
 botones planos. El diseño se describe en `docs/design-handset.md`.
+
+## Win+Alt+Y para varios servicios
+
+El atajo ahora reconoce contenido de YouTube, Netflix, Disney+, Max, Crunchyroll,
+Prime Video y Spotify. Conserva el permiso guardado y envía directamente por HTTPS.
+Reutiliza la webapp o aplicación nativa y solicita reproducción cuando encuentra
+un reproductor o botón primario compatible. Los accesos a cuenta, perfiles,
+compras y DRM siguen en manos del proveedor. También funciona desde el formulario
+del mando y `/media/link/?key=...`. Ver [docs/media-links.md](docs/media-links.md).

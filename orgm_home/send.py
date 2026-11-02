@@ -1,4 +1,4 @@
-"""Direct HTTPS YouTube sender with a persistent, individually approved identity."""
+"""Direct HTTPS media sender; keeps the existing independently approved identity."""
 
 import argparse
 import contextlib
@@ -21,13 +21,13 @@ from urllib.request import (
 )
 
 from .protocol import ControlError
-from .youtube import canonical_url
+from .media_links import media_link, LABELS
 
 
 def notify(message):
     try:
         subprocess.run(
-            ["notify-send", "--app-name=ORGM Home", "YouTube en Jarq", message],
+            ["notify-send", "--app-name=ORGM Home", "Multimedia en Jarq", message],
             timeout=3,
             check=False,
         )
@@ -71,7 +71,7 @@ def selection():
                         )
             process.wait(timeout=2)
             if process.returncode:
-                raise ControlError("Selecciona primero un enlace de YouTube.", 422)
+                raise ControlError("Selecciona primero un enlace de contenido.", 422)
             return raw.decode("utf-8")
         finally:
             if process.poll() is None:
@@ -96,7 +96,7 @@ class RemoteSender:
         )
         self.base = base
         self.sleep = sleep
-        self.name = socket.gethostname().split(".")[0][:40].upper() + " · atajo YouTube"
+        self.name = socket.gethostname().split(".")[0][:40].upper() + " · atajo multimedia"
         self.cookies = http.cookiejar.MozillaCookieJar()
         self.lock = None
 
@@ -236,14 +236,15 @@ class RemoteSender:
         )
 
     def send(self, video):
-        video = canonical_url(video)
+        target = media_link(video)
+        video = target.url
         for attempt in range(2):
             csrf = self.authorize()
             try:
                 result = self.request(
-                    "/api/apps/youtube/open-url", {"url": video}, csrf
+                    target.endpoint, {"url": video}, csrf
                 )
-                if result.get("url") != video:
+                if result.get("url") != video or (target.app != "youtube" and result.get("app") != target.app):
                     raise ControlError("Jarq no confirmó el video solicitado.", 503)
                 return
             except ControlError as exc:
@@ -264,15 +265,15 @@ def transmit(video=None):
             notify("Atajo autorizado. Los próximos envíos irán directamente a Jarq.")
         else:
             sender.send(video)
-            notify("Video enviado a YouTube en Jarq.")
+            notify("Enlace enviado a " + LABELS[media_link(video).app] + " en Jarq.")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Enviar a Jarq el enlace de YouTube seleccionado por HTTPS"
+        description="Enviar a su aplicación en Jarq el enlace multimedia seleccionado por HTTPS"
     )
     parser.add_argument(
-        "--version", action="version", version="orgm-send-youtube 2 (HTTPS directo)"
+        "--version", action="version", version="orgm-send-youtube 3 (HTTPS directo multimedia)"
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--url", help="Usar este enlace en lugar de la selección")
@@ -292,13 +293,14 @@ def main():
             transmit()
             return
         # Invalid selections do not create a session, request approval or send HTTP.
-        video = canonical_url(args.url if args.url is not None else selection())
+        target = media_link(args.url if args.url is not None else selection())
+        video = target.url
         if args.dry_run:
             print(
                 json.dumps(
                     {
                         "method": "POST",
-                        "url": ROOM + "/api/apps/youtube/open-url",
+                        "url": ROOM + target.endpoint,
                         "body": {"url": video},
                     }
                 )

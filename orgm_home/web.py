@@ -26,6 +26,7 @@ from .config import Settings, load_catalog
 from .protocol import AgentClient, ControlError
 from .pump import install_routes as install_pump_routes
 from .urls import validate_url, validate_max_url
+from .media_links import media_link
 from .youtube import canonical_url as youtube_url
 from .pairing import Devices, PairingRequests, Sessions, device_browser
 from .preferences import gallery
@@ -258,7 +259,7 @@ def create_app(settings=None, agent=None):
             keys = request.query_params.getlist("key")
             if len(keys) != 1:
                 raise ControlError("El enlace debe incluir un único video en key", 422)
-            video = youtube_url(keys[0])
+            video = media_link(keys[0]).url
         except ControlError as exc:
             error = str(exc)
         # An explicit top-level user navigation may send automatically after
@@ -269,6 +270,25 @@ def create_app(settings=None, agent=None):
         return templates.TemplateResponse(request=request, name="index.html", context={
             "apps": [a.public() for a in apps.values() if a.id != "home"],
             "backgrounds": gallery(), "youtube_link": video,
+            "youtube_error": error, "youtube_auto": auto,
+        })
+
+    @app.get("/media/link/", response_class=HTMLResponse)
+    async def media_link_page(request: Request):
+        url, error = "", ""
+        try:
+            keys = request.query_params.getlist("key")
+            if len(keys) != 1:
+                raise ControlError("Incluye un único enlace en key", 422)
+            url = media_link(keys[0]).url
+        except ControlError as exc:
+            error = str(exc)
+        auto = (request.headers.get("sec-fetch-user") == "?1"
+                and request.headers.get("sec-fetch-mode") == "navigate"
+                and request.headers.get("sec-fetch-dest") == "document")
+        return templates.TemplateResponse(request=request, name="index.html", context={
+            "apps": [a.public() for a in apps.values() if a.id != "home"],
+            "backgrounds": gallery(), "youtube_link": url,
             "youtube_error": error, "youtube_auto": auto,
         })
 
@@ -429,6 +449,14 @@ def create_app(settings=None, agent=None):
         if app_id not in apps:
             raise ControlError("Aplicación desconocida", 404)
         return await client.call("switch-app", id=app_id)
+
+    @app.post("/api/media/open-url")
+    async def open_media(payload: Url):
+        target = media_link(payload.url)
+        if target.app not in apps:
+            raise ControlError("El servicio no está en el catálogo de esta sala", 404)
+        result = await client.call("open-media", url=target.url)
+        return {**result, "app": target.app, "url": target.url}
 
     @app.post("/api/apps/youtube/open-url")
     async def open_youtube(payload: Url):

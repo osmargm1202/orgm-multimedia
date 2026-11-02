@@ -231,3 +231,15 @@ def test_dry_run_prints_post_plan_without_creating_credentials(monkeypatch, caps
         "url": "https://home.or-gm.com/api/apps/youtube/open-url",
         "body": {"url": VIDEO},
     }
+
+
+def test_saved_approval_can_send_netflix_without_a_browser(tmp_path,monkeypatch):
+    calls=[]
+    with RemoteSender(tmp_path/'sender') as sender:
+        monkeypatch.setattr(sender,'authorize',lambda:'csrf')
+        def request(path,body=None,csrf=None):
+            calls.append((path,body))
+            return {'app':'netflix','url':body['url']}
+        monkeypatch.setattr(sender,'request',request)
+        sender.send('https://www.netflix.com/title/81234567?trackId=1')
+    assert calls==[('/api/media/open-url',{'url':'https://www.netflix.com/title/81234567'})]

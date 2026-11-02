@@ -26,6 +26,15 @@ async function(options) {
     }
     return {ok:true,mode:'search'};
   }
+  if(options.action==='start') {
+    const id=options.expected_id, parsed=new URL(location.href);
+    if(!id || !(parsed.pathname.split('/').includes(id) || parsed.pathname.endsWith('entity-'+id) || parsed.searchParams.get('jbv')===id))return {ok:false,error:'El contenido aún no está listo.'};
+    const video=Array.from(document.querySelectorAll('video')).find(el=>el.readyState>0&&visible(el));
+    if(video){if(video.paused)await video.play();return {ok:true,mode:'playing'};}
+    const button=query(options.start||[]);
+    if(button){button.click();return {ok:true,mode:'start'};}
+    return {ok:false,error:'El servicio necesita perfil, sesión o reproducción manual.'};
+  }
   if(options.action==='play') {
     const button=query(options.play||[]);
     if(button){button.click();return {ok:true,mode:'play'};}

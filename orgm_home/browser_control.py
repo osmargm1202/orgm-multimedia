@@ -45,12 +45,12 @@ class BrowserControl:
                 result.append(target)
         return result
 
-    async def act(self, action):
-        if action not in {'up', 'down', 'left', 'right', 'ok', 'search', 'play'}:
+    async def act(self, action, expected_id=None):
+        if action not in {'up', 'down', 'left', 'right', 'ok', 'search', 'play', 'start'}:
             raise ControlError('Control no permitido', 422)
         profile = PROFILES.get(self.app_id, {})
         # Generic directional selection is useful for other Chrome catalogue apps.
-        options = {**profile, 'action': action}
+        options = {**profile, 'action': action, 'expected_id': expected_id}
         expression = '(' + SCRIPT + ')(' + json.dumps(options) + ')'
         try:
             async with asyncio.timeout(6):
@@ -79,3 +79,38 @@ class BrowserControl:
             # Do not expose URLs, page contents, profile paths or protocol errors.
             raise ControlError('El navegador aún no tiene el mando conectado. Reabre esta aplicación.', 409) from exc
         raise ControlError('No hay una página enfocada para este control', 409)
+
+    async def navigate(self, url):
+        from .media_links import media_link
+        try:
+            target = media_link(url)
+        except ControlError:
+            # Retain the existing Max endpoint's public service URLs.
+            if self.app_id != 'max' or not allowed(url, PROFILES['max']['hosts']):
+                raise
+            from .urls import validate_max_url
+            target_url = await validate_max_url(url)
+        else:
+            if target.app != self.app_id:
+                raise ControlError('El enlace no corresponde a esta aplicación', 422)
+            target_url = target.url
+        try:
+            async with asyncio.timeout(6):
+                for page in await asyncio.to_thread(self.targets):
+                    async with connect(page['webSocketDebuggerUrl'], open_timeout=2) as ws:
+                        await ws.send(json.dumps({'id':1,'method':'Runtime.evaluate','params':{'expression':'document.hasFocus()','returnByValue':True}}))
+                        while True:
+                            result=json.loads(await ws.recv())
+                            if result.get('id')==1:break
+                        if not result.get('result',{}).get('result',{}).get('value'):continue
+                        await ws.send(json.dumps({'id':2,'method':'Page.navigate','params':{'url':target_url}}))
+                        while True:
+                            result=json.loads(await ws.recv())
+                            if result.get('id')==2:break
+                        if 'error' in result or result.get('result',{}).get('errorText'):
+                            raise ControlError('No se pudo abrir el contenido en esta ventana',409)
+                        return
+        except ControlError:raise
+        except Exception:
+            raise ControlError('Reabre esta aplicación para conectar su navegador',409) from None
+        raise ControlError('No hay una ventana enfocada para abrir el enlace',409)

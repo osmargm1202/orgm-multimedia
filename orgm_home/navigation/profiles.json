@@ -1,6 +1,101 @@
 {
-  "netflix": {"hosts": ["netflix.com"], "search": ["input[data-uia='search-box-input']", "button[aria-label*='Search']", "button[aria-label*='Buscar']", ".searchTab"], "play": ["button[data-uia='control-play-pause-play']", "button[data-uia='control-play-pause-pause']"], "items": [".slider-item a", "[data-uia='title-card'] a"]},
-  "disney-plus": {"hosts": ["disneyplus.com"], "search": ["a[href*='/search']", "input[type='search']", "[data-testid='search-button']"], "play": ["button[data-testid='play-pause-button']", "button[aria-label='Pause']", "button[aria-label='Play']"], "items": ["a[data-testid*='card']", "a[href*='/browse/entity-']"]},
-  "max": {"hosts": ["max.com", "hbomax.com"], "search": ["a[href*='/search']", "button[aria-label*='Search']", "button[aria-label*='Buscar']", "input[type='search']"], "play": ["button[data-testid='play-pause-button']", "button[aria-label='Pause']", "button[aria-label='Play']"], "items": ["a[href*='/show/']", "a[href*='/movie/']", "a[href*='/video/']"]},
-  "crunchyroll": {"hosts": ["crunchyroll.com"], "search": ["input[type='search']", "a[href*='/search']", "button[aria-label*='Search']", "button[aria-label*='Buscar']"], "play": ["button[aria-label='Pause']", "button[aria-label='Play']", "[data-testid='play-pause-button']"], "items": ["a[href*='/series/']", "a[href*='/watch/']"]}
+  "netflix": {
+    "hosts": [
+      "netflix.com"
+    ],
+    "search": [
+      "input[data-uia='search-box-input']",
+      "button[aria-label*='Search']",
+      "button[aria-label*='Buscar']",
+      ".searchTab"
+    ],
+    "play": [
+      "button[data-uia='control-play-pause-play']",
+      "button[data-uia='control-play-pause-pause']"
+    ],
+    "items": [
+      ".slider-item a",
+      "[data-uia='title-card'] a"
+    ],
+    "start": [
+      "a[data-uia='play-button']",
+      "button[data-uia='play-button']",
+      "a[data-uia='play-button-link']"
+    ]
+  },
+  "disney-plus": {
+    "hosts": [
+      "disneyplus.com"
+    ],
+    "search": [
+      "a[href*='/search']",
+      "input[type='search']",
+      "[data-testid='search-button']"
+    ],
+    "play": [
+      "button[data-testid='play-pause-button']",
+      "button[aria-label='Pause']",
+      "button[aria-label='Play']"
+    ],
+    "items": [
+      "a[data-testid*='card']",
+      "a[href*='/browse/entity-']"
+    ],
+    "start": [
+      "a[href*='/play/']",
+      "button[data-testid='play-button']",
+      "button[aria-label='Reproducir']",
+      "button[aria-label='Play']"
+    ]
+  },
+  "max": {
+    "hosts": [
+      "max.com",
+      "hbomax.com"
+    ],
+    "search": [
+      "a[href*='/search']",
+      "button[aria-label*='Search']",
+      "button[aria-label*='Buscar']",
+      "input[type='search']"
+    ],
+    "play": [
+      "button[data-testid='play-pause-button']",
+      "button[aria-label='Pause']",
+      "button[aria-label='Play']"
+    ],
+    "items": [
+      "a[href*='/show/']",
+      "a[href*='/movie/']",
+      "a[href*='/video/']"
+    ],
+    "start": [
+      "button[data-testid='play-button']",
+      "a[data-testid='play-button']"
+    ]
+  },
+  "crunchyroll": {
+    "hosts": [
+      "crunchyroll.com"
+    ],
+    "search": [
+      "input[type='search']",
+      "a[href*='/search']",
+      "button[aria-label*='Search']",
+      "button[aria-label*='Buscar']"
+    ],
+    "play": [
+      "button[aria-label='Pause']",
+      "button[aria-label='Play']",
+      "[data-testid='play-pause-button']"
+    ],
+    "items": [
+      "a[href*='/series/']",
+      "a[href*='/watch/']"
+    ],
+    "start": [
+      "button[data-testid='play-button']",
+      "a[data-testid='play-button']"
+    ]
+  }
 }

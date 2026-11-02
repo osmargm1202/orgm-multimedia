@@ -498,13 +498,13 @@ def test_max_link_reuses_its_saved_profile_without_opening_browser(controller, m
     controller.apps["max"] = App("max", "chrome", "Max", "5", url="https://play.max.com", match="orgm-home-max")
     url = "https://play.max.com/video/fixture"
     monkeypatch.setattr("orgm_home.agent.validate_max_url", AsyncMock(return_value=url))
+    navigate=AsyncMock()
+    monkeypatch.setattr("orgm_home.agent.BrowserControl.navigate",navigate)
     controller.tree = AsyncMock(return_value={"nodes": [window("max")]})
     controller.spawn = AsyncMock()
     assert run(controller.dispatch({"action": "open-max", "url": url}))["app"] == "max"
-    args = controller.spawn.call_args.args[0]
-    assert f"--app={url}" in args
-    assert any(arg.endswith("orgm-home/chrome/max") for arg in args)
-    assert "--class=orgm-home-max" in args
+    controller.spawn.assert_not_awaited()
+    navigate.assert_awaited_once_with(url)
 
 
 @pytest.mark.parametrize("focused", [window("home"), {**window(), "app_id": "unmanaged"}])
@@ -762,3 +762,25 @@ def test_search_rejects_change_of_application(controller):
     with pytest.raises(ControlError,match='aplicación cambió'):
         run(controller.dispatch({'action':'search-text','app':'spotify','text':'Música'}))
     controller.enter_text.assert_not_awaited()
+
+
+def test_content_link_opens_the_detected_saved_app(controller,monkeypatch):
+    controller.apps['netflix']=App('netflix','chrome','Netflix','4',url='https://www.netflix.com')
+    controller.activate=AsyncMock(return_value={'app':'netflix'})
+    monkeypatch.setattr('orgm_home.agent.validate_url',AsyncMock(side_effect=lambda url:url))
+    async def scenario():
+        result=await controller.dispatch({'action':'open-media','url':'https://www.netflix.com/title/81234567?trackId=1'})
+        assert result['playback']=='requested'
+        controller.activate.assert_awaited_once_with('netflix','https://www.netflix.com/title/81234567')
+        assert controller.autoplay_task is not None
+        await controller.dispatch({'action':'key','key':'back'})
+    controller.status=AsyncMock(return_value={'app':'netflix','capabilities':{'keys':True}})
+    run(scenario())
+    assert controller.autoplay_task is None
+
+
+def test_invalid_content_does_not_activate_or_close_anything(controller):
+    controller.activate=AsyncMock()
+    with pytest.raises(ControlError):run(controller.dispatch({'action':'open-media','url':'https://evil.test/title/81234567'}))
+    controller.activate.assert_not_awaited()
+    controller.sway.assert_not_awaited()

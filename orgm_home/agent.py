@@ -24,6 +24,7 @@ from .youtube import canonical_url as youtube_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
+from .media_links import media_link, LABELS
 from .browser_control import BrowserControl, PROFILES
 from .playback import Playback
 from .resources import CpuMeter, PressureGuard, terminate_family
@@ -107,6 +108,7 @@ class Controller:
         self.warning = None
         self.processes = {}
         self.keyboard = None
+        self.autoplay_task = None
         self.known_windows = None
         self.known_airplay_audio = None
         self.spotify_interrupted = False
@@ -525,7 +527,7 @@ class Controller:
         if window and window.get("focused") and url is None and app.id not in {"home", "airplay"}:
             return {"app": app.id, "unchanged": True, "warning": self.warning}
         navigate_existing = window is not None and url is not None
-        if url is not None and app.id not in {"browser", "max", "youtube"}:
+        if url is not None and app.id not in {"browser", *LABELS}:
             raise ControlError("Destino de navegador inválido", 422)
         youtube_args = None
         if app.id == "youtube" and url is not None:
@@ -592,7 +594,10 @@ class Controller:
             await self.native_key(102)  # Home, handled locally by the kiosk.
         if navigate_existing and app.id != "youtube":
             # Chrome forwards this URL as a tab to the same profile/window.
-            await self.spawn(self.chrome_args(app, url, new_window=False))
+            if app.id in LABELS and app.type == "chrome":
+                await BrowserControl(app.id, 32000 + int(app.workspace)).navigate(url)
+            else:
+                await self.spawn(self.chrome_args(app, url, new_window=False))
         self.active = app.id
         self.resources.select(app.id)
         with contextlib.suppress(ControlError):
@@ -600,6 +605,20 @@ class Controller:
         with contextlib.suppress(ControlError, OSError, TimeoutError):
             await self.playback.resume(app, list(windows(await self.tree())))
         return {"app": app.id, "warning": self.warning}
+
+    async def start_link(self, app, target):
+        # Stop if the viewer interacts, changes source, or sends another link.
+        for _ in range(16):
+            await asyncio.sleep(.75)
+            async with self.lock:
+                focused = next((w for w in windows(await self.tree()) if w.get("focused")), None)
+                if not focused or self.identify(focused) != app:
+                    return
+                try:
+                    await BrowserControl(app.id, 32000 + int(app.workspace)).act("start", expected_id=target.identity)
+                    return
+                except ControlError:
+                    pass
 
     async def status(self):
         tree = await self.tree()
@@ -660,6 +679,11 @@ class Controller:
             return await self.wifi.connect(request.get("ssid"), request.get("password", ""))
         if action == "wifi-reconnect":
             return await self.wifi.reconnect()
+        if action == "open-media":
+            media_link(request.get("url"))  # Reject before cancelling an earlier launch.
+        if action not in {"status", "apps"} and self.autoplay_task:
+            self.autoplay_task.cancel()
+            self.autoplay_task = None
         async with self.lock:
             if action == "status":
                 return await self.status()
@@ -680,6 +704,25 @@ class Controller:
                 return await self.activate(
                     "browser", await validate_url(request.get("url", ""))
                 )
+            if action == "open-media":
+                target = media_link(request.get("url"))
+                app = self.apps.get(target.app)
+                if not app:
+                    raise ControlError("El servicio no está en el catálogo", 404)
+                if target.app == "youtube":
+                    return await self.activate("youtube", target.url)
+                if target.app == "spotify":
+                    if app.type != "flatpak" or app.appId != "com.spotify.Client":
+                        raise ControlError("Spotify no está configurado como aplicación nativa", 409)
+                    result = await self.activate("spotify")
+                    await command("flatpak", "run", app.appId, target.spotify_uri, timeout=12)
+                    return {**result, "playback": "requested"}
+                if app.type != "chrome":
+                    raise ControlError("El servicio no está configurado como webapp", 409)
+                url = await validate_url(target.url)
+                result = await self.activate(target.app, url)
+                self.autoplay_task = asyncio.create_task(self.start_link(app, target))
+                return {**result, "playback": "requested"}
             if action == "open-youtube":
                 return await self.activate("youtube", youtube_url(request.get("url")))
             if action == "open-max":
@@ -1098,6 +1141,9 @@ async def serve():
     await asyncio.gather(media_task, music_task, resource_task, return_exceptions=True)
     with contextlib.suppress(asyncio.CancelledError):
         await audio_task
+    if controller.autoplay_task:
+        controller.autoplay_task.cancel()
+        await asyncio.gather(controller.autoplay_task, return_exceptions=True)
     await controller.close_keyboard()
     path.unlink(missing_ok=True)
 
