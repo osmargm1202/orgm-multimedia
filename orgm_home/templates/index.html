@@ -89,7 +89,7 @@
       <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button></div>
       <div class="service-shortcuts remote-only" role="group" aria-label="Abrir servicio">
         {% for id, label in [('youtube','YouTube'),('netflix','Netflix'),('disney-plus','Disney+'),('max','HBO Max'),('crunchyroll','Crunchyroll'),('spotify','Spotify')] %}
-        <button data-app="{{ id }}" disabled>{{ label }}</button>
+        <button data-app="{{ id }}" aria-label="{{ label }}" title="{{ label }}" disabled><img src="{{ asset('icons/' ~ id ~ '.svg') }}" alt=""></button>
         {% endfor %}
       </div>
       <div class="remote-actions remote-only"><button data-key="search" disabled><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>Buscar</span></button><button data-key="play" disabled aria-label="Reproducir o pausar"><svg viewBox="0 0 24 24"><path d="m3 4 10 8-10 8Z M17 4v16M21 4v16"/></svg><span>Play / Pausa</span></button></div>
@@ -107,10 +107,15 @@
       <form id="youtube-form" class="youtube-send"><label for="youtube-url">YouTube en Jarq</label><p class="field-hint">Pega el enlace de un video o Short para verlo en la sala.</p><div class="input-row"><input id="youtube-url" type="url" maxlength="2048" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" required aria-describedby="youtube-message"><button class="primary" type="submit" disabled>Enviar</button></div><p id="youtube-message" class="youtube-message" role="status" aria-live="polite"></p></form>
     </section>
 
+    <section id="search" class="typing search-panel" aria-labelledby="search-title" hidden>
+      <div class="section-heading"><h2 id="search-title">Buscar</h2><p>Escribe lo que quieres ver o escuchar.</p></div>
+      <button class="secondary return-remote" data-return>Volver al mando</button>
+      <form id="search-form"><label for="search-text">Búsqueda</label><input id="search-text" type="search" maxlength="1000" autocomplete="off" enterkeyhint="search" required><div class="form-actions"><button type="submit" class="primary" disabled>Buscar</button></div></form>
+    </section>
     <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
       <div class="section-heading"><h2 id="typing-title">Escribe desde aquí</h2><p>Selecciona primero un campo en la pantalla.</p></div>
       <button class="secondary return-remote" data-return>Volver</button>
-      <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="ok" disabled>Enter</button></div></form>
+      <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="enter" disabled>Enter</button></div></form>
       <form id="url-form"><label for="web-url">Abrir una página</label><p class="field-hint">Se abrirá en Navegador.</p><div class="input-row"><input id="web-url" name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="url" required><button type="submit" class="primary" disabled>Abrir</button></div></form>
       <div class="video-section"><h3>Videos locales</h3><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
     </section>

@@ -59,6 +59,10 @@ class Text(Payload):
     text: StrictStr = Field(min_length=1, max_length=1000)
 
 
+class Search(Text):
+    app: StrictStr = Field(pattern=r"^[a-z][a-z0-9-]{0,31}$")
+
+
 class Volume(Payload):
     value: StrictInt | None = Field(default=None, ge=0, le=100)
     delta: StrictInt | None = None
@@ -448,6 +452,14 @@ def create_app(settings=None, agent=None):
             "mute" if payload.key == "mute" else "key",
             **({} if payload.key == "mute" else {"key": payload.key}),
         )
+
+    @app.post("/api/remote/search")
+    async def search(payload: Search):
+        if payload.app not in apps:
+            raise ControlError("Aplicación desconocida", 404)
+        if any(ord(c) < 32 or ord(c) == 127 for c in payload.text):
+            raise ControlError("Texto de búsqueda inválido", 422)
+        return await client.call("search-text", app=payload.app, text=payload.text)
 
     @app.post("/api/remote/text")
     async def text(payload: Text):

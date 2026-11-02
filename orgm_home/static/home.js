@@ -6,6 +6,7 @@ let state = {session:false,capabilities:{}};
 let busy = false;
 let panel = 'sources';
 let category = 'all';
+let searchApp = null;
 let sessionSignature = '';
 let switcherSignature = '';
 let feedbackTimer;
@@ -52,7 +53,7 @@ async function api(path, body) {
 function showPanel(next) {
   panel=next;
   const paired=Boolean(csrf);
-  for (const id of ['sources','remote','typing','settings']) {
+  for (const id of ['sources','remote','typing','search','settings']) {
     const visible=paired && (kiosk && next==='sources' ? ['sources','remote'].includes(id) : id===next);
     $(`#${id}`).hidden=!visible;
   }
@@ -121,8 +122,9 @@ function render() {
     const art=button.querySelector('.app-art');
     if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : assetUrl(`cards/${id}.webp`);if(art.getAttribute('src')!==url)art.src=url;}
   });
-  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='search' ? state.capabilities?.search : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && key==='backspace');button.disabled=!online || busy || !capability;});
+  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='search' ? state.capabilities?.search : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && ['backspace','enter'].includes(key));button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],[data-switcher],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
+  $('#search-form button[type=submit]').disabled=!online || busy || !state.capabilities?.search || state.app!==searchApp;
   $('#text-form button[type=submit]').disabled=!online || busy || !state.capabilities?.text;
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
@@ -245,8 +247,9 @@ async function act(path, body={}, message='') {
   finally{busy=false;await refresh();render();}
 }
 async function selectApp(id,button) {
+  if(state.app===id){if(!kiosk)showPanel(defaultPanel);return;}
   button.setAttribute('aria-busy','true');
-  const result=await act(`apps/${id}/activate`,{},kiosk?`Abriendo ${labels[id]}`:'');
+  const result=await act(`apps/${id}/${(state.open || []).includes(id)?'switch':'activate'}`,{},kiosk?`Abriendo ${labels[id]}`:'');
   button.removeAttribute('aria-busy');
   if(result && !kiosk) {
     if(id==='videos'){showPanel('typing');$('#load-videos').click();}
@@ -262,7 +265,7 @@ $$('[data-switcher]').forEach(button=>button.addEventListener('click',()=>{rende
 $('#switcher-close').addEventListener('click',()=>$('#app-switcher').close());
 $('#switcher-catalog').addEventListener('click',()=>{$('#app-switcher').close();showPanel('sources');});
 $$('[data-settings-view]').forEach(button=>button.addEventListener('click',()=>settingsView(button.dataset.settingsView)));
-$$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{if(await act('remote/key',{key:button.dataset.key}) && button.dataset.key==='search'){showPanel('typing');$('#remote-text').focus();}}));
+$$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{if(await act('remote/key',{key:button.dataset.key}) && button.dataset.key==='search'){searchApp=state.app;render();$('#search-title').textContent=`Buscar en ${labels[searchApp] || 'la aplicación'}`;$('#search-text').value='';showPanel('search');$('#search-text').focus();}}));
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);if(kiosk)focusHome(true);else $('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
@@ -281,6 +284,7 @@ $('#power-close').addEventListener('click',()=>$('#power-menu').close());
 $$('[data-power-action]').forEach(button=>button.addEventListener('click',()=>{$('#power-menu').close();$('#'+(button.dataset.powerAction==='poweroff'?'shutdown':'reboot')+'-confirm').showModal();}));
 $('#shutdown-cancel').addEventListener('click',()=>$('#shutdown-confirm').close());
 $('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close();act('admin/poweroff',{},'Apagando Jarq');});
+$('#search-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/search',{app:searchApp,text:$('#search-text').value},'Búsqueda enviada'))showPanel(defaultPanel);});
 $('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
 $('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
 async function sendYoutube(url){

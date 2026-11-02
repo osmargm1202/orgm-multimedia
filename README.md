@@ -319,3 +319,11 @@ no envían espacio a ciegas. Un reproductor en iframe externo requiere integraci
 adicional y no queda certificado por las pruebas de DOM del documento principal.
 
 Pendientes y aceptación: [docs/remote-navigation.md](docs/remote-navigation.md).
+
+Los seis accesos del mando usan logos. Tocar el servicio que ya está en pantalla
+no cambia el foco ni la reproducción; un servicio abierto se selecciona mediante
+Cambiar app. Buscar tiene una vista propia de un solo campo: su envío reemplaza
+la consulta y pulsa Enter, sin mezclar videos locales ni el navegador general.
+El botón Enter del teclado es independiente de OK de la cruceta. YouTube resuelve
+su nombre MPRIS real por el proceso/cgroup de VacuumTube en vez de asumir que se
+llama VacuumTube.

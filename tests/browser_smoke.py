@@ -58,6 +58,7 @@ class PreviewAgent:
                 "open": sorted(self.opened),
                 "capabilities": {
                     "keys": True,
+                    "search": self.active in {"youtube", "spotify", "netflix", "max", "disney-plus", "crunchyroll"},
                     "text": self.active != "home",
                     "play": self.active != "home",
                     "close": self.active != "home",
@@ -251,6 +252,23 @@ with sync_playwright() as p:
     phone.locator('#controller-nav [data-panel=sources]').click()
     phone.locator('.app-youtube').click()
     expect(phone.locator('#remote-title')).to_have_text('YouTube')
+    checkpoint=len(agent.calls)
+    phone.locator('.service-shortcuts [data-app=youtube]').click()
+    phone.wait_for_timeout(150)
+    assert not any(action in {'activate','switch-app'} for action,_ in agent.calls[checkpoint:])
+    assert phone.locator('.service-shortcuts img').count()==6
+    phone.locator('#remote [data-key=search]').click()
+    expect(phone.locator('#search')).to_be_visible()
+    assert phone.locator('#url-form').is_hidden() and phone.locator('.video-section').is_hidden()
+    phone.fill('#search-text','Música de prueba')
+    phone.locator('#search-text').press('Enter')
+    expect(phone.locator('#remote')).to_be_visible()
+    assert ('search-text',{'app':'youtube','text':'Música de prueba'}) in agent.calls
+    phone.locator('#remote [data-panel=typing]').click()
+    phone.locator('#typing [data-key=enter]').click()
+    phone.wait_for_timeout(150)
+    assert ('key',{'key':'enter'}) in agent.calls
+    phone.locator('#typing [data-return]').click()
     for key in ['up','down','left','right','ok','tab','shift-tab','back']:
         phone.locator('#remote [data-key='+key+']').click()
         phone.wait_for_timeout(60)
@@ -298,7 +316,7 @@ with sync_playwright() as p:
     phone.locator('#text-form button[type=submit]').click()
     phone.wait_for_timeout(100)
     assert ('text',{'text':'Buscar desde el teléfono'}) in agent.calls
-    phone.locator('[data-return].return-remote').click()
+    phone.locator('#typing [data-return].return-remote').click()
     expect(phone.locator('#remote')).to_be_visible()
     kiosk.locator('.side-nav [data-home]').click()
     assert kiosk.evaluate('location.hash')==''

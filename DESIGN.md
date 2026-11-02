@@ -66,3 +66,8 @@ con iconos SVG ofrece Buscar y Play/Pausa. Las capacidades reales deshabilitan
 Buscar cuando no existe integración. Buscar abre la vista de escritura existente
 tras completar su acción. La selección de las webapps se marca en azul; los
 controles del mando no se superponen al contenido de Jarq.
+
+Los seis accesos del mando muestran los logos de los servicios como controles
+compactos de 48 px, con nombre accesible y selección azul. Buscar abre una vista
+independiente con un campo de búsqueda y su envío; los archivos y enlaces siguen
+en la vista de teclado general. Enter confirma texto y OK activa la selección.

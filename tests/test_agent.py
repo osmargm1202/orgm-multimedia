@@ -38,7 +38,8 @@ def window(app="youtube", con_id=42):
 
 
 def test_existing_windows_reused_after_agent_restart(controller):
-    controller.tree = AsyncMock(return_value={"nodes": [window()]})
+    target = {**window(), "focused": False}
+    controller.tree = AsyncMock(return_value={"nodes": [target]})
     controller.spawn = AsyncMock()
     result = run(controller.dispatch({"action": "activate", "id": "youtube"}))
     assert result["app"] == "youtube"
@@ -131,7 +132,7 @@ def test_home_rejects_media_transport_and_editing(controller, monkeypatch, key):
 
 
 def test_switch_reuses_open_source_without_visiting_home(controller):
-    controller.tree = AsyncMock(return_value={"nodes": [window("browser", 7), window()]})
+    controller.tree = AsyncMock(return_value={"nodes": [{**window("browser", 7), "focused": False}, window()]})
     controller.spawn = AsyncMock()
     controller.active = "youtube"
     result = run(controller.dispatch({"action": "switch-app", "id": "browser"}))
@@ -715,3 +716,49 @@ def test_browser_direction_uses_selection_instead_of_native_scroll(controller, m
     run(controller.dispatch({'action':'key','key':'right'}))
     act.assert_awaited_once_with('right')
     controller.native_key.assert_not_awaited()
+
+
+def test_active_shortcut_has_no_playback_or_window_side_effects(controller):
+    controller.tree = AsyncMock(return_value={'nodes':[window()]})
+    controller.playback.resume = AsyncMock()
+    controller.spawn = AsyncMock()
+    result=run(controller.activate('youtube'))
+    assert result['unchanged'] is True
+    controller.sway.assert_not_awaited()
+    controller.playback.resume.assert_not_awaited()
+    controller.mute_application.assert_not_awaited()
+
+
+def test_youtube_play_targets_actual_owned_mpris_name(controller, monkeypatch):
+    controller.status=AsyncMock(return_value={'app':'youtube','capabilities':{'play':True}})
+    controller.tree=AsyncMock(return_value={'nodes':[window()]})
+    controller.playback.players=AsyncMock(return_value={'chromium.instance3':controller.apps['youtube']})
+    command=AsyncMock()
+    monkeypatch.setattr('orgm_home.agent.command',command)
+    run(controller.dispatch({'action':'key','key':'play'}))
+    command.assert_awaited_once_with('playerctl','--player=chromium.instance3','play-pause')
+
+
+def test_enter_does_not_activate_dom_selection(controller, monkeypatch):
+    controller.status=AsyncMock(return_value={'app':'browser','capabilities':{'keys':True}})
+    browser=AsyncMock()
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.act',browser)
+    run(controller.dispatch({'action':'key','key':'enter'}))
+    controller.native_key.assert_awaited_once_with(28)
+    browser.assert_not_awaited()
+
+
+def test_search_submits_text_and_native_enter_atomically(controller):
+    controller.status=AsyncMock(return_value={'app':'youtube','capabilities':{'search':True}})
+    controller.enter_text=AsyncMock()
+    run(controller.dispatch({'action':'search-text','app':'youtube','text':'Música'}))
+    controller.enter_text.assert_awaited_once_with('Música',replace=True)
+    controller.native_key.assert_awaited_once_with(28)
+
+
+def test_search_rejects_change_of_application(controller):
+    controller.status=AsyncMock(return_value={'app':'youtube','capabilities':{'search':True}})
+    controller.enter_text=AsyncMock()
+    with pytest.raises(ControlError,match='aplicación cambió'):
+        run(controller.dispatch({'action':'search-text','app':'spotify','text':'Música'}))
+    controller.enter_text.assert_not_awaited()

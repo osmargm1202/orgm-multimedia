@@ -35,6 +35,7 @@ KEYS = {
     "left": "Left",
     "right": "Right",
     "ok": "Return",
+    "enter": "Return",
     "back": "Escape",
     "backspace": "BackSpace",
     "tab": "Tab",
@@ -497,7 +498,7 @@ class Controller:
         active = self.identify(focused) if focused else self.apps.get(self.active)
         await self.playback.background(active.id if active else self.active, views)
 
-    async def enter_text(self, value, navigate=False, terminal=False):
+    async def enter_text(self, value, navigate=False, terminal=False, replace=False):
         await command(
             "wl-copy", "--type", "text/plain", input_text=value, capture=False
         )
@@ -505,6 +506,8 @@ class Controller:
             if navigate:
                 await self.native_key(38, modifiers=4)  # Ctrl+L
                 await asyncio.sleep(0.15)
+            if replace:
+                await self.native_key(30, modifiers=4)  # Ctrl+A in the focused search input.
             await self.native_key(47, modifiers=5 if terminal else 4)
             await asyncio.sleep(0.25)
             if navigate:
@@ -519,6 +522,8 @@ class Controller:
         if app.type == "airplay":
             await command("systemctl", "--user", "start", "orgm-home-airplay.service")
         window = await self.find(app)
+        if window and window.get("focused") and url is None and app.id not in {"home", "airplay"}:
+            return {"app": app.id, "unchanged": True, "warning": self.warning}
         navigate_existing = window is not None and url is not None
         if url is not None and app.id not in {"browser", "max", "youtube"}:
             raise ControlError("Destino de navegador inválido", 422)
@@ -717,7 +722,14 @@ class Controller:
                     else:
                         await command("playerctl", f"--player={app.player}", key)
                 elif key == "play":
-                    if app.type == "mpv":
+                    if app.id == "youtube":
+                        players = await self.playback.players(list(windows(await self.tree())))
+                        player = next((name for name, owner in players.items() if owner.id == app.id), None)
+                        if player:
+                            await command("playerctl", f"--player={player}", "play-pause")
+                        else:
+                            await self.native_key(57)  # VacuumTube's native Space shortcut.
+                    elif app.type == "mpv":
                         await self.mpv(["cycle", "pause"])
                     elif app.player:
                         await command(
@@ -739,6 +751,7 @@ class Controller:
                             "left": 105,
                             "right": 106,
                             "ok": 28,
+                            "enter": 28,
                             "back": 1,
                             "backspace": 14,
                             "tab": 15,
@@ -748,6 +761,19 @@ class Controller:
                 else:
                     raise ControlError("Tecla no permitida", 422)
                 return {"sent": key}
+            if action == "search-text":
+                value = request.get("text")
+                if (not isinstance(value, str) or not 1 <= len(value) <= 1000
+                        or any(ord(c) < 32 or ord(c) == 127 for c in value)):
+                    raise ControlError("Texto de búsqueda inválido", 422)
+                current = await self.status()
+                if request.get("app") != current.get("app"):
+                    raise ControlError("La aplicación cambió. Abre Buscar de nuevo.", 409)
+                if not current.get("capabilities", {}).get("search"):
+                    raise ControlError("Esta aplicación no tiene buscador configurado", 409)
+                await self.enter_text(value, replace=True)
+                await self.native_key(28)
+                return {"sent": True, "submitted": True}
             if action == "text":
                 value = request.get("text")
                 if (

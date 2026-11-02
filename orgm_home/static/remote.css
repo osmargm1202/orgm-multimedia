@@ -73,3 +73,8 @@
  .is-controller .dpad{width:172px;height:172px;margin:12px auto}
  .is-controller .remote{padding:14px}
 }
+
+.service-shortcuts button{display:grid;place-items:center;min-height:48px}
+.service-shortcuts img{width:44px;height:25px;object-fit:contain;filter:brightness(0) invert(1)}
+.service-shortcuts button.is-active{background:#456482;outline:2px solid #8ec9ff;outline-offset:-2px}
+.search-panel input{width:100%;min-height:48px;font-size:1rem}

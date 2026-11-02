@@ -50,3 +50,12 @@ def test_search_uses_authenticated_control_api(paired):
     assert response.status_code == 200
     assert agent.calls[-1] == ('key', {'key':'search'})
     assert client.post('/api/remote/key', json={'key':'search'}).status_code == 403
+
+
+def test_search_submission_is_authenticated_and_bound_to_app(paired):
+    client, agent, headers = paired
+    payload={'app':'youtube','text':'Música de prueba'}
+    assert client.post('/api/remote/search',json=payload,headers=headers).status_code==200
+    assert agent.calls[-1]==('search-text',payload)
+    assert client.post('/api/remote/search',json=payload).status_code==403
+    assert client.post('/api/remote/search',json={**payload,'text':'bad\nquery'},headers=headers).status_code==422
