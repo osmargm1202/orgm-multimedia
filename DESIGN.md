@@ -71,3 +71,12 @@ Los seis accesos del mando muestran los logos de los servicios como controles
 compactos de 48 px, con nombre accesible y selección azul. Buscar abre una vista
 independiente con un campo de búsqueda y su envío; los archivos y enlaces siguen
 en la vista de teclado general. Enter confirma texto y OK activa la selección.
+
+## Mando físico para smartphone
+
+La dirección móvil del mando se sustituye por la definida en
+[docs/design-handset.md](docs/design-handset.md): carcasa de grafito, cruceta
+circular, teclas con relieve y logos a color. Es una identidad propia del mando
+hasta 720 px; escritorio mantiene botones planos y el dashboard local conserva
+su diseño. Esta sección reemplaza la especificación móvil anterior de panel azul
+y logos blancos.

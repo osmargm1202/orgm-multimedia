@@ -327,3 +327,7 @@ la consulta y pulsa Enter, sin mezclar videos locales ni el navegador general.
 El botón Enter del teclado es independiente de OK de la cruceta. YouTube resuelve
 su nombre MPRIS real por el proceso/cgroup de VacuumTube en vez de asumir que se
 llama VacuumTube.
+
+En smartphone, el mando tiene una carcasa propia de grafito, cruceta circular y
+teclas con relieve al pulsar, con los seis logos a color. Escritorio conserva los
+botones planos. El diseño se describe en `docs/design-handset.md`.

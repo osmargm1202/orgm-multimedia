@@ -78,3 +78,76 @@
 .service-shortcuts img{width:44px;height:25px;object-fit:contain;filter:brightness(0) invert(1)}
 .service-shortcuts button.is-active{background:#456482;outline:2px solid #8ec9ff;outline-offset:-2px}
 .search-panel input{width:100%;min-height:48px;font-size:1rem}
+
+/* Service keys keep their actual colors in both controller layouts. */
+.service-shortcuts button{background:#f1f2f4;border:1px solid #c9cdd3;color:#15171b}
+.service-shortcuts img{filter:none;width:48px;height:26px}
+.service-shortcuts button:hover:enabled{background:#fff}
+.service-shortcuts button.is-active{background:#fff;outline:2px solid #8ec9ff;outline-offset:2px}
+.remote-display{min-width:0}
+/* A phone is a hand-held remote; desktop retains ordinary flat controls. */
+@media(max-width:720px){
+ .is-controller[data-panel=remote]{background:#0b0d10;background-image:none}
+ .is-controller[data-panel=remote] .masthead{max-width:360px;padding:12px 20px 6px;gap:8px}
+ .is-controller[data-panel=remote] .brand{font-size:1rem;gap:4px;letter-spacing:-.02em}
+ .is-controller[data-panel=remote] .masthead .icon-button{width:40px;min-width:40px;min-height:44px;background:#24282f;border-radius:50%}
+ .is-controller[data-panel=remote] .masthead [data-power-menu]{background:#8d2b34;color:#fff}
+ .is-controller[data-panel=remote] .layout{max-width:360px;padding:6px 14px calc(96px + env(safe-area-inset-bottom))}
+ .is-controller[data-panel=remote] .remote{background:transparent;border:0;padding:0;border-radius:0;box-shadow:none}
+ .is-controller .handset-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:20px 22px 25px;border:1px solid #484d56;border-radius:38px 38px 48px 48px;background:linear-gradient(115deg,#2b2f36 0%,#202329 42%,#191c21 100%);box-shadow:inset 1px 1px 1px #ffffff1f,inset -2px -2px 3px #0009,0 15px 28px #0007}
+ .is-controller .remote-display,.is-controller .remote-shortcuts,.is-controller .dpad,.is-controller .volume,.is-controller .service-shortcuts{grid-column:1/-1}
+ .is-controller .remote-actions{grid-column:1/3}
+ .is-controller .transport{grid-column:3/5}
+ .is-controller .remote-actions button span,.is-controller .transport button span{display:none}
+ .is-controller .remote-display{background:#111519;border:1px solid #0a0c10;border-radius:12px;padding:11px 14px;box-shadow:inset 0 2px 5px #0007}
+ .is-controller .remote-heading h2{color:#e5eaf0;font-size:1rem;line-height:1.35;letter-spacing:0}
+ .is-controller .remote-status{margin-top:3px;min-height:0;max-height:1.4em;color:#aab7c4;font-size:.7rem;line-height:1.4;white-space:nowrap;text-overflow:ellipsis}
+ .is-controller .handset-controls button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform 80ms ease-out,box-shadow 80ms ease-out,background 100ms ease-out}
+ .is-controller .remote-shortcuts,.is-controller .remote-actions,.is-controller .transport,.is-controller .focus-controls{margin:0;gap:10px}
+ .is-controller .remote-shortcuts button,.is-controller .remote-actions button,.is-controller .transport button,.is-controller .focus-controls button,.is-controller .volume button{min-height:44px;padding:8px;background:#343942;color:#eef1f5;border:1px solid #454c57;border-radius:12px;box-shadow:inset 0 1px 0 #ffffff12,0 3px 2px #090b0f}
+ .is-controller .remote-shortcuts button,.is-controller .transport button{font-size:.7rem;gap:7px;flex-direction:row}
+ .is-controller .remote-shortcuts svg,.is-controller .transport svg{width:20px;height:20px}
+ .is-controller .remote-actions button{font-size:.73rem}
+ .is-controller .handset-controls button:active:enabled{transform:translateY(2px);box-shadow:inset 0 1px 3px #0004,0 1px 1px #090b0f}
+ .is-controller .handset-controls button:focus-visible{outline:2px solid #b2d8ff;outline-offset:3px}
+ .is-controller .handset-controls button:disabled{opacity:.4;box-shadow:none}
+ .is-controller .dpad{width:186px;height:186px;flex-shrink:0;margin:4px auto 7px;padding:8px;gap:1px;background:#282d35;border:1px solid #0d1015;border-radius:50%;box-shadow:inset 0 2px 3px #ffffff16,0 4px 4px #090b0f}
+ .is-controller .dpad button{border:0;border-radius:0;background:transparent;box-shadow:none;padding:0;min-height:0}
+ .is-controller .dpad .up{grid-area:1/1/2/4}
+ .is-controller .dpad .down{grid-area:3/1/4/4}
+ .is-controller .dpad .left{grid-area:2/1}
+ .is-controller .dpad .right{grid-area:2/3}
+ .is-controller .dpad svg{width:25px;height:25px;color:#e5ebf3}
+ .is-controller .dpad .ok{background:#cfd4db;color:#20242b;border:1px solid #f3f5f7;border-radius:50%;font-size:.9rem;box-shadow:inset 0 1px 1px #fff,0 3px 4px #0008}
+ .is-controller .dpad button:hover:enabled{background:#3d4653}
+ .is-controller .dpad .ok:hover:enabled{background:#e4e9ee}
+ .is-controller .dpad button:focus-visible{outline-offset:-5px}
+ .is-controller .transport{grid-template-columns:1fr 1fr}
+ .is-controller .remote-actions{grid-template-columns:1fr 1fr}
+ .is-controller .volume{margin:2px 0 5px;padding:0;background:transparent;border-radius:0;gap:8px}
+ .is-controller .volume button{min-width:48px;border-radius:12px}
+ .is-controller .volume #mute{font-size:.75rem;gap:7px}
+ .is-controller .service-shortcuts{margin:2px 0 0;gap:9px;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .is-controller .service-shortcuts button{min-height:44px;padding:8px 4px;border-radius:10px;background:#e9ebef;border:1px solid #cbd1d8;box-shadow:inset 0 1px 1px #fff,0 3px 2px #080a0d}
+ .is-controller .service-shortcuts img{width:43px;height:23px;filter:none}
+ .is-controller .service-shortcuts button.is-active{background:#fff;outline:2px solid #8ec9ff;outline-offset:2px}
+ .is-controller .focus-controls{gap:8px;margin:16px 10px 0;grid-template-columns:1fr 1fr}
+ .is-controller .focus-controls button{min-height:44px;font-size:.65rem;padding:6px;gap:5px;background:#252a32}
+ .is-controller .focus-controls svg{width:18px;height:18px}
+ .is-controller .control-note{font-size:.72rem;padding:0 12px;line-height:1.5;color:#aeb8c5}
+ .is-controller .youtube-send{margin:22px 3px 0;padding:20px 8px 0;border-color:#30363f}
+ .is-controller .youtube-send label{font-size:.88rem}
+ .is-controller .youtube-send .field-hint{font-size:.78rem}
+ .is-controller .controller-nav{width:min(330px,calc(100% - 28px));background:#1b1f26;border-color:#414854;border-radius:22px;box-shadow:0 5px 15px #0008}
+ .is-controller .controller-nav button{min-height:48px;font-size:.7rem;border-radius:16px;gap:3px}
+ .is-controller .controller-nav svg,.is-controller .controller-nav img{width:21px;height:21px}
+ .is-controller .controller-nav [aria-current=page]{background:#343e4c;color:#e6effb}
+}
+@media(min-width:721px){
+ .is-controller .handset-controls{display:block}
+ .is-controller .transport{margin-top:10px}
+ .is-controller .service-shortcuts{grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-top:18px}
+ .is-controller .service-shortcuts img{width:39px;height:24px}
+ .is-controller .service-shortcuts button{border-radius:8px}
+}
+@media(prefers-reduced-motion:reduce){.is-controller .handset-controls button{transition:none}}

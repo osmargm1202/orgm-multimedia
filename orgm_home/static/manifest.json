@@ -1,5 +1,5 @@
 {
-  "version": "10ca6ce92106",
+  "version": "2815de6a56ab",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -41,15 +41,15 @@
     "icons/brands.txt": "44232ae228e8",
     "icons/cast.svg": "9e3bdb346ece",
     "icons/close.svg": "52d26a192f35",
-    "icons/crunchyroll.svg": "8aa9f9bf0f79",
+    "icons/crunchyroll.svg": "526b84021a86",
     "icons/disney-plus.svg": "ad0ea07cb662",
     "icons/hide.svg": "e5c812ae7fe3",
     "icons/home.svg": "9107467b7620",
     "icons/keyboard.svg": "8d49d804be8c",
-    "icons/max.svg": "bbde93e1cbc6",
+    "icons/max.svg": "2089a62c4687",
     "icons/mute.svg": "2cffb6f240a8",
     "icons/nba.svg": "c0a73184be44",
-    "icons/netflix.svg": "953016177faf",
+    "icons/netflix.svg": "5c82ab5ed6f0",
     "icons/options.svg": "c3461925e314",
     "icons/poki.svg": "3f550a6ec11e",
     "icons/power.svg": "826ee42256dd",
@@ -58,15 +58,15 @@
     "icons/retroarch.svg": "7702bb31017e",
     "icons/rotate.svg": "9e71e77df934",
     "icons/show.svg": "746c329aa757",
-    "icons/spotify.svg": "b9ec9bec7769",
+    "icons/spotify.svg": "b25ed984e951",
     "icons/streameast.svg": "329c892d527a",
     "icons/volume-down.svg": "552d5939618e",
     "icons/volume-up.svg": "6cc188a0b74b",
     "icons/volume.svg": "0abc6306380d",
     "icons/wifi.svg": "2ee4063ecf9a",
-    "icons/youtube.svg": "5038808acbbc",
+    "icons/youtube.svg": "38ce446c89d1",
     "pump.css": "2b20b57ee868",
     "pump.js": "477d5ad88222",
-    "remote.css": "a7d732ee5ff1"
+    "remote.css": "bceabbe9699a"
   }
 }

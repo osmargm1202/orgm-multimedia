@@ -84,15 +84,10 @@
     </section>
 
     <section id="remote" class="remote" aria-labelledby="remote-title">
-      <div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
-      <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p>
+      <div class="handset-controls">
+      <div class="remote-display"><div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
+      <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p></div>
       <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button></div>
-      <div class="service-shortcuts remote-only" role="group" aria-label="Abrir servicio">
-        {% for id, label in [('youtube','YouTube'),('netflix','Netflix'),('disney-plus','Disney+'),('max','HBO Max'),('crunchyroll','Crunchyroll'),('spotify','Spotify')] %}
-        <button data-app="{{ id }}" aria-label="{{ label }}" title="{{ label }}" disabled><img src="{{ asset('icons/' ~ id ~ '.svg') }}" alt=""></button>
-        {% endfor %}
-      </div>
-      <div class="remote-actions remote-only"><button data-key="search" disabled><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>Buscar</span></button><button data-key="play" disabled aria-label="Reproducir o pausar"><svg viewBox="0 0 24 24"><path d="m3 4 10 8-10 8Z M17 4v16M21 4v16"/></svg><span>Play / Pausa</span></button></div>
       <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
         <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
         <button class="left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
@@ -100,9 +95,16 @@
         <button class="right" data-key="right" aria-label="Derecha" disabled><svg><use href="#i-right"/></svg></button>
         <button class="down" data-key="down" aria-label="Abajo" disabled><svg><use href="#i-down"/></svg></button>
       </div>
+      <div class="remote-actions remote-only"><button data-key="search" aria-label="Buscar" title="Buscar" disabled><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>Buscar</span></button><button data-key="play" disabled aria-label="Reproducir o pausar"><svg viewBox="0 0 24 24"><path d="m3 4 10 8-10 8Z M17 4v16M21 4v16"/></svg><span>Play / Pausa</span></button></div>
       <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
-      <div class="focus-controls remote-only" role="group" aria-label="Seleccionar elementos en páginas web"><button data-key="shift-tab" aria-label="Elemento anterior" disabled><svg class="reverse"><use href="#i-tab"/></svg><span>Anterior</span></button><button data-key="tab" aria-label="Siguiente elemento" disabled><span>Siguiente elemento</span><svg><use href="#i-tab"/></svg></button></div>
       <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
+      <div class="service-shortcuts remote-only" role="group" aria-label="Abrir servicio">
+        {% for id, label in [('youtube','YouTube'),('netflix','Netflix'),('disney-plus','Disney+'),('max','HBO Max'),('crunchyroll','Crunchyroll'),('spotify','Spotify')] %}
+        <button data-app="{{ id }}" aria-label="{{ label }}" title="{{ label }}" disabled><img src="{{ asset('icons/' ~ id ~ '.svg') }}" alt=""></button>
+        {% endfor %}
+      </div>
+      </div>
+      <div class="focus-controls remote-only" role="group" aria-label="Seleccionar elementos en páginas web"><button data-key="shift-tab" aria-label="Elemento anterior" disabled><svg class="reverse"><use href="#i-tab"/></svg><span>Anterior</span></button><button data-key="tab" aria-label="Siguiente elemento" disabled><span>Siguiente elemento</span><svg><use href="#i-tab"/></svg></button></div>
       <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
       <form id="youtube-form" class="youtube-send"><label for="youtube-url">YouTube en Jarq</label><p class="field-hint">Pega el enlace de un video o Short para verlo en la sala.</p><div class="input-row"><input id="youtube-url" type="url" maxlength="2048" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" required aria-describedby="youtube-message"><button class="primary" type="submit" disabled>Enviar</button></div><p id="youtube-message" class="youtube-message" role="status" aria-live="polite"></p></form>
     </section>
