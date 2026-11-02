@@ -455,6 +455,8 @@ def create_app(settings=None, agent=None):
         target = media_link(payload.url)
         if target.app not in apps:
             raise ControlError("El servicio no está en el catálogo de esta sala", 404)
+        if target.app == "browser":
+            await validate_url(target.url)
         result = await client.call("open-media", url=target.url)
         return {**result, "app": target.app, "url": target.url}
 

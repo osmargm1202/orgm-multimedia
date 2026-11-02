@@ -1,13 +1,14 @@
-"""Recognize content links without redirects, DNS, or arbitrary browser fallbacks."""
+"""Recognize service links and generic web destinations without following redirects."""
 from dataclasses import dataclass
 import re
+import ipaddress
 from urllib.parse import parse_qs, urlsplit, urlunsplit
 from .protocol import ControlError
 from .youtube import canonical_url as youtube_url
 
 LABELS = {'youtube':'YouTube','netflix':'Netflix','disney-plus':'Disney+', 'max':'Max',
-          'crunchyroll':'Crunchyroll','prime-video':'Prime Video','spotify':'Spotify'}
-MESSAGE = 'Selecciona un enlace de contenido de YouTube, Netflix, Disney+, Max, Crunchyroll, Prime Video o Spotify.'
+          'crunchyroll':'Crunchyroll','prime-video':'Prime Video','spotify':'Spotify','browser':'Navegador'}
+MESSAGE = 'Selecciona un enlace web válido o un enlace de contenido de una aplicación compatible.'
 
 @dataclass(frozen=True)
 class MediaLink:
@@ -31,9 +32,26 @@ def media_link(value):
         value=value.strip()
         if not value or len(value)>2048 or '\\' in value or any(ord(c)<33 or ord(c)==127 for c in value):raise ValueError
         u=urlsplit(value)
-        if u.scheme!='https' or u.username or u.password or u.port not in {None,443}:raise ValueError
+        if u.scheme not in {'http','https'} or u.username or u.password or u.port not in {None,80,443}:raise ValueError
         host=(u.hostname or '').lower()
         path=u.path.rstrip('/')
+        app_hosts={'youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be',
+                   'netflix.com','www.netflix.com','disneyplus.com','www.disneyplus.com',
+                   'max.com','www.max.com','play.max.com','hbomax.com','www.hbomax.com','play.hbomax.com',
+                   'crunchyroll.com','www.crunchyroll.com','primevideo.com','www.primevideo.com','open.spotify.com'}
+        if host not in app_hosts:
+            if (not host or '.' not in host or host.endswith('.')
+                    or host.endswith(('.local','.localhost','.internal','.ts.net','.home','.lan','.test','.invalid','.example'))):
+                raise ValueError
+            try:
+                address=ipaddress.ip_address(host)
+            except ValueError:
+                host=host.encode('idna').decode('ascii')
+            else:
+                if not address.is_global:raise ValueError
+            authority=host+((':'+str(u.port)) if u.port else '')
+            return MediaLink('browser',urlunsplit((u.scheme,authority,u.path,u.query,u.fragment)),'')
+        if u.scheme!='https' or u.port not in {None,443}:raise ValueError
         if host in {'youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be'}:
             url=youtube_url(value)
             return MediaLink('youtube',url,parse_qs(urlsplit(url).query)['v'][0])

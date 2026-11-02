@@ -230,7 +230,7 @@ with sync_playwright() as p:
     kiosk.evaluate("""async()=>{const session=await (await fetch('/api/session')).json();const pending=await (await fetch('/api/admin/pairing')).json();await fetch('/api/admin/pairing/'+pending.requests[0].id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({approve:true})});}""")
     expect(phone.locator('#remote')).to_be_visible()
     before_youtube=len([action for action,_ in agent.calls if action=='open-youtube'])
-    phone.fill('#youtube-url','https://example.com/not-youtube')
+    phone.fill('#youtube-url','https://127.0.0.1/private')
     phone.locator('#youtube-form button').click()
     expect(phone.locator('#youtube-message')).to_contain_text('No se envió')
     assert len([action for action,_ in agent.calls if action=='open-youtube'])==before_youtube
@@ -243,6 +243,10 @@ with sync_playwright() as p:
     phone.locator('#youtube-form button').click()
     expect(phone.locator('#youtube-message')).to_contain_text('Enlace abierto en Netflix')
     assert ('open-media',{'url':'https://www.netflix.com/title/81234567'}) in agent.calls
+    phone.fill('#youtube-url','https://example.com/?p=1&ref=unchanged#part')
+    phone.locator('#youtube-form button').click()
+    expect(phone.locator('#youtube-message')).to_have_text('Enlace abierto en Navegador.')
+    assert ('open-media',{'url':'https://example.com/?p=1&ref=unchanged#part'}) in agent.calls
     quick=phone.context.new_page()
     quick.on('pageerror',lambda e:errors.append(str(e)))
     quick.goto(f'http://127.0.0.1:{port}/youtube/link/?key=https://youtu.be/pM9H2Pvr_-s')

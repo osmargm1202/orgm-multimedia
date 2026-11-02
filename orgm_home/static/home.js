@@ -292,7 +292,7 @@ async function sendYoutube(url){
   let youtube=false;
   try{youtube=['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be'].includes(new URL(url).hostname);}catch{}
   const result=await act(youtube?'apps/youtube/open-url':'media/open-url',{url},youtube?'Video enviado a YouTube en Jarq':'Enlace enviado a la sala');
-  $('#youtube-message').textContent=result?(youtube?'Enviado a YouTube en Jarq.':`Enlace abierto en ${labels[result.app] || 'la sala'}. La reproducción puede requerir tu perfil.`):'No se envió el enlace. Revisa que sea contenido de un servicio compatible.';
+  $('#youtube-message').textContent=result?(youtube?'Enviado a YouTube en Jarq.':(result.app==='browser'?'Enlace abierto en Navegador.':`Enlace abierto en ${labels[result.app] || 'la sala'}. La reproducción puede requerir tu perfil.`)):'No se envió el enlace. Revisa que sea una dirección web pública válida.';
   if(result){$('#youtube-url').value=result.url;showPanel(defaultPanel);}
   return result;
 }

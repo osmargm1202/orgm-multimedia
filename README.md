@@ -340,3 +340,8 @@ Reutiliza la webapp o aplicación nativa y solicita reproducción cuando encuent
 un reproductor o botón primario compatible. Los accesos a cuenta, perfiles,
 compras y DRM siguen en manos del proveedor. También funciona desde el formulario
 del mando y `/media/link/?key=...`. Ver [docs/media-links.md](docs/media-links.md).
+
+Los enlaces web que no pertenezcan a las apps reconocidas se abren en Navegador
+en Jarq, conservando todos sus parámetros y reutilizando su ventana. Esto funciona
+con Win+Alt+Y y con el formulario del mando. El receptor valida destinos públicos
+y no fuerza Play en las páginas genéricas.

@@ -273,7 +273,7 @@ def main():
         description="Enviar a su aplicación en Jarq el enlace multimedia seleccionado por HTTPS"
     )
     parser.add_argument(
-        "--version", action="version", version="orgm-send-youtube 3 (HTTPS directo multimedia)"
+        "--version", action="version", version="orgm-send-youtube 4 (HTTPS directo multimedia y navegador)"
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--url", help="Usar este enlace en lugar de la selección")

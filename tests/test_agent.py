@@ -261,10 +261,11 @@ def test_new_browser_url_reuses_window(controller, monkeypatch):
     controller.spawn = AsyncMock()
     command = AsyncMock(return_value="")
     monkeypatch.setattr("orgm_home.agent.command", command)
+    navigate=AsyncMock()
+    monkeypatch.setattr("orgm_home.agent.BrowserControl.navigate",navigate)
     run(controller.activate("browser", "https://example.com/"))
-    controller.spawn.assert_awaited_once()
-    assert "--new-window" not in controller.spawn.call_args.args[0]
-    assert controller.spawn.call_args.args[0][-1] == "https://example.com/"
+    controller.spawn.assert_not_awaited()
+    navigate.assert_awaited_once_with("https://example.com/")
 
 
 def test_agent_client_timeout_and_response(tmp_path):
@@ -784,3 +785,13 @@ def test_invalid_content_does_not_activate_or_close_anything(controller):
     with pytest.raises(ControlError):run(controller.dispatch({'action':'open-media','url':'https://evil.test/title/81234567'}))
     controller.activate.assert_not_awaited()
     controller.sway.assert_not_awaited()
+
+
+def test_browser_fallback_opens_browser_without_autoplay(controller,monkeypatch):
+    url='https://redirectus.net/us/us.html?p=us&id=1817'
+    controller.activate=AsyncMock(return_value={'app':'browser'})
+    monkeypatch.setattr('orgm_home.agent.validate_url',AsyncMock(return_value=url))
+    result=run(controller.dispatch({'action':'open-media','url':url}))
+    controller.activate.assert_awaited_once_with('browser',url)
+    assert result['playback']=='manual'
+    assert controller.autoplay_task is None

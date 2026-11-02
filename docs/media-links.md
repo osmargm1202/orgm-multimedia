@@ -17,10 +17,15 @@ Enlaces directos reconocidos:
 | Crunchyroll | watch/ID, series/ID |
 | Prime Video | primevideo.com/detail/ID o dp/ID |
 | Spotify | open.spotify.com con track, album, playlist, episode, show o artist |
+| Navegador | Otros enlaces HTTP(S) a destinos públicos |
 
-Se eliminan parámetros de seguimiento de los servicios nuevos. No se aceptan
-acortadores ni dominios arbitrarios. Una selección inválida se rechaza antes de
-pedir autorización, enviar HTTP o activar otra fuente.
+Se eliminan parámetros de seguimiento de los servicios nuevos. Los enlaces de otros dominios se envían a Navegador y conservan ruta, query y
+fragmento completos; no se intenta reproducirlos automáticamente. La clasificación
+no sigue redirecciones ni los convierte a otra webapp: el navegador procesa el
+enlace con su política de red. Se rechazan direcciones privadas, credenciales,
+puertos no admitidos y texto inválido; el receptor comprueba también DNS antes de
+activar una fuente. Los enlaces mal formados de servicios conocidos se siguen
+rechazando para no sustituir un video por un error de selección.
 
 El receptor reutiliza la ventana de la webapp mediante CDP. Spotify recibe su
 URI nativa. El receptor intenta iniciar el reproductor o un botón primario de

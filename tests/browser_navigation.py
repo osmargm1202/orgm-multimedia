@@ -27,6 +27,12 @@ async def main():
                 assert await page.locator('#b').inner_text()=='opened'
                 await control.act('left');await control.act('down')
                 assert await page.locator('#c').get_attribute('data-orgm-selected') is not None
+            control=BrowserControl('browser',int((root/'.local/share/orgm-home/chrome/browser/DevToolsActivePort').read_text().splitlines()[0]))
+            generic_url='https://redirectus.net/us/us.html?p=us&d=redirectus.net&id=1817&v=20260917a&ref=gostreameast.one,,'
+            await page.route('https://redirectus.net/**',lambda route:route.fulfill(body='<button>Browser target</button>'))
+            await control.navigate(generic_url)
+            await page.wait_for_url(generic_url)
+            assert len(context.pages)==1 and page.url==generic_url
             for service,profile in PROFILES.items():
                 # Profile-specific selector fixture verifies the real selector strings.
                 await page.set_content('<input type=search data-uia=search-box-input><button data-testid=play-pause-button data-uia=control-play-pause-play onclick="this.dataset.clicked=1">Play</button>')

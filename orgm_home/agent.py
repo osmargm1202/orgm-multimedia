@@ -721,6 +721,8 @@ class Controller:
                     raise ControlError("El servicio no está configurado como webapp", 409)
                 url = await validate_url(target.url)
                 result = await self.activate(target.app, url)
+                if target.app == "browser":
+                    return {**result, "playback": "manual"}
                 self.autoplay_task = asyncio.create_task(self.start_link(app, target))
                 return {**result, "playback": "requested"}
             if action == "open-youtube":
