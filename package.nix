@@ -8,7 +8,7 @@ python3Packages.buildPythonApplication {
     fileset = lib.fileset.unions [ ./pyproject.toml ./orgm_home ./tests ];
   };
   build-system = [ python3Packages.setuptools ];
-  dependencies = with python3Packages; [ fastapi uvicorn jinja2 pyjwt cryptography ];
+  dependencies = with python3Packages; [ fastapi uvicorn jinja2 pyjwt cryptography websockets ];
   nativeCheckInputs = with python3Packages; [ pytestCheckHook httpx ];
   pythonImportsCheck = [ "orgm_home.web" "orgm_home.agent" ];
   meta = {

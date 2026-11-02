@@ -697,3 +697,21 @@ def test_native_pipewire_stream_uses_client_pid_for_audio_focus(controller, monk
     assert controller.audio_app=='browser'
     enriched=run(controller.audio_streams())
     assert enriched[0]['properties']['application.process.id']=='12345'
+
+
+def test_browser_ok_submits_selected_input(controller, monkeypatch):
+    controller.status = AsyncMock(return_value={'app':'browser', 'capabilities':{'keys':True}})
+    act = AsyncMock(return_value={'navigation':'input'})
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.act', act)
+    run(controller.dispatch({'action':'key','key':'ok'}))
+    act.assert_awaited_once_with('ok')
+    controller.native_key.assert_awaited_once_with(28)
+
+
+def test_browser_direction_uses_selection_instead_of_native_scroll(controller, monkeypatch):
+    controller.status = AsyncMock(return_value={'app':'browser', 'capabilities':{'keys':True}})
+    act = AsyncMock(return_value={'navigation':'select'})
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.act', act)
+    run(controller.dispatch({'action':'key','key':'right'}))
+    act.assert_awaited_once_with('right')
+    controller.native_key.assert_not_awaited()

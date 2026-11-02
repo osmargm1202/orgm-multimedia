@@ -24,6 +24,7 @@ from .youtube import canonical_url as youtube_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
+from .browser_control import BrowserControl, PROFILES
 from .playback import Playback
 from .resources import CpuMeter, PressureGuard, terminate_family
 
@@ -248,6 +249,8 @@ class Controller:
             "google-chrome-stable",
             "--ozone-platform=wayland",
             "--no-first-run",
+            "--remote-debugging-address=127.0.0.1",
+            "--remote-debugging-port=0",
             "--no-default-browser-check",
             "--password-store=basic",
             "--blink-settings=hideScrollbars=true",
@@ -630,6 +633,7 @@ class Controller:
             "warning": self.warning,
             "resources": {"cpu": self.resources.cpu, "notice": self.resources.notice},
             "capabilities": {
+                "search": bool(app and app.id in {*PROFILES, "youtube", "spotify"}),
                 "keys": bool(app and app.type != "airplay"),
                 "text": bool(app and app.control not in {"internal", "mpv"} and app.type != "airplay"),
                 "pointer": False,
@@ -685,7 +689,19 @@ class Controller:
                     )
                 if app.id == "home" and key not in {"up", "down", "left", "right", "ok", "back", "tab", "shift-tab"}:
                     raise ControlError("Ese control no está disponible en Inicio", 409)
-                if key in {"stop", "next", "previous"}:
+                if app.type == "chrome" and key in {"up", "down", "left", "right", "ok", "search", "play"}:
+                    result = await BrowserControl(app.id).act(key)
+                    if key == "ok" and result.get("navigation") == "input":
+                        await self.native_key(28)
+                    return {"sent": key, **result}
+                if key == "search":
+                    if app.id == "youtube":
+                        await self.native_key(31)  # VacuumTube: S, TV search.
+                    elif app.id == "spotify":
+                        await self.native_key(38, modifiers=4)  # Ctrl+L, Spotify search.
+                    else:
+                        raise ControlError("Esta aplicación no tiene búsqueda configurada", 409)
+                elif key in {"stop", "next", "previous"}:
                     if not current["capabilities"]["stop" if key == "stop" else "next"]:
                         raise ControlError("Este servicio no ofrece ese control", 409)
                     if app.type == "mpv":
@@ -710,7 +726,9 @@ class Controller:
                     else:
                         await command("wtype", "-s", "100", "-k", "space")
                 elif key in KEYS:
-                    if key == "shift-tab":
+                    if app.id == "spotify" and key in {"up", "down", "left", "right"}:
+                        await self.native_key(15, modifiers=1 if key in {"up", "left"} else 0)
+                    elif key == "shift-tab":
                         await self.native_key(15, modifiers=1)
                     elif key == "back" and (app.type == "chrome" or app.id == "spotify"):
                         await self.native_key(105, modifiers=8)

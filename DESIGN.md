@@ -56,3 +56,13 @@ columna y áreas táctiles existentes. El enlace rápido usa la misma superficie
 precarga el video validado. Solo una navegación explícita puede enviarlo al
 terminar la vinculación; sin esa intención queda disponible el botón manual.
 Los errores conservan el campo y no cambian la fuente de la sala.
+
+## Ampliación del mando por servicio
+
+Se conserva la columna del mando y su identidad. Entre Inicio/Cambiar app y la
+cruceta se añaden seis accesos textuales en tres columnas, con objetivos de 44 px:
+YouTube, Netflix, Disney+, HBO Max, Crunchyroll y Spotify. Una fila de dos botones
+con iconos SVG ofrece Buscar y Play/Pausa. Las capacidades reales deshabilitan
+Buscar cuando no existe integración. Buscar abre la vista de escritura existente
+tras completar su acción. La selección de las webapps se marca en azul; los
+controles del mando no se superponen al contenido de Jarq.

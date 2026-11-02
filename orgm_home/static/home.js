@@ -121,12 +121,12 @@ function render() {
     const art=button.querySelector('.app-art');
     if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : assetUrl(`cards/${id}.webp`);if(art.getAttribute('src')!==url)art.src=url;}
   });
-  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && key==='backspace');button.disabled=!online || busy || !capability;});
+  $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='search' ? state.capabilities?.search : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && key==='backspace');button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],[data-switcher],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
   $('#text-form button[type=submit]').disabled=!online || busy || !state.capabilities?.text;
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
-  $('#control-note').textContent=state.app==='home' ? 'Usa las flechas para elegir en la pantalla de Jarq y OK para abrir.' : state.app==='airplay' ? 'La reproducción se controla desde el dispositivo que transmite.' : 'En páginas web, Siguiente elemento mueve la selección y OK la abre. Usa Teclado para buscar.';
+  $('#control-note').textContent=state.app==='home' ? 'Usa las flechas para elegir en la pantalla de Jarq y OK para abrir.' : state.app==='airplay' ? 'La reproducción se controla desde el dispositivo que transmite.' : 'Las flechas seleccionan elementos; OK abre la selección. Buscar abre la búsqueda de esta aplicación.';
   if(kiosk && state.app && state.app!=='home')homeAppSelection=state.app;
 }
 function homeControls() {
@@ -262,7 +262,7 @@ $$('[data-switcher]').forEach(button=>button.addEventListener('click',()=>{rende
 $('#switcher-close').addEventListener('click',()=>$('#app-switcher').close());
 $('#switcher-catalog').addEventListener('click',()=>{$('#app-switcher').close();showPanel('sources');});
 $$('[data-settings-view]').forEach(button=>button.addEventListener('click',()=>settingsView(button.dataset.settingsView)));
-$$('[data-key]').forEach(button=>button.addEventListener('click',()=>act('remote/key',{key:button.dataset.key})));
+$$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{if(await act('remote/key',{key:button.dataset.key}) && button.dataset.key==='search'){showPanel('typing');$('#remote-text').focus();}}));
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);if(kiosk)focusHome(true);else $('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));

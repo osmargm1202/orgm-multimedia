@@ -63,3 +63,13 @@
 @media(max-width:400px){.device-row{gap:12px}.device-row button{min-width:76px}}
 
 .youtube-send{margin-top:24px;padding-top:22px;border-top:1px solid #34465b}.youtube-send label{display:block;font-size:1rem;font-weight:700;margin-bottom:8px}.youtube-send .field-hint{line-height:1.5;font-size:.875rem;margin-bottom:14px}.youtube-send .input-row{display:flex;gap:10px;align-items:stretch}.youtube-send input{width:100%;min-width:0;min-height:48px;font-size:1rem}.youtube-send button{flex-shrink:0;min-width:76px;min-height:48px}.youtube-message{color:var(--secondary);font-size:.875rem;line-height:1.5;margin-top:12px;overflow-wrap:anywhere}.youtube-message:empty{display:none}
+
+.service-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:12px}
+.service-shortcuts button{min-height:44px;padding:8px 4px;font-size:.75rem;background:#21354c}
+.remote-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.remote-actions button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;background:#21354c}
+.remote-actions svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
+@media(max-height:850px){
+ .is-controller .dpad{width:172px;height:172px;margin:12px auto}
+ .is-controller .remote{padding:14px}
+}

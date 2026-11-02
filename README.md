@@ -292,3 +292,30 @@ Para comprobar la petición POST de un enlace sin enviarlo ni crear credenciales
 ```bash
 orgm-send-youtube --url 'https://youtu.be/pM9H2Pvr_-s' --dry-run
 ```
+
+## Navegación del mando por servicio (preparada, pendiente de desplegar)
+
+El mando incluye accesos permanentes a YouTube, Netflix, Disney+, HBO Max,
+Crunchyroll y Spotify, además de Buscar y Play/Pausa. Las webapps Chrome usan
+selección espacial del DOM: las flechas eligen elementos, dibujan un borde azul,
+y desplazan la selección a la vista; OK activa el elemento. En un campo de texto,
+OK envía Enter. Tab/Shift+Tab siguen disponibles como alternativa.
+
+Los selectores y dominios por servicio están en
+`orgm_home/navigation/profiles.json`; el motor compartido está en `control.js`.
+No se envía JavaScript desde el mando. Chrome abre DevTools en un puerto aleatorio
+solo en localhost y dentro de su perfil independiente; el agente elige únicamente
+la página enfocada. Los dominios de servicios se comprueban antes de actuar.
+Las ventanas ya abiertas necesitan cerrarse y abrirse una vez para añadir ese
+canal, conservando su perfil y sesión.
+
+YouTube conserva la navegación TV de VacuumTube y su tecla S para buscar.
+Spotify conserva MPRIS para Play/Pausa y Ctrl+L para buscar; allí las flechas
+recorren controles nativos con Tab/Shift+Tab, sin selección geométrica del DOM.
+Buscar abre el panel de escritura del teléfono después de enviar la acción.
+Los controles Chrome comprueban selectores específicos y, para reproducción,
+un elemento multimedia cargado. Si no encuentran el control, muestran un error;
+no envían espacio a ciegas. Un reproductor en iframe externo requiere integración
+adicional y no queda certificado por las pruebas de DOM del documento principal.
+
+Pendientes y aceptación: [docs/remote-navigation.md](docs/remote-navigation.md).

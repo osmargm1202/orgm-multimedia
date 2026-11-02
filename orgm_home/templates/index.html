@@ -87,6 +87,12 @@
       <div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
       <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p>
       <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button></div>
+      <div class="service-shortcuts remote-only" role="group" aria-label="Abrir servicio">
+        {% for id, label in [('youtube','YouTube'),('netflix','Netflix'),('disney-plus','Disney+'),('max','HBO Max'),('crunchyroll','Crunchyroll'),('spotify','Spotify')] %}
+        <button data-app="{{ id }}" disabled>{{ label }}</button>
+        {% endfor %}
+      </div>
+      <div class="remote-actions remote-only"><button data-key="search" disabled><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>Buscar</span></button><button data-key="play" disabled aria-label="Reproducir o pausar"><svg viewBox="0 0 24 24"><path d="m3 4 10 8-10 8Z M17 4v16M21 4v16"/></svg><span>Play / Pausa</span></button></div>
       <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
         <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
         <button class="left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
