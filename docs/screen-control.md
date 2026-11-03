@@ -3,6 +3,11 @@
 En Mando → Pantalla se pide una captura de la salida Sway enfocada. Tocar la
 imagen envía un clic izquierdo a ese punto, actualiza la imagen y conserva la
 aplicación abierta. Volver al mando termina la actualización y elimina la captura.
+La rueda del mouse sobre la imagen desplaza la página de Jarq. Shift+rueda
+desplaza horizontalmente; Ctrl/Cmd+rueda conserva el zoom del navegador local.
+Se agrupan movimientos cada 250 ms, con límites por envío y una cuota separada
+de 240 envíos/minuto para no agotar las acciones normales del mando. Durante un
+desplazamiento continuo se renueva la imagen para conservar el contexto vigente. Salir u ocultar la pestaña descarta los movimientos pendientes.
 Se puede ampliar la página o girar el teléfono para apuntar con más precisión.
 
 Al entrar se activa Auto cada 2 s. Se puede desmarcar para usar una imagen fija

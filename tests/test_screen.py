@@ -78,3 +78,27 @@ def test_expired_frame_cannot_be_read_or_clicked(screen):
         with pytest.raises(ControlError):await screen.click(frame['frame'],.5,.5)
         screen.sway.assert_not_awaited()
     asyncio.run(scenario())
+
+
+def test_scroll_axes_are_bounded_and_emit_one_event_per_notch(screen):
+    async def scenario():
+        frame=await screen.capture()
+        await screen.scroll(frame['frame'],.5,.5,1,-2)
+        commands=[call.args[0] for call in screen.sway.await_args_list]
+        assert commands==['seat seat0 cursor set 2880 540','seat seat0 cursor press button4','seat seat0 cursor press button4','seat seat0 cursor press button7']
+        screen.sway.reset_mock()
+        with pytest.raises(ControlError):await screen.scroll(frame['frame'],.5,.5,0,7)
+        screen.sway.assert_not_awaited()
+        screen.context.return_value={**screen.layout,'view':99}
+        with pytest.raises(ControlError):await screen.scroll(frame['frame'],.5,.5,0,1)
+        screen.sway.assert_not_awaited()
+    asyncio.run(scenario())
+
+def test_scroll_api_requires_csrf_and_strict_deltas(paired):
+    client,agent,headers=paired
+    payload={'frame':'a'*32,'x':.5,'y':.5,'dx':0,'dy':2}
+    assert client.post('/api/remote/scroll',json=payload,headers=headers).status_code==200
+    assert agent.calls[-1]==('scroll',payload)
+    assert client.post('/api/remote/scroll',json=payload).status_code==403
+    assert client.post('/api/remote/scroll',json={**payload,'dy':999},headers=headers).status_code==422
+    assert client.post('/api/remote/scroll',json={**payload,'dy':True},headers=headers).status_code==422

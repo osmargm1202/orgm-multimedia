@@ -69,6 +69,24 @@ class ScreenControl:
             await self.sway('seat seat0 cursor release BTN_LEFT')
         return {'clicked':True}
 
+    async def scroll(self, frame, x, y, dx, dy):
+        self.validate(frame)
+        if any(type(value) is not int or not -6<=value<=6 for value in (dx,dy)):
+            raise ControlError('Desplazamiento inválido.',422)
+        if any(type(value) not in {float,int} or not math.isfinite(value) or not 0<=value<=1 for value in (x,y)):
+            raise ControlError('Posición de scroll inválida.',422)
+        if self.layout != await self.context():
+            raise ControlError('Cambió la ventana o el monitor. Actualiza antes de desplazar.',409)
+        rect=self.layout['rect']
+        px=rect['x']+round(x*(rect['width']-1));py=rect['y']+round(y*(rect['height']-1))
+        await self.sway(f'seat seat0 cursor set {px if px else 1} {py if py else 1}')
+        for value,positive,negative in ((dy,5,4),(dx,7,6)):
+            for _ in range(abs(value)):
+                # Sway emits a complete discrete axis event for buttons 4–7;
+                # a release command here would emit a second scroll.
+                await self.sway(f'seat seat0 cursor press button{positive if value>0 else negative}')
+        return {'scrolled':True}
+
     def close(self, frame):
         if frame == self.frame:
             self.frame = None

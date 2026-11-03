@@ -352,3 +352,7 @@ El mando añade Pantalla para ver una imagen y tocar donde hacer clic. Al entrar
 se activa Auto cada 2 s; se puede desmarcar para actualizar manualmente. Volver al
 mando detiene la actualización. Conserva los permisos existentes y no abre otro
 puerto. Ver [docs/screen-control.md](docs/screen-control.md).
+
+Dentro de Pantalla, la rueda sobre la imagen también se envía a Jarq. Shift+rueda
+desplaza horizontalmente; fuera de esta vista la rueda funciona normalmente en el
+navegador del mando. Salir cancela las capturas y los movimientos pendientes.

@@ -73,6 +73,11 @@ class ScreenClick(ScreenFrame):
     y: float = Field(strict=True, ge=0, le=1, allow_inf_nan=False)
 
 
+class ScreenScroll(ScreenClick):
+    dx: StrictInt = Field(ge=-6,le=6)
+    dy: StrictInt = Field(ge=-6,le=6)
+
+
 class Volume(Payload):
     value: StrictInt | None = Field(default=None, ge=0, le=100)
     delta: StrictInt | None = None
@@ -204,7 +209,8 @@ def create_app(settings=None, agent=None):
             except ValueError:
                 return reject("Dirección del proxy no válida", 400)
         if is_api:
-            if not limits.allow((peer, "api"), 180, 60):
+            scroll_request = request.url.path == "/api/remote/scroll"
+            if not limits.allow((peer, "scroll" if scroll_request else "api"), 240 if scroll_request else 180, 60):
                 return reject("Demasiadas acciones; espera unos segundos", 429)
             if public and settings.require_access:
                 try:
@@ -522,6 +528,10 @@ def create_app(settings=None, agent=None):
     @app.post("/api/remote/screen/close")
     async def screen_close(payload: ScreenFrame):
         return await client.call("screen-close",frame=payload.frame)
+
+    @app.post("/api/remote/scroll")
+    async def screen_scroll(payload: ScreenScroll):
+        return await client.call("scroll",frame=payload.frame,x=payload.x,y=payload.y,dx=payload.dx,dy=payload.dy)
 
     @app.post("/api/remote/pointer")
     async def pointer(payload: ScreenClick):

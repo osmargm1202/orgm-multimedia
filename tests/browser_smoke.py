@@ -280,6 +280,13 @@ with sync_playwright() as p:
     expect(phone.locator('#screen-image')).to_be_visible()
     phone.wait_for_timeout(1000)
     assert any(action=='pointer' and data['frame']=='a'*32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
+    phone.locator('#screen-image').hover()
+    phone.mouse.wheel(0,200)
+    phone.wait_for_timeout(1200)
+    assert any(action=='scroll' and data['dy']>0 and data['dx']==0 for action,data in agent.calls)
+    phone.keyboard.down('Shift');phone.mouse.wheel(0,100);phone.keyboard.up('Shift')
+    phone.wait_for_timeout(1200)
+    assert any(action=='scroll' and data['dx']>0 and data['dy']==0 for action,data in agent.calls)
     phone.screenshot(path=str(root/'screen-mobile.png'),full_page=True)
     before_auto=len([a for a,_ in agent.calls if a=='screen-capture'])
     phone.wait_for_timeout(2300)
@@ -289,6 +296,9 @@ with sync_playwright() as p:
     checkpoint_capture=len([a for a,_ in agent.calls if a=='screen-capture'])
     phone.wait_for_timeout(2200)
     assert len([a for a,_ in agent.calls if a=='screen-capture'])==checkpoint_capture
+    scrolls=len([a for a,_ in agent.calls if a=='scroll'])
+    phone.mouse.wheel(0,200);phone.wait_for_timeout(300)
+    assert len([a for a,_ in agent.calls if a=='scroll'])==scrolls
     phone.locator('#open-screen').click()
     expect(phone.locator('#screen-image')).to_be_visible()
     assert phone.locator('#screen-auto').is_checked()

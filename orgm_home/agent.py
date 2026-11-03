@@ -705,6 +705,8 @@ class Controller:
                 return {"valid":True}
             if action == "screen-close":
                 return self.screen.close(request.get("frame"))
+            if action == "scroll":
+                return await self.screen.scroll(request.get("frame"),request.get("x"),request.get("y"),request.get("dx"),request.get("dy"))
             if action == "pointer":
                 return await self.screen.click(request.get("frame"),request.get("x"),request.get("y"))
             if action == "status":
