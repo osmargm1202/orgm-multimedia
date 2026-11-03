@@ -67,3 +67,14 @@ def test_screen_endpoints_enforce_auth_csrf_bounds_and_frame(paired,tmp_path,mon
     client.cookies.clear()
     assert client.get('/api/remote/screen.jpg?frame='+'a'*32).status_code==401
     assert client.post('/api/remote/screen',json={}).status_code==403
+
+
+def test_expired_frame_cannot_be_read_or_clicked(screen):
+    async def scenario():
+        frame=await screen.capture()
+        screen.captured-=31
+        with pytest.raises(ControlError) as error:screen.validate(frame['frame'])
+        assert error.value.status==410
+        with pytest.raises(ControlError):await screen.click(frame['frame'],.5,.5)
+        screen.sway.assert_not_awaited()
+    asyncio.run(scenario())
