@@ -309,7 +309,7 @@ async function refreshScreen(){
   }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent=error.message;}
   finally{if(epoch===screenEpoch){screenBusy=false;$('#screen-refresh').disabled=false;if(screenActive && $('#screen-auto').checked && !document.hidden)screenTimer=setTimeout(refreshScreen,2000);}}
 }
-$('#open-screen').addEventListener('click',()=>{screenActive=true;screenEpoch++;showPanel('screen');refreshScreen();});
+$('#open-screen').addEventListener('click',()=>{screenActive=true;screenEpoch++;$('#screen-auto').checked=true;showPanel('screen');refreshScreen();});
 $('#screen-exit').addEventListener('click',()=>showPanel(defaultPanel));
 $('#screen-refresh').addEventListener('click',refreshScreen);
 $('#screen-auto').addEventListener('change',()=>{clearTimeout(screenTimer);if($('#screen-auto').checked)refreshScreen();});

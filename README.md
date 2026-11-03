@@ -348,7 +348,7 @@ y no fuerza Play en las páginas genéricas.
 
 ## Pantalla ligera
 
-El mando añade Pantalla para ver una imagen y tocar donde hacer clic. Por defecto
-se actualiza a petición y después de un clic; Auto cada 2 s es opcional. Volver al
+El mando añade Pantalla para ver una imagen y tocar donde hacer clic. Al entrar
+se activa Auto cada 2 s; se puede desmarcar para actualizar manualmente. Volver al
 mando detiene la actualización. Conserva los permisos existentes y no abre otro
 puerto. Ver [docs/screen-control.md](docs/screen-control.md).

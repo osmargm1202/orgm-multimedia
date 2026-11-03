@@ -84,7 +84,7 @@ y logos blancos.
 ## Pantalla ligera
 
 Un botón bajo la carcasa del mando abre una vista independiente con imagen fija,
-Actualizar, Auto cada 2 s desactivado y Volver al mando visible arriba. La imagen
+Actualizar, Auto cada 2 s activado al entrar y Volver al mando visible arriba. La imagen
 conserva su proporción, ocupa el ancho disponible y recibe el toque en coordenadas
 normalizadas; su estado explica cuándo actualizar o reintentar. El ancho máximo
 en escritorio es 1100 px. Salir no cambia de aplicación en Jarq y elimina la

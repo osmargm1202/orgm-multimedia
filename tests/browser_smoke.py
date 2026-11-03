@@ -275,13 +275,12 @@ with sync_playwright() as p:
     expect(phone.locator('#remote-title')).to_have_text('YouTube')
     phone.locator('#open-screen').click()
     expect(phone.locator('#screen-image')).to_be_visible()
-    assert phone.locator('#screen-auto').is_checked() is False
+    assert phone.locator('#screen-auto').is_checked()
     phone.locator('#screen-image').click(position={'x':80,'y':45})
     expect(phone.locator('#screen-image')).to_be_visible()
     phone.wait_for_timeout(1000)
     assert any(action=='pointer' and data['frame']=='a'*32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
     phone.screenshot(path=str(root/'screen-mobile.png'),full_page=True)
-    phone.locator('#screen-auto').check()
     before_auto=len([a for a,_ in agent.calls if a=='screen-capture'])
     phone.wait_for_timeout(2300)
     assert len([a for a,_ in agent.calls if a=='screen-capture'])>before_auto
@@ -292,8 +291,7 @@ with sync_playwright() as p:
     assert len([a for a,_ in agent.calls if a=='screen-capture'])==checkpoint_capture
     phone.locator('#open-screen').click()
     expect(phone.locator('#screen-image')).to_be_visible()
-    assert not phone.locator('#screen-auto').is_checked()
-    phone.locator('#screen-auto').check()
+    assert phone.locator('#screen-auto').is_checked()
     phone.locator('#controller-nav [data-panel=settings]').click()
     expect(phone.locator('#settings')).to_be_visible()
     checkpoint_capture=len([a for a,_ in agent.calls if a=='screen-capture'])

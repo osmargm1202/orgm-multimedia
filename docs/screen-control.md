@@ -5,8 +5,9 @@ imagen envía un clic izquierdo a ese punto, actualiza la imagen y conserva la
 aplicación abierta. Volver al mando termina la actualización y elimina la captura.
 Se puede ampliar la página o girar el teléfono para apuntar con más precisión.
 
-Por defecto hay una imagen fija. Actualizar pide otra; Auto cada 2 s es opcional
-y se pausa cuando la pestaña deja de estar visible. No se captura audio ni se
+Al entrar se activa Auto cada 2 s. Se puede desmarcar para usar una imagen fija
+y pedir otra con Actualizar. Se pausa cuando la pestaña deja de estar visible y
+se detiene al salir; cada nueva entrada vuelve a activar Auto. No se captura audio ni se
 mantiene un stream. JPEG de calidad 55, escala máxima 0,5 y lado máximo aproximado
 1024 px; una sola imagen vigente y un límite de una captura cada 750 ms.
 
