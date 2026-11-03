@@ -11,7 +11,8 @@ desplazamiento continuo se renueva la imagen para conservar el contexto vigente.
 Se puede ampliar la página o girar el teléfono para apuntar con más precisión.
 
 Al entrar se activa Auto cada 2 s. Se puede desmarcar para usar una imagen fija
-y pedir otra con Actualizar. Se pausa cuando la pestaña deja de estar visible y
+y pedir otra con Actualizar. La captura anterior permanece visible hasta que la
+siguiente termina de cargar y decodificar, evitando destellos al hacer clic. Se pausa cuando la pestaña deja de estar visible y
 se detiene al salir; cada nueva entrada vuelve a activar Auto. No se captura audio ni se
 mantiene un stream. JPEG de calidad 55, escala máxima 0,5 y lado máximo aproximado
 1024 px; una sola imagen vigente y un límite de una captura cada 750 ms.

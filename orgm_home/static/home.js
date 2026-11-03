@@ -303,10 +303,12 @@ async function refreshScreen(){
   try{
     const frame=await api('remote/screen',{});
     if(!screenActive || epoch!==screenEpoch){api('remote/screen/close',{frame:frame.frame}).catch(()=>{});return;}
-    const img=$('#screen-image');
+    const previous=$('#screen-image'),img=new Image();
+    img.id=previous.id;img.alt=previous.alt;img.draggable=false;
     img.src=frame.image;await img.decode();
     if(!screenActive || epoch!==screenEpoch)return;
-    screenFrame=frame.frame;screenCapturedAt=performance.now();img.hidden=false;$('#screen-canvas').disabled=false;
+    previous.replaceWith(img);
+    screenFrame=frame.frame;screenCapturedAt=performance.now();$('#screen-canvas').disabled=false;
     $('#screen-message').textContent='Toca donde quieras hacer clic.';
   }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent=error.message;}
   finally{if(epoch===screenEpoch){screenBusy=false;$('#screen-refresh').disabled=false;if(screenActive && $('#screen-auto').checked && !document.hidden)screenTimer=setTimeout(refreshScreen,2000);}}

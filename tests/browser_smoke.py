@@ -28,7 +28,7 @@ class PreviewAgent:
             self.active=media_link(data["url"]).app
             self.opened.add(self.active)
         if action == "screen-capture":
-            return {'frame':'a'*32,'width':960,'height':540,'expires_in':30}
+            return {'frame':f'{len(self.calls):032x}','width':960,'height':540,'expires_in':30}
         if action == "activate":
             self.active = data["id"]
             self.opened.add(self.active)
@@ -276,10 +276,29 @@ with sync_playwright() as p:
     phone.locator('#open-screen').click()
     expect(phone.locator('#screen-image')).to_be_visible()
     assert phone.locator('#screen-auto').is_checked()
+    # A slow next JPEG must not replace or blank the visible frame.
+    phone.locator('#screen-auto').uncheck()
+    pending_images=[]
+    phone.route('**/api/remote/screen.jpg?*',lambda route:pending_images.append(route))
+    phone.evaluate("window.previousScreen=document.querySelector('#screen-image')")
+    previous_src=phone.locator('#screen-image').get_attribute('src')
+    phone.locator('#screen-refresh').click()
+    deadline=time.monotonic()+5
+    while not pending_images and time.monotonic()<deadline:
+        phone.wait_for_timeout(50)
+    assert pending_images
+    assert phone.evaluate("previousScreen===document.querySelector('#screen-image') && previousScreen.complete && previousScreen.naturalWidth>0")
+    assert phone.locator('#screen-image').get_attribute('src')==previous_src
+    pending_images.pop().continue_()
+    expect(phone.locator('#screen-refresh')).to_be_enabled()
+    assert phone.evaluate("previousScreen!==document.querySelector('#screen-image') && document.querySelector('#screen-image').naturalWidth>0")
+    phone.unroute('**/api/remote/screen.jpg?*')
+    phone.locator('#screen-auto').check()
+    expect(phone.locator('#screen-refresh')).to_be_enabled()
     phone.locator('#screen-image').click(position={'x':80,'y':45})
     expect(phone.locator('#screen-image')).to_be_visible()
     phone.wait_for_timeout(1000)
-    assert any(action=='pointer' and data['frame']=='a'*32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
+    assert any(action=='pointer' and len(data['frame'])==32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
     phone.locator('#screen-image').hover()
     phone.mouse.wheel(0,200)
     phone.wait_for_timeout(1200)
