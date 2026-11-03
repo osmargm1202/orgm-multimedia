@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 
 from .agent import command
+from .display_power import off_marker, set_enabled
 
 LOG = logging.getLogger(__name__)
 
@@ -61,6 +62,16 @@ class DisplayManager:
                     await command("swaymsg", f"output {self.source} transform 180")
             except OSError:
                 pass
+        # An explicit off survives watcher/launcher restarts in this session.
+        # A real disconnect followed by a reconnect restores the external image.
+        if target and self.connected is False:
+            set_enabled(True)
+        if target and off_marker().exists():
+            await self.stop_mirror()
+            if target.get("power", True):
+                await command("swaymsg", f"output {self.target} power off")
+            self.connected = True
+            return
         if target:
             if changed or not target.get("active") or not target.get("power", True):
                 width = int(self.mode.split("x")[0])

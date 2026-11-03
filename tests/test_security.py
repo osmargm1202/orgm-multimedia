@@ -392,3 +392,12 @@ def test_close_by_id_requires_pairing_and_csrf(configured, paired):
     assert not agent.calls
     assert client.post("/api/apps/youtube/close", json={}, headers=headers).status_code == 200
     assert agent.calls == [("close-app", {"id": "youtube"})]
+
+
+def test_external_power_requires_pairing_csrf_and_boolean(configured,paired):
+    client,agent,headers=paired
+    assert client.post('/api/display/external',json={'enabled':False},headers={'origin':headers['origin']}).status_code==403
+    for value in ['off',0,None]:
+        assert client.post('/api/display/external',json={'enabled':value},headers=headers).status_code==422
+    assert client.post('/api/display/external',json={'enabled':False},headers=headers).status_code==200
+    assert agent.calls[-1]==('external-display',{'enabled':False})

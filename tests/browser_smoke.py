@@ -21,12 +21,16 @@ class PreviewAgent:
         self.background = "costa"
         self.playing = False
         self.opened = {"home"}
+        self.external_enabled = True
 
     async def call(self, action, **data):
         self.calls.append((action, data))
         if action == "open-media":
             self.active=media_link(data["url"]).app
             self.opened.add(self.active)
+        if action == "external-display":
+            self.external_enabled=data["enabled"]
+            return {"external_display":{"connected":True,"enabled":self.external_enabled}}
         if action == "screen-capture":
             return {'frame':f'{len(self.calls):032x}','width':960,'height':540,'expires_in':30}
         if action == "activate":
@@ -52,6 +56,7 @@ class PreviewAgent:
             self.playing = not self.playing
         if action == "status":
             return {
+                "external_display": {"connected":True,"enabled":self.external_enabled},
                 "session": True,
                 "app": self.active,
                 "title": "ORGM Home"
@@ -263,6 +268,15 @@ with sync_playwright() as p:
     assert len([action for action,_ in agent.calls if action=='open-youtube'])==before_youtube+2
     quick.screenshot(path=str(root/'youtube-link-desktop.png'),full_page=True)
     quick.close()
+    phone.locator('[data-power-menu]').click()
+    expect(phone.locator('#external-power')).to_have_text('Apagar pantalla externa')
+    phone.locator('#external-power').click()
+    expect(phone.locator('#power-menu')).not_to_be_visible()
+    assert ('external-display',{'enabled':False}) in agent.calls
+    phone.locator('[data-power-menu]').click()
+    expect(phone.locator('#external-power')).to_have_text('Activar pantalla externa')
+    phone.locator('#external-power').click()
+    assert ('external-display',{'enabled':True}) in agent.calls
     phone.locator('[data-power-menu]').click()
     phone.locator('[data-power-action=poweroff]').click()
     phone.screenshot(path=str(root/'power-mobile.png'),full_page=True)

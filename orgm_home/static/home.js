@@ -111,6 +111,9 @@ function render() {
   });
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
   $$('[data-power-menu]').forEach(button=>button.disabled=!online || busy || !csrf);
+  const external=state.external_display;
+  $('#external-power').disabled=!online || busy || !csrf || !external?.connected;
+  $('#external-power-label').textContent=!external?.connected?'Pantalla externa sin conexión':external.enabled?'Apagar pantalla externa':'Activar pantalla externa';
   $('#max-form button').disabled=!online || busy;
   $('#youtube-form button').disabled=!online || busy || !csrf;
   $('#local-pairing').hidden=!kiosk;
@@ -285,6 +288,10 @@ $('#reboot-cancel').addEventListener('click',()=>$('#reboot-confirm').close());
 $('#reboot-accept').addEventListener('click',()=>{$('#reboot-confirm').close();act('admin/reboot',{},'Reiniciando Jarq');});
 $$('[data-power-menu]').forEach(button=>button.addEventListener('click',()=>$('#power-menu').showModal()));
 $('#power-close').addEventListener('click',()=>$('#power-menu').close());
+$('#external-power').addEventListener('click',async()=>{
+  const enabled=!state.external_display?.enabled;
+  if(await act('display/external',{enabled},enabled?'Pantalla externa activada':'Señal externa apagada'))$('#power-menu').close();
+});
 $$('[data-power-action]').forEach(button=>button.addEventListener('click',()=>{$('#power-menu').close();$('#'+(button.dataset.powerAction==='poweroff'?'shutdown':'reboot')+'-confirm').showModal();}));
 $('#shutdown-cancel').addEventListener('click',()=>$('#shutdown-confirm').close());
 $('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close();act('admin/poweroff',{},'Apagando Jarq');});

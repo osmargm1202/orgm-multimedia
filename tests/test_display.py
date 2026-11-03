@@ -119,3 +119,35 @@ def test_hdmi_reconnect_moves_existing_audio_and_unmutes_only_once(monkeypatch):
     command.reset_mock()
     asyncio.run(select_hdmi_audio(reconnect=False))
     assert not any('set-mute' in call.args or 'move-sink-input' in call.args for call in command.call_args_list)
+
+
+def test_explicit_off_is_respected_until_reconnect(monkeypatch, tmp_path):
+    from orgm_home.display_power import set_enabled, off_marker
+    monkeypatch.setenv('XDG_RUNTIME_DIR', str(tmp_path))
+    outputs = [
+        {'name':'eDP-1','active':True,'power':True,'modes':[{}]},
+        {'name':'HDMI-A-1','active':True,'power':True,'modes':[{}]},
+    ]
+    async def fake(*args, **kwargs):
+        return json.dumps(outputs) if args[-1]=='get_outputs' else ''
+    command=AsyncMock(side_effect=fake)
+    spawn=AsyncMock(return_value=Mock(returncode=None))
+    monkeypatch.setattr('orgm_home.display.command',command)
+    monkeypatch.setattr('orgm_home.display.asyncio.create_subprocess_exec',spawn)
+    monkeypatch.setattr('orgm_home.display.select_hdmi_audio',AsyncMock())
+    set_enabled(False)
+    manager=DisplayManager()
+    asyncio.run(manager.update())
+    command.assert_any_await('swaymsg','output HDMI-A-1 power off')
+    spawn.assert_not_called()
+    # A fresh watcher must also preserve explicit off.
+    asyncio.run(DisplayManager().update())
+    assert off_marker().exists()
+    assert not any('HDMI-A-1 enable' in str(call) for call in command.call_args_list)
+    outputs.pop()
+    asyncio.run(manager.update())
+    outputs.append({'name':'HDMI-A-1','active':False,'modes':[{}]})
+    asyncio.run(manager.update())
+    assert not off_marker().exists()
+    spawn.assert_awaited_once()
+    command.assert_any_await('swaymsg','output HDMI-A-1 enable mode 1920x1080 scale 1 position 1920 0 power on')

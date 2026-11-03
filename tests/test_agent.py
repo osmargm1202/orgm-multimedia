@@ -795,3 +795,41 @@ def test_browser_fallback_opens_browser_without_autoplay(controller,monkeypatch)
     controller.activate.assert_awaited_once_with('browser',url)
     assert result['playback']=='manual'
     assert controller.autoplay_task is None
+
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_external_power_preserves_internal_display(controller,monkeypatch,tmp_path,enabled):
+    from orgm_home.display_power import off_marker
+    monkeypatch.setenv('XDG_RUNTIME_DIR',str(tmp_path))
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value=json.dumps([
+        {'name':'eDP-1','active':True}, {'name':'HDMI-A-1','active':True}
+    ])))
+    result=run(controller.dispatch({'action':'external-display','enabled':enabled}))
+    assert result['external_display']=={'connected':True,'enabled':enabled}
+    assert off_marker().exists() is (not enabled)
+    controller.sway.assert_awaited_once_with(f"output HDMI-A-1 power {'on' if enabled else 'off'}")
+
+
+@pytest.mark.parametrize('enabled',[None,0,1,'off'])
+def test_external_power_rejects_invalid_input(controller,enabled):
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'external-display','enabled':enabled}))
+    controller.sway.assert_not_called()
+
+
+def test_external_power_rejects_missing_monitor(controller,monkeypatch,tmp_path):
+    monkeypatch.setenv('XDG_RUNTIME_DIR',str(tmp_path))
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value='[]'))
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'external-display','enabled':False}))
+    controller.sway.assert_not_called()
+
+
+def test_external_power_restores_preference_if_sway_fails(controller,monkeypatch,tmp_path):
+    from orgm_home.display_power import off_marker
+    monkeypatch.setenv('XDG_RUNTIME_DIR',str(tmp_path))
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(return_value='[{"name":"HDMI-A-1","active":true}]'))
+    controller.sway=AsyncMock(side_effect=ControlError('Sway unavailable'))
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'external-display','enabled':False}))
+    assert not off_marker().exists()

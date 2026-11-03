@@ -91,6 +91,10 @@ class Background(Payload):
     id: StrictStr = Field(max_length=20)
 
 
+class DisplayPower(Payload):
+    enabled: bool = Field(strict=True)
+
+
 class Brightness(Payload):
     value: StrictInt = Field(ge=5, le=100)
 
@@ -578,6 +582,10 @@ def create_app(settings=None, agent=None):
     @app.post("/api/admin/poweroff")
     async def poweroff():
         return await client.call("poweroff")
+
+    @app.post("/api/display/external")
+    async def external_display(payload: DisplayPower):
+        return await client.call("external-display", enabled=payload.enabled)
 
     @app.post("/api/display/brightness")
     async def brightness(payload: Brightness):

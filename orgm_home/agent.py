@@ -25,6 +25,7 @@ from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
 from .screen import ScreenControl
+from .display_power import target_output, set_enabled, power_status
 from .media_links import media_link, LABELS
 from .browser_control import BrowserControl, PROFILES
 from .playback import Playback
@@ -655,7 +656,9 @@ class Controller:
             )
         except (OSError, ValueError, ZeroDivisionError):
             brightness = None
+        outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs") or "[]")
         return {
+            "external_display": power_status(outputs),
             "session": True,
             "app": app.id if app else None,
             "title": str((focused or {}).get("name", ""))[:256],
@@ -888,6 +891,22 @@ class Controller:
                 else:
                     raise ControlError("Volumen fuera de rango", 422)
                 return {"updated": True}
+            if action == "external-display":
+                enabled = request.get("enabled")
+                if type(enabled) is not bool:
+                    raise ControlError("El encendido debe ser verdadero o falso", 422)
+                outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs"))
+                if not power_status(outputs)["connected"]:
+                    raise ControlError("No hay una pantalla externa conectada", 409)
+                # Record intent first so the hotplug watcher will not undo it.
+                previous = power_status(outputs)["enabled"]
+                set_enabled(enabled)
+                try:
+                    await self.sway(f"output {target_output()} power {'on' if enabled else 'off'}")
+                except BaseException:
+                    set_enabled(previous)
+                    raise
+                return {"external_display": power_status(outputs)}
             if action == "brightness":
                 value = request.get("value")
                 if type(value) is not int or not 5 <= value <= 100:

@@ -1,5 +1,5 @@
 {
-  "version": "8504f3475838",
+  "version": "271f006174b9",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -32,7 +32,7 @@
     "home-night.webp": "8751eee24aed",
     "home-orbita.webp": "21a77cfb076a",
     "home.css": "01c58588dd83",
-    "home.js": "955fac0bcbc9",
+    "home.js": "f909b4145e63",
     "icon.svg": "5d2b279b8aa2",
     "icons/airplay.svg": "3e68cdd31cb3",
     "icons/apps.svg": "922335ac9949",
@@ -43,6 +43,7 @@
     "icons/close.svg": "52d26a192f35",
     "icons/crunchyroll.svg": "526b84021a86",
     "icons/disney-plus.svg": "ad0ea07cb662",
+    "icons/display.svg": "6543dc434cba",
     "icons/hide.svg": "e5c812ae7fe3",
     "icons/home.svg": "9107467b7620",
     "icons/keyboard.svg": "8d49d804be8c",
