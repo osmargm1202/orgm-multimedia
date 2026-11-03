@@ -80,3 +80,12 @@ circular, teclas con relieve y logos a color. Es una identidad propia del mando
 hasta 720 px; escritorio mantiene botones planos y el dashboard local conserva
 su diseño. Esta sección reemplaza la especificación móvil anterior de panel azul
 y logos blancos.
+
+## Pantalla ligera
+
+Un botón bajo la carcasa del mando abre una vista independiente con imagen fija,
+Actualizar, Auto cada 2 s desactivado y Volver al mando visible arriba. La imagen
+conserva su proporción, ocupa el ancho disponible y recibe el toque en coordenadas
+normalizadas; su estado explica cuándo actualizar o reintentar. El ancho máximo
+en escritorio es 1100 px. Salir no cambia de aplicación en Jarq y elimina la
+imagen del navegador. No se mezclan archivos, enlaces ni ajustes con esta vista.

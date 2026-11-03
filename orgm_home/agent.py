@@ -24,6 +24,7 @@ from .youtube import canonical_url as youtube_url
 from .preferences import BACKGROUNDS, gallery, read_background, write_background
 from .wifi import Wifi
 from .previews import capture, versions
+from .screen import ScreenControl
 from .media_links import media_link, LABELS
 from .browser_control import BrowserControl, PROFILES
 from .playback import Playback
@@ -114,6 +115,7 @@ class Controller:
         self.spotify_interrupted = False
         self.audio_app = None
         self.resources = PressureGuard()
+        self.screen = ScreenControl(command, self.sway, self.screen_context)
         self.preview_until = 0
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
         self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
@@ -606,6 +608,17 @@ class Controller:
             await self.playback.resume(app, list(windows(await self.tree())))
         return {"app": app.id, "warning": self.warning}
 
+    async def screen_context(self):
+        outputs = json.loads(await command("swaymsg", "-r", "-t", "get_outputs"))
+        workspaces = json.loads(await command("swaymsg", "-r", "-t", "get_workspaces"))
+        focused_output = next((w.get("output") for w in workspaces if w.get("focused")), None)
+        active = [o for o in outputs if o.get("active") and o.get("rect", {}).get("width", 0)>0 and o.get("rect", {}).get("height", 0)>0]
+        output = next((o for o in active if o.get("name")==focused_output), active[0] if active else None)
+        if not output:
+            raise ControlError("No hay un monitor activo para controlar",409)
+        focused = next((w for w in windows(await self.tree()) if w.get("focused")), None)
+        return {"output":output["name"],"rect":{k:output["rect"][k] for k in ("x","y","width","height")},"view":focused.get("id") if focused else None,"transform":output.get("transform","normal"),"scale":output.get("scale",1)}
+
     async def start_link(self, app, target):
         # Stop if the viewer interacts, changes source, or sends another link.
         for _ in range(16):
@@ -660,7 +673,7 @@ class Controller:
                 "search": bool(app and app.id in {*PROFILES, "youtube", "spotify"}),
                 "keys": bool(app and app.type != "airplay"),
                 "text": bool(app and app.control not in {"internal", "mpv"} and app.type != "airplay"),
-                "pointer": False,
+                "pointer": True,
                 "play": bool(app and app.id != "home" and app.type not in {"airplay", "terminal"}),
                 "close": bool(app and app.id != "home"),
                 "stop": bool(app and (app.type == "mpv" or app.id == "spotify")),
@@ -685,6 +698,15 @@ class Controller:
             self.autoplay_task.cancel()
             self.autoplay_task = None
         async with self.lock:
+            if action == "screen-capture":
+                return await self.screen.capture()
+            if action == "screen-validate":
+                self.screen.validate(request.get("frame"))
+                return {"valid":True}
+            if action == "screen-close":
+                return self.screen.close(request.get("frame"))
+            if action == "pointer":
+                return await self.screen.click(request.get("frame"),request.get("x"),request.get("y"))
             if action == "status":
                 return await self.status()
             if action == "apps":

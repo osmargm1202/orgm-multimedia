@@ -4,6 +4,7 @@ Uses a real HTTP server/browser and a simulated session agent; does not certify 
 """
 
 import json, os, secrets, socket, sys, tempfile, threading, time
+import struct,zlib
 from pathlib import Path
 import uvicorn
 from playwright.sync_api import sync_playwright, expect
@@ -26,6 +27,8 @@ class PreviewAgent:
         if action == "open-media":
             self.active=media_link(data["url"]).app
             self.opened.add(self.active)
+        if action == "screen-capture":
+            return {'frame':'a'*32,'width':960,'height':540,'expires_in':30}
         if action == "activate":
             self.active = data["id"]
             self.opened.add(self.active)
@@ -62,6 +65,7 @@ class PreviewAgent:
                 "open": sorted(self.opened),
                 "capabilities": {
                     "keys": True,
+                    "pointer": True,
                     "search": self.active in {"youtube", "spotify", "netflix", "max", "disney-plus", "crunchyroll"},
                     "text": self.active != "home",
                     "play": self.active != "home",
@@ -77,6 +81,11 @@ catalog = root / "apps.json"
 catalog.write_text(json.dumps({"apps": apps}))
 token = root / "token"
 token.write_text(secrets.token_hex(32))
+preview=root/'previews';preview.mkdir()
+os.environ['ORGM_PREVIEW_DIR']=str(preview)
+def png_chunk(kind,data):
+    return struct.pack('!I',len(data))+kind+data+struct.pack('!I',zlib.crc32(kind+data)&0xffffffff)
+(preview/'.screen.jpg').write_bytes(b'\x89PNG\r\n\x1a\n'+png_chunk(b'IHDR',struct.pack('!2I5B',960,540,8,2,0,0,0))+png_chunk(b'IDAT',zlib.compress((b'\0'+b'\x1c\x30\x45'*960)*540))+png_chunk(b'IEND',b''))
 agent = PreviewAgent()
 port = 18765
 settings = Settings(catalog, root / "agent.sock", token, (f"http://127.0.0.1:{port}",))
@@ -264,6 +273,19 @@ with sync_playwright() as p:
     phone.locator('#controller-nav [data-panel=sources]').click()
     phone.locator('.app-youtube').click()
     expect(phone.locator('#remote-title')).to_have_text('YouTube')
+    phone.locator('#open-screen').click()
+    expect(phone.locator('#screen-image')).to_be_visible()
+    assert phone.locator('#screen-auto').is_checked() is False
+    phone.locator('#screen-image').click(position={'x':80,'y':45})
+    expect(phone.locator('#screen-image')).to_be_visible()
+    phone.wait_for_timeout(1000)
+    assert any(action=='pointer' and data['frame']=='a'*32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
+    phone.screenshot(path=str(root/'screen-mobile.png'),full_page=True)
+    phone.locator('#screen-exit').click()
+    expect(phone.locator('#remote')).to_be_visible()
+    checkpoint_capture=len([a for a,_ in agent.calls if a=='screen-capture'])
+    phone.wait_for_timeout(2200)
+    assert len([a for a,_ in agent.calls if a=='screen-capture'])==checkpoint_capture
     checkpoint=len(agent.calls)
     phone.locator('.service-shortcuts [data-app=youtube]').click()
     phone.wait_for_timeout(150)

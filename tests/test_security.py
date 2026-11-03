@@ -280,7 +280,7 @@ def test_body_limits_host_headers_and_pointer(paired):
         == 413
     )
     assert (
-        client.post("/api/remote/pointer", json={}, headers=headers).status_code == 409
+        client.post("/api/remote/pointer", json={}, headers=headers).status_code == 422
     )
     response = client.get("/")
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]

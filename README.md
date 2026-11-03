@@ -345,3 +345,10 @@ Los enlaces web que no pertenezcan a las apps reconocidas se abren en Navegador
 en Jarq, conservando todos sus parámetros y reutilizando su ventana. Esto funciona
 con Win+Alt+Y y con el formulario del mando. El receptor valida destinos públicos
 y no fuerza Play en las páginas genéricas.
+
+## Pantalla ligera
+
+El mando añade Pantalla para ver una imagen y tocar donde hacer clic. Por defecto
+se actualiza a petición y después de un clic; Auto cada 2 s es opcional. Volver al
+mando detiene la actualización. Conserva los permisos existentes y no abre otro
+puerto. Ver [docs/screen-control.md](docs/screen-control.md).

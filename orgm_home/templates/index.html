@@ -104,11 +104,19 @@
         {% endfor %}
       </div>
       </div>
+      <button id="open-screen" class="secondary remote-only screen-open" disabled><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg><span>Pantalla · tocar para hacer clic</span></button>
       <div class="focus-controls remote-only" role="group" aria-label="Seleccionar elementos en páginas web"><button data-key="shift-tab" aria-label="Elemento anterior" disabled><svg class="reverse"><use href="#i-tab"/></svg><span>Anterior</span></button><button data-key="tab" aria-label="Siguiente elemento" disabled><span>Siguiente elemento</span><svg><use href="#i-tab"/></svg></button></div>
       <p class="control-note" id="control-note">Los controles dependen de cada aplicación.</p>
       <form id="youtube-form" class="youtube-send"><label for="youtube-url">Enviar contenido a Jarq</label><p class="field-hint">Pega un enlace de una app o una página web; los demás enlaces se abren en Navegador.</p><div class="input-row"><input id="youtube-url" type="url" maxlength="2048" placeholder="https://youtu.be/…" autocomplete="off" spellcheck="false" required aria-describedby="youtube-message"><button class="primary" type="submit" disabled>Enviar</button></div><p id="youtube-message" class="youtube-message" role="status" aria-live="polite"></p></form>
     </section>
 
+    <section id="screen" class="screen-panel" aria-labelledby="screen-title" hidden>
+      <div class="settings-heading"><h2 id="screen-title">Pantalla ligera</h2><button id="screen-exit" class="secondary">Volver al mando</button></div>
+      <p class="field-hint">Imagen fija, sin audio ni vídeo continuo. Toca la imagen para hacer clic; se actualiza después.</p>
+      <div class="screen-tools"><button id="screen-refresh" class="primary">Actualizar</button><label><input id="screen-auto" type="checkbox"> Auto cada 2 s</label></div>
+      <p id="screen-message" role="status" aria-live="polite"></p>
+      <button id="screen-canvas" class="screen-canvas" aria-label="Hacer clic en la pantalla de Jarq" disabled><img id="screen-image" alt="Pantalla actual de Jarq" draggable="false" hidden></button>
+    </section>
     <section id="search" class="typing search-panel" aria-labelledby="search-title" hidden>
       <div class="section-heading"><h2 id="search-title">Buscar</h2><p>Escribe lo que quieres ver o escuchar.</p></div>
       <button class="secondary return-remote" data-return>Volver al mando</button>

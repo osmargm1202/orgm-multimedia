@@ -12,7 +12,7 @@ from pathlib import Path
 import time
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -62,6 +62,15 @@ class Text(Payload):
 
 class Search(Text):
     app: StrictStr = Field(pattern=r"^[a-z][a-z0-9-]{0,31}$")
+
+
+class ScreenFrame(Payload):
+    frame: StrictStr = Field(pattern=r"^[a-f0-9]{32}$")
+
+
+class ScreenClick(ScreenFrame):
+    x: float = Field(strict=True, ge=0, le=1, allow_inf_nan=False)
+    y: float = Field(strict=True, ge=0, le=1, allow_inf_nan=False)
 
 
 class Volume(Payload):
@@ -497,11 +506,26 @@ def create_app(settings=None, agent=None):
             raise ControlError("El texto no puede contener caracteres de control", 422)
         return await client.call("text", text=payload.text)
 
+    @app.post("/api/remote/screen")
+    async def screen_capture():
+        result = await client.call("screen-capture")
+        return {**result,"image":"/api/remote/screen.jpg?frame="+result["frame"]}
+
+    @app.get("/api/remote/screen.jpg")
+    async def screen_image(frame: str = Query(pattern=r"^[a-f0-9]{32}$")):
+        await client.call("screen-validate",frame=frame)
+        path = preview_directory()/'.screen.jpg'
+        if not path.is_file():
+            raise ControlError("La captura ya no está disponible. Actualiza.",404)
+        return FileResponse(path,media_type="image/jpeg")
+
+    @app.post("/api/remote/screen/close")
+    async def screen_close(payload: ScreenFrame):
+        return await client.call("screen-close",frame=payload.frame)
+
     @app.post("/api/remote/pointer")
-    async def pointer():
-        raise ControlError(
-            "El puntero remoto no está habilitado en esta instalación", 409
-        )
+    async def pointer(payload: ScreenClick):
+        return await client.call("pointer",frame=payload.frame,x=payload.x,y=payload.y)
 
     @app.post("/api/remote/home")
     async def home():
