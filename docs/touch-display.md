@@ -2,8 +2,8 @@
 
 El mando incluye una tecla de pantalla junto a Inicio y Cambiar app. En la
 laptop, la barra superior incluye el mismo interruptor con icono de pantalla.
-Se resalta cuando está activo: «Pantalla fija» mantiene el panel al 100%;
-«Pantalla auto» restaura la bajada al 20% a los 20 segundos y al 0% al minuto.
+Se resalta cuando está activo: «Fija» mantiene el panel al 100%;
+«Auto» restaura la bajada al 20% a los 20 segundos y al 0% al minuto.
 Cambiar de modo despierta la pantalla y comienza un nuevo periodo de inactividad.
 La salida HDMI conserva su control independiente.
 
