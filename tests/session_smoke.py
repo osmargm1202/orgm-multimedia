@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shlex
 import shutil
 import re
 import signal
@@ -44,6 +45,10 @@ fi
 exit 1
 ''')
 idle_control.chmod(0o700)
+# Pairing animations must never access the builder's physical backlight.
+touch_control=wrappers/'orgm-home-control'
+touch_control.write_text("#!/bin/sh\ncase \"$1\" in pairing-wake|pairing-dim|pairing-sleep) exit 0;; esac\nexec " + shlex.quote(str(app_bin/'orgm-home-control')) + ' "$@"\n')
+touch_control.chmod(0o700)
 # Only this throwaway Chrome instance disables its sandbox/GPU for software rendering.
 chrome = wrappers / "google-chrome-stable"
 chrome.write_text(
