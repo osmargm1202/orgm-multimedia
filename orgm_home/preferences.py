@@ -38,3 +38,20 @@ def gallery():
         {"id": ident, "name": name, "image": asset_url(image)}
         for ident, (name, image) in BACKGROUNDS.items()
     ]
+
+
+def read_touch_always_on(state: Path):
+    return (state / "touch-always-on").is_file()
+
+
+def write_touch_always_on(state: Path, enabled: bool):
+    if type(enabled) is not bool:
+        raise ValueError("Expected a boolean")
+    path = state / "touch-always-on"
+    if enabled:
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text("1\n")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+    else:
+        path.unlink(missing_ok=True)

@@ -22,12 +22,16 @@ class PreviewAgent:
         self.playing = False
         self.opened = {"home"}
         self.external_enabled = True
+        self.touch_always_on = False
 
     async def call(self, action, **data):
         self.calls.append((action, data))
         if action == "open-media":
             self.active=media_link(data["url"]).app
             self.opened.add(self.active)
+        if action == "touch-always-on":
+            self.touch_always_on=data["enabled"]
+            return {"touch_always_on":self.touch_always_on}
         if action == "external-display":
             self.external_enabled=data["enabled"]
             return {"external_display":{"connected":True,"enabled":self.external_enabled}}
@@ -57,6 +61,7 @@ class PreviewAgent:
         if action == "status":
             return {
                 "external_display": {"connected":True,"enabled":self.external_enabled},
+                "touch_always_on": self.touch_always_on,
                 "session": True,
                 "app": self.active,
                 "title": "ORGM Home"
@@ -207,6 +212,15 @@ with sync_playwright() as p:
     assert ('open-max',{'url':'https://play.max.com/video/fixture'}) in agent.calls
     page.locator('.side-nav [data-panel=settings]').click()
     page.locator('[data-settings-view=admin]').click()
+    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
+    page.locator('#touch-always-on').click()
+    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','true')
+    expect(page.locator('#touch-mode-hint')).to_contain_text('permanece al 100%')
+    assert ('touch-always-on',{'enabled':True}) in agent.calls
+    page.locator('#touch-always-on').click()
+    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
+    expect(page.locator('#touch-mode-hint')).to_contain_text('20 segundos')
+    assert ('touch-always-on',{'enabled':False}) in agent.calls
     page.locator('[data-admin=reboot]').click()
     expect(page.locator('#reboot-confirm')).to_be_visible()
     page.locator('#reboot-cancel').click()

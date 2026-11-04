@@ -401,3 +401,12 @@ def test_external_power_requires_pairing_csrf_and_boolean(configured,paired):
         assert client.post('/api/display/external',json={'enabled':value},headers=headers).status_code==422
     assert client.post('/api/display/external',json={'enabled':False},headers=headers).status_code==200
     assert agent.calls[-1]==('external-display',{'enabled':False})
+
+
+def test_touch_mode_requires_session_csrf_and_strict_boolean(paired):
+    client,agent,headers=paired
+    assert client.post('/api/display/touch-always-on',json={'enabled':True},headers={'origin':headers['origin']}).status_code==403
+    for value in [0,'true',None]:
+        assert client.post('/api/display/touch-always-on',json={'enabled':value},headers=headers).status_code==422
+    assert client.post('/api/display/touch-always-on',json={'enabled':True},headers=headers).status_code==200
+    assert agent.calls[-1]==('touch-always-on',{'enabled':True})

@@ -21,7 +21,7 @@ from .config import Settings, load_catalog
 from .protocol import ControlError, MAX_MESSAGE
 from .urls import validate_url, validate_max_url
 from .youtube import canonical_url as youtube_url
-from .preferences import BACKGROUNDS, gallery, read_background, write_background
+from .preferences import BACKGROUNDS, gallery, read_background, write_background, read_touch_always_on, write_touch_always_on
 from .wifi import Wifi
 from .previews import capture, versions
 from .screen import ScreenControl
@@ -665,6 +665,7 @@ class Controller:
             "volume": round(float(match[1]) * 100) if match else None,
             "muted": "MUTED" in volume_raw,
             "brightness": brightness,
+            "touch_always_on": read_touch_always_on(self.state_dir),
             "background": read_background(self.state_dir),
             "audio_app": self.audio_app,
             "previews": versions(opened),
@@ -891,6 +892,19 @@ class Controller:
                 else:
                     raise ControlError("Volumen fuera de rango", 422)
                 return {"updated": True}
+            if action == "touch-always-on":
+                enabled = request.get("enabled")
+                if type(enabled) is not bool:
+                    raise ControlError("El modo de pantalla debe ser verdadero o falso", 422)
+                previous = read_touch_always_on(self.state_dir)
+                write_touch_always_on(self.state_dir, enabled)
+                try:
+                    # The idle wrapper wakes the panel and starts a fresh timer.
+                    await command("systemctl", "--user", "restart", "orgm-home-idle")
+                except BaseException:
+                    write_touch_always_on(self.state_dir, previous)
+                    raise
+                return {"touch_always_on": enabled}
             if action == "external-display":
                 enabled = request.get("enabled")
                 if type(enabled) is not bool:

@@ -583,6 +583,10 @@ def create_app(settings=None, agent=None):
     async def poweroff():
         return await client.call("poweroff")
 
+    @app.post("/api/display/touch-always-on")
+    async def touch_always_on(payload: DisplayPower):
+        return await client.call("touch-always-on", enabled=payload.enabled)
+
     @app.post("/api/display/external")
     async def external_display(payload: DisplayPower):
         return await client.call("external-display", enabled=payload.enabled)

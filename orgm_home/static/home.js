@@ -110,6 +110,10 @@ function render() {
     button.setAttribute('aria-pressed',String(button.dataset.background===state.background));
   });
   $$('[data-admin]').forEach(button=>button.disabled=!online || busy);
+  $('#touch-always-on').disabled=!online || busy || !csrf;
+  $('#touch-always-on').setAttribute('aria-pressed',String(Boolean(state.touch_always_on)));
+  $('#touch-mode-label').textContent=state.touch_always_on?'Sí':'No';
+  $('#touch-mode-hint').textContent=state.touch_always_on?'La pantalla táctil permanece al 100%, incluso sin tocarla. Esta opción se conserva al reiniciar.':'La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.';
   $$('[data-power-menu]').forEach(button=>button.disabled=!online || busy || !csrf);
   const external=state.external_display;
   $('#external-power').disabled=!online || busy || !csrf || !external?.connected;
@@ -279,6 +283,10 @@ $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerr
 $$('[data-wifi]').forEach(button=>button.addEventListener('click',()=>act('wifi/open',{},'Wi-Fi abierto en la pantalla de Jarq')));
 $$('[data-spotify]').forEach(button=>button.addEventListener('click',()=>act('spotify/'+button.dataset.spotify)));
 $$('button[data-background]').forEach(button=>button.addEventListener('click',()=>act('preferences/background',{id:button.dataset.background})));
+$('#touch-always-on').addEventListener('click',()=>{
+  const enabled=!state.touch_always_on;
+  act('display/touch-always-on',{enabled},enabled?'Pantalla táctil siempre encendida':'Atenuación automática activada');
+});
 $$('[data-admin]').forEach(button=>button.addEventListener('click',()=>{
   const action=button.dataset.admin;
   if(action==='reboot') $('#reboot-confirm').showModal();

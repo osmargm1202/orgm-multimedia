@@ -155,7 +155,8 @@
       </div>
       </section>
       <section id="admin-view" class="admin-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button><h3>Administración</h3>
-        <p class="field-hint">La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.</p>
+        <button id="touch-always-on" aria-pressed="false" disabled><img src="{{ asset('icons/display.svg') }}" alt=""><span>Pantalla táctil siempre encendida: <strong id="touch-mode-label">No</strong></span></button>
+        <p id="touch-mode-hint" class="field-hint">La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.</p>
         <button data-admin="rotate"><img src="{{ asset('icons/rotate.svg') }}" alt=""><span>Voltear la pantalla</span></button>
         <button data-admin="restart-launcher"><img src="{{ asset('icons/restart-launcher.svg') }}" alt=""><span>Reiniciar el launcher</span></button>
         <button data-admin="reboot"><img src="{{ asset('icons/reboot.svg') }}" alt=""><span>Reiniciar el equipo</span></button>

@@ -833,3 +833,39 @@ def test_external_power_restores_preference_if_sway_fails(controller,monkeypatch
     with pytest.raises(ControlError):
         run(controller.dispatch({'action':'external-display','enabled':False}))
     assert not off_marker().exists()
+
+
+def test_touch_always_on_persists_without_changing_background(controller,monkeypatch):
+    from orgm_home.preferences import read_touch_always_on, read_background
+    tool=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',tool)
+    run(controller.dispatch({'action':'background','id':'bosque'}))
+    assert not read_touch_always_on(controller.state_dir)
+    assert run(controller.dispatch({'action':'touch-always-on','enabled':True}))=={'touch_always_on':True}
+    tool.assert_awaited_once_with('systemctl','--user','restart','orgm-home-idle')
+    # A newly constructed agent observes the saved preference.
+    restarted=Controller(controller.settings)
+    assert read_touch_always_on(restarted.state_dir)
+    assert read_background(restarted.state_dir)=='bosque'
+    run(controller.dispatch({'action':'touch-always-on','enabled':False}))
+    assert not read_touch_always_on(restarted.state_dir)
+    assert read_background(restarted.state_dir)=='bosque'
+
+
+@pytest.mark.parametrize('enabled',[None,0,1,'true'])
+def test_touch_always_on_rejects_invalid_mode(controller,monkeypatch,enabled):
+    tool=AsyncMock()
+    monkeypatch.setattr('orgm_home.agent.command',tool)
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'touch-always-on','enabled':enabled}))
+    tool.assert_not_called()
+
+
+@pytest.mark.parametrize('previous',[True,False])
+def test_touch_mode_failure_restores_saved_mode(controller,monkeypatch,previous):
+    from orgm_home.preferences import write_touch_always_on, read_touch_always_on
+    write_touch_always_on(controller.state_dir,previous)
+    monkeypatch.setattr('orgm_home.agent.command',AsyncMock(side_effect=ControlError('No session')))
+    with pytest.raises(ControlError):
+        run(controller.dispatch({'action':'touch-always-on','enabled':not previous}))
+    assert read_touch_always_on(controller.state_dir) is previous
