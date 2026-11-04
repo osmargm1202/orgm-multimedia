@@ -87,6 +87,7 @@
       <div class="handset-controls">
       <div class="remote-display"><div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
       <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p></div>
+      <div id="remote-input-slot" class="remote-input-slot remote-only"><form id="remote-input" class="remote-input" autocomplete="off"><label id="remote-input-label" for="remote-query">Buscar en la app</label><div class="input-row"><input id="remote-query" type="search" maxlength="1000" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Abre una app para buscar" disabled><button id="remote-input-send" type="submit" disabled>Buscar</button></div><p id="remote-input-message" role="status"></p></form></div>
       <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button><button id="touch-always-on" aria-label="Pantalla táctil siempre encendida" aria-pressed="false" disabled><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg><span id="touch-mode-label">Auto</span></button></div>
       <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
         <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
@@ -96,7 +97,7 @@
         <button class="down" data-key="down" aria-label="Abajo" disabled><svg><use href="#i-down"/></svg></button>
       </div>
       <div class="remote-actions remote-only"><button data-key="search" aria-label="Buscar" title="Buscar" disabled><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>Buscar</span></button><button data-key="play" disabled aria-label="Reproducir o pausar"><svg viewBox="0 0 24 24"><path d="m3 4 10 8-10 8Z M17 4v16M21 4v16"/></svg><span>Play / Pausa</span></button></div>
-      <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button data-panel="typing" aria-label="Teclado" title="Teclado"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
+      <div class="transport"><button data-key="back" aria-label="Atrás" title="Atrás" disabled><svg><use href="#i-back"/></svg><span>Atrás</span></button><button id="phone-keyboard" aria-label="Teclado del teléfono" title="Teclado del teléfono"><svg><use href="#i-keyboard"/></svg><span>Teclado</span></button></div>
       <div class="volume" role="group" aria-label="Volumen"><button data-volume="-5" aria-label="Bajar volumen" disabled><svg><use href="#i-minus"/></svg></button><button id="mute" data-key="mute" aria-label="Silenciar audio" disabled><svg><use href="#i-volume"/></svg><span id="volume-value">—</span></button><button data-volume="5" aria-label="Subir volumen" disabled><svg><use href="#i-plus"/></svg></button></div>
       <div class="service-shortcuts remote-only" role="group" aria-label="Abrir servicio">
         {% for id, label in [('youtube','YouTube'),('netflix','Netflix'),('disney-plus','Disney+'),('max','HBO Max'),('crunchyroll','Crunchyroll'),('spotify','Spotify')] %}
@@ -112,22 +113,15 @@
 
     <section id="screen" class="screen-panel" aria-labelledby="screen-title" hidden>
       <div class="settings-heading"><h2 id="screen-title">Pantalla ligera</h2><button id="screen-exit" class="secondary">Volver al mando</button></div>
+      <div id="screen-input-slot" class="remote-input-slot"></div>
       <p class="field-hint">Imagen fija, sin audio ni vídeo continuo. Toca la imagen para hacer clic o usa la rueda del mouse para desplazar; se actualiza después.</p>
       <div class="screen-tools"><button id="screen-refresh" class="primary">Actualizar</button><label><input id="screen-auto" type="checkbox"> Auto cada 2 s</label></div>
       <p id="screen-message" role="status" aria-live="polite"></p>
       <button id="screen-canvas" class="screen-canvas" aria-label="Hacer clic en la pantalla de Jarq" disabled><img id="screen-image" alt="Pantalla actual de Jarq" draggable="false" hidden></button>
     </section>
-    <section id="search" class="typing search-panel" aria-labelledby="search-title" hidden>
-      <div class="section-heading"><h2 id="search-title">Buscar</h2><p>Escribe lo que quieres ver o escuchar.</p></div>
-      <button class="secondary return-remote" data-return>Volver al mando</button>
-      <form id="search-form"><label for="search-text">Búsqueda</label><input id="search-text" type="search" maxlength="1000" autocomplete="off" enterkeyhint="search" required><div class="form-actions"><button type="submit" class="primary" disabled>Buscar</button></div></form>
-    </section>
-    <section id="typing" class="typing" aria-labelledby="typing-title" hidden>
-      <div class="section-heading"><h2 id="typing-title">Escribe desde aquí</h2><p>Selecciona primero un campo en la pantalla.</p></div>
-      <button class="secondary return-remote" data-return>Volver</button>
-      <form id="text-form"><label for="remote-text">Texto o búsqueda</label><textarea id="remote-text" name="text" rows="3" maxlength="1000" placeholder="¿Qué quieres buscar?" required></textarea><div class="form-actions"><button type="button" data-key="backspace" disabled>Borrar un carácter</button><button type="submit" class="primary" disabled>Enviar texto</button><button type="button" data-key="enter" disabled>Enter</button></div></form>
-      <form id="url-form"><label for="web-url">Abrir una página</label><p class="field-hint">Se abrirá en Navegador.</p><div class="input-row"><input id="web-url" name="url" type="url" maxlength="2048" placeholder="https://" autocomplete="url" required><button type="submit" class="primary" disabled>Abrir</button></div></form>
-      <div class="video-section"><h3>Videos locales</h3><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
+    <section id="videos" class="typing" aria-labelledby="videos-title" hidden>
+      <div class="section-heading"><h2 id="videos-title">Videos locales</h2></div><button class="secondary return-remote" data-return>Volver</button>
+      <div class="video-section"><p class="field-hint">Archivos guardados en Videos del equipo de la sala.</p><button id="load-videos" class="secondary" disabled><svg><use href="#i-folder"/></svg>Ver archivos</button><ul id="video-list"></ul></div>
     </section>
 
     <section id="settings" class="settings" aria-labelledby="settings-title" hidden>

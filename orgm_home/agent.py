@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import secrets
 import signal
 import socket
 import struct
@@ -28,6 +29,7 @@ from .screen import ScreenControl
 from .display_power import target_output, set_enabled, power_status
 from .media_links import media_link, LABELS
 from .browser_control import BrowserControl, PROFILES
+from .native_text import encode_text
 from .playback import Playback
 from .resources import CpuMeter, PressureGuard, terminate_family
 
@@ -117,6 +119,7 @@ class Controller:
         self.audio_app = None
         self.resources = PressureGuard()
         self.screen = ScreenControl(command, self.sway, self.screen_context)
+        self.remote_editor = None
         self.preview_until = 0
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
         self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
@@ -620,6 +623,54 @@ class Controller:
         focused = next((w for w in windows(await self.tree()) if w.get("focused")), None)
         return {"output":output["name"],"rect":{k:output["rect"][k] for k in ("x","y","width","height")},"view":focused.get("id") if focused else None,"transform":output.get("transform","normal"),"scale":output.get("scale",1)}
 
+    async def keyboard_context(self, include_fields=False):
+        layout=await self.screen_context()
+        focused=next((w for w in windows(await self.tree()) if w.get('focused')),None)
+        app=self.identify(focused) if focused else None
+        result={'app':app.id if app else None,'editor':None,'fields':[]}
+        if not app or app.type!='chrome':
+            self.remote_editor=None
+            return result
+        try:
+            info=await BrowserControl(app.id,32000+int(app.workspace)).keyboard()
+        except ControlError:
+            self.remote_editor=None
+            return result
+        if layout!=await self.screen_context():
+            self.remote_editor=None
+            return result
+        field=info.get('focused')
+        if field:
+            previous=self.remote_editor
+            if not previous or previous['layout']!=layout or previous['field']!=field['id'] or time.monotonic()-previous['created']>300:
+                self.remote_editor={'token':secrets.token_hex(16),'layout':layout,'app':app.id,'field':field['id'],'created':time.monotonic()}
+            result['editor']={'token':self.remote_editor['token'],'type':field.get('type','text')}
+        else:
+            self.remote_editor=None
+        # In fullscreen Chrome the DOM viewport maps to the screenshot output.
+        # Nonfullscreen windows still get detection after the actual click.
+        if include_fields and focused.get('fullscreen_mode')==1:
+            viewport=info.get('viewport',{})
+            width,height=viewport.get('width',0),viewport.get('height',0)
+            if width>0 and height>0:
+                result['fields']=[{'x':f['x']/width,'y':f['y']/height,'width':f['width']/width,'height':f['height']/height,'type':f.get('type','text')} for f in info.get('fields',[])[:100]]
+        return result
+
+    async def keyboard_text(self,request):
+        editor=self.remote_editor
+        value=request.get('text');submit=request.get('submit')
+        if not isinstance(value,str) or len(value)>1000 or any(ord(c)<32 or ord(c)==127 for c in value) or type(submit) is not bool:
+            raise ControlError('Texto de teclado inválido',422)
+        if not editor or request.get('editor')!=editor['token'] or time.monotonic()-editor['created']>300:
+            raise ControlError('El campo cambió. Vuelve a seleccionarlo.',409)
+        if editor['layout']!=await self.screen_context():
+            self.remote_editor=None
+            raise ControlError('La aplicación cambió. Selecciona el campo de nuevo.',409)
+        app=self.apps[editor['app']]
+        result=await BrowserControl(app.id,32000+int(app.workspace)).keyboard(editor['field'],value,submit)
+        editor['created']=time.monotonic()
+        return result
+
     async def start_link(self, app, target):
         # Stop if the viewer interacts, changes source, or sends another link.
         for _ in range(16):
@@ -698,12 +749,19 @@ class Controller:
             return await self.wifi.reconnect()
         if action == "open-media":
             media_link(request.get("url"))  # Reject before cancelling an earlier launch.
-        if action not in {"status", "apps"} and self.autoplay_task:
+        if action not in {"status", "apps", "keyboard-context"} and self.autoplay_task:
             self.autoplay_task.cancel()
             self.autoplay_task = None
         async with self.lock:
+            if action == "keyboard-context":
+                return await self.keyboard_context()
+            if action == "keyboard-text":
+                return await self.keyboard_text(request)
             if action == "screen-capture":
-                return await self.screen.capture()
+                frame=await self.screen.capture()
+                with contextlib.suppress(ControlError, ValueError, OSError):
+                    frame['keyboard']=await self.keyboard_context(include_fields=True)
+                return frame
             if action == "screen-validate":
                 self.screen.validate(request.get("frame"))
                 return {"valid":True}
@@ -712,7 +770,10 @@ class Controller:
             if action == "scroll":
                 return await self.screen.scroll(request.get("frame"),request.get("x"),request.get("y"),request.get("dx"),request.get("dy"))
             if action == "pointer":
-                return await self.screen.click(request.get("frame"),request.get("x"),request.get("y"))
+                result=await self.screen.click(request.get("frame"),request.get("x"),request.get("y"))
+                with contextlib.suppress(ControlError, ValueError, OSError):
+                    result['keyboard']=await self.keyboard_context()
+                return result
             if action == "status":
                 return await self.status()
             if action == "apps":
@@ -844,7 +905,23 @@ class Controller:
                     raise ControlError("La aplicación cambió. Abre Buscar de nuevo.", 409)
                 if not current.get("capabilities", {}).get("search"):
                     raise ControlError("Esta aplicación no tiene buscador configurado", 409)
-                await self.enter_text(value, replace=True)
+                app=self.apps[current['app']]
+                if app.type=='chrome':
+                    return await BrowserControl(app.id,32000+int(app.workspace)).search(value)
+                try:
+                    keys=encode_text(value)
+                except ValueError:
+                    raise ControlError('El teclado de esta app no admite alguno de esos caracteres',422) from None
+                if app.id=='youtube':
+                    await self.native_key(31)
+                else:
+                    await self.native_key(38,modifiers=4)
+                await asyncio.sleep(.35)
+                if current['app']!=(await self.status()).get('app'):
+                    raise ControlError('La aplicación cambió antes de buscar',409)
+                await self.native_key(30,modifiers=4)
+                for code,modifiers in keys:
+                    await self.native_key(code,modifiers=modifiers)
                 await self.native_key(28)
                 return {"sent": True, "submitted": True}
             if action == "text":

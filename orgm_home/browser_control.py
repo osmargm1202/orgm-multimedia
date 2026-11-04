@@ -15,6 +15,7 @@ from .protocol import ControlError
 ASSETS = Path(__file__).with_name("navigation")
 PROFILES = json.loads((ASSETS / "profiles.json").read_text())
 SCRIPT = (ASSETS / "control.js").read_text()
+INPUT_SCRIPT = (ASSETS / "input.js").read_text()
 
 
 def allowed(url, hosts):
@@ -79,6 +80,61 @@ class BrowserControl:
             # Do not expose URLs, page contents, profile paths or protocol errors.
             raise ControlError('El navegador aún no tiene el mando conectado. Reabre esta aplicación.', 409) from exc
         raise ControlError('No hay una página enfocada para este control', 409)
+
+    async def keyboard(self, field=None, text=None, submit=False):
+        """Describe editable geometry or type into the same focused DOM field.
+
+        Descriptions never include field values, including passwords.
+        """
+        try:
+            async with asyncio.timeout(6):
+                for target in await asyncio.to_thread(self.targets):
+                    async with connect(target['webSocketDebuggerUrl'], open_timeout=2, max_size=1024*1024) as ws:
+                        sequence=0
+                        async def call(method,params):
+                            nonlocal sequence
+                            sequence+=1
+                            await ws.send(json.dumps({'id':sequence,'method':method,'params':params}))
+                            while True:
+                                result=json.loads(await ws.recv())
+                                if result.get('id')==sequence:
+                                    if 'error' in result or 'exceptionDetails' in result.get('result',{}):
+                                        raise ControlError('El navegador no pudo escribir en este campo',409)
+                                    return result.get('result',{})
+                        async def evaluate(script):
+                            return (await call('Runtime.evaluate',{'expression':script,'returnByValue':True,'userGesture':True})).get('result',{}).get('value')
+                        if not await evaluate('document.hasFocus() && document.visibilityState === "visible"'):
+                            continue
+                        options={'action':'edit' if field else 'describe','id':field}
+                        result=await evaluate('('+INPUT_SCRIPT+')('+json.dumps(options)+')')
+                        if not result or not result.get('ok'):
+                            raise ControlError((result or {}).get('error','Selecciona un campo en la pantalla'),409)
+                        if field:
+                            # Select the field contents without reading or returning them.
+                            for kind in ['rawKeyDown','keyUp']:
+                                await call('Input.dispatchKeyEvent',{'type':kind,'key':'a','code':'KeyA','windowsVirtualKeyCode':65,'modifiers':2})
+                            if text:
+                                await call('Input.insertText',{'text':text})
+                            else:
+                                for kind in ['keyDown','keyUp']:
+                                    await call('Input.dispatchKeyEvent',{'type':kind,'key':'Backspace','code':'Backspace','windowsVirtualKeyCode':8})
+                            if submit:
+                                await call('Input.dispatchKeyEvent',{'type':'keyDown','key':'Enter','code':'Enter','windowsVirtualKeyCode':13,'text':'\r'})
+                                await call('Input.dispatchKeyEvent',{'type':'keyUp','key':'Enter','code':'Enter','windowsVirtualKeyCode':13})
+                            return {'sent':True,'submitted':submit}
+                        return result
+        except ControlError:
+            raise
+        except Exception:
+            raise ControlError('No se pudo conectar el teclado de esta webapp. Reábrela.',409) from None
+        raise ControlError('No hay una página enfocada para escribir',409)
+
+    async def search(self,text):
+        await self.act('search')
+        info=await self.keyboard()
+        if not info.get('focused'):
+            raise ControlError('El buscador no abrió un campo de texto. Su integración necesita actualizarse.',409)
+        return await self.keyboard(info['focused']['id'],text,submit=True)
 
     async def navigate(self, url):
         from .media_links import media_link

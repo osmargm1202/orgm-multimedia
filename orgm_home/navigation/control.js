@@ -20,11 +20,11 @@ async function(options) {
     if(!el) return {ok:false,error:'No encontré el buscador. Su integración necesita actualizarse.'};
     mark(el);if(!el.matches('input,textarea,[contenteditable="true"]')) el.click();
     // SPAs often reveal their actual input after clicking a search button.
-    for(let i=0;i<10;i++) {
-      const input=query(['input[type="search"]','input[name="q"]','input[data-uia="search-box-input"]','input[placeholder*="Buscar"]','input[placeholder*="Search"]']);
-      if(input){mark(input);break;}await new Promise(r=>setTimeout(r,100));
+    for(let i=0;i<25;i++) {
+      const input=(document.activeElement?.matches('input,textarea,[contenteditable="true"]')?document.activeElement:null)||query(['input[type="search"]','input[name="q"]','input[data-uia="search-box-input"]','input[placeholder*="Buscar"]','input[placeholder*="Search"]']);
+      if(input){mark(input);return {ok:true,mode:'search'};}await new Promise(r=>setTimeout(r,100));
     }
-    return {ok:true,mode:'search'};
+    return {ok:false,error:'El buscador no abrió su campo de texto. Su integración necesita actualizarse.'};
   }
   if(options.action==='start') {
     const id=options.expected_id, parsed=new URL(location.href);

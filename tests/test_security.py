@@ -410,3 +410,15 @@ def test_touch_mode_requires_session_csrf_and_strict_boolean(paired):
         assert client.post('/api/display/touch-always-on',json={'enabled':value},headers=headers).status_code==422
     assert client.post('/api/display/touch-always-on',json={'enabled':True},headers=headers).status_code==200
     assert agent.calls[-1]==('touch-always-on',{'enabled':True})
+
+
+def test_phone_keyboard_requires_authorization_csrf_and_strict_payload(configured,paired):
+    client,agent,headers=paired
+    assert client.get('/api/remote/keyboard').status_code==200
+    assert agent.calls[-1]==('keyboard-context',{})
+    payload={'editor':'b'*32,'text':'Hola','submit':True}
+    assert client.post('/api/remote/keyboard',json=payload).status_code==403
+    assert client.post('/api/remote/keyboard',json=payload,headers=headers).status_code==200
+    assert agent.calls[-1]==('keyboard-text',payload)
+    for bad in [{'submit':'true'},{'editor':'invalid'},{'text':'bad\ntext'},{'text':'x'*1001}]:
+        assert client.post('/api/remote/keyboard',json={**payload,**bad},headers=headers).status_code==422

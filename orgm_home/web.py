@@ -64,6 +64,12 @@ class Search(Text):
     app: StrictStr = Field(pattern=r"^[a-z][a-z0-9-]{0,31}$")
 
 
+class KeyboardText(Payload):
+    editor: StrictStr = Field(pattern=r"^[a-f0-9]{32}$")
+    text: StrictStr = Field(max_length=1000)
+    submit: bool = Field(strict=True)
+
+
 class ScreenFrame(Payload):
     frame: StrictStr = Field(pattern=r"^[a-f0-9]{32}$")
 
@@ -509,6 +515,16 @@ def create_app(settings=None, agent=None):
         if any(ord(c) < 32 or ord(c) == 127 for c in payload.text):
             raise ControlError("Texto de búsqueda inválido", 422)
         return await client.call("search-text", app=payload.app, text=payload.text)
+
+    @app.get("/api/remote/keyboard")
+    async def keyboard_context():
+        return await client.call("keyboard-context")
+
+    @app.post("/api/remote/keyboard")
+    async def keyboard_text(payload: KeyboardText):
+        if any(ord(c)<32 or ord(c)==127 for c in payload.text):
+            raise ControlError("El texto no puede contener caracteres de control",422)
+        return await client.call("keyboard-text",editor=payload.editor,text=payload.text,submit=payload.submit)
 
     @app.post("/api/remote/text")
     async def text(payload: Text):

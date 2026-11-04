@@ -6,7 +6,8 @@ let state = {session:false,capabilities:{}};
 let busy = false;
 let panel = 'sources';
 let category = 'all';
-let searchApp = null;
+let keyboardContext={editor:null},keyboardLoading=false,forceSearch=false,composerApp=null;
+let screenFields=[],keyboardDraft=null,pendingFieldTap=false;
 let screenFrame=null,screenTimer=null,screenActive=false,screenBusy=false,screenEpoch=0;
 let screenWheel=null,screenWheelTimer=null,screenCapturedAt=0;
 let sessionSignature = '';
@@ -56,10 +57,12 @@ function showPanel(next) {
   if(next!=='screen' && screenActive)endScreen();
   panel=next;
   const paired=Boolean(csrf);
-  for (const id of ['sources','remote','typing','search','screen','settings']) {
+  for (const id of ['sources','remote','videos','screen','settings']) {
     const visible=paired && (kiosk && next==='sources' ? ['sources','remote'].includes(id) : id===next);
     $(`#${id}`).hidden=!visible;
   }
+  const inputSlot=$(next==='screen'?'#screen-input-slot':'#remote-input-slot');
+  if($('#remote-input').parentElement!==inputSlot)inputSlot.append($('#remote-input'));
   document.body.dataset.panel=next;
   $('#controller-nav').hidden=!paired || kiosk;
   $('#sessions').hidden=!paired || next!=='sources' || category!=='all';
@@ -78,9 +81,40 @@ function settingsView(view='menu') {
   if(view==='admin')refreshDevices();
   for(const name of ['menu','backgrounds','admin','cast'])$('#'+(name==='menu'?'settings-menu':name+'-view')).hidden=name!==view;
 }
-function showPairing() { if(screenActive)endScreen(); for(const dialog of $$('dialog[open]'))dialog.close(); $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
+function showPairing() { $('#remote-query').value='';keyboardContext={editor:null};keyboardDraft=null;forceSearch=false;if(screenActive)endScreen(); for(const dialog of $$('dialog[open]'))dialog.close(); $('#pairing').hidden=false; showPanel(panel); $('#connection-label').textContent='Sin vincular'; $('#connection').className='connection'; }
+function renderKeyboard(){
+  const editor=keyboardDraft?.kind==='field'?keyboardDraft.editor:!keyboardDraft&&!forceSearch&&keyboardContext.app===state.app?keyboardContext.editor:null;
+  const canWrite=Boolean(editor || keyboardDraft?.kind==='pending' || state.capabilities?.search);
+  const input=$('#remote-query');
+  input.disabled=!state.session || busy || !csrf || !canWrite;
+  $('#phone-keyboard').disabled=input.disabled;
+  $('#remote-input-send').disabled=input.disabled || keyboardDraft?.kind==='pending';
+  const field=Boolean(editor),name=labels[state.app]||'la app';
+  $('#remote-input-label').textContent=field?`Campo seleccionado · ${name}`:`Buscar en ${name}`;
+  input.placeholder=field?'Escribe aquí':canWrite?'¿Qué buscas?':state.app&&state.app!=='home'?'Toca un campo':'Abre una app';
+  const type=field && editor.type==='password'?'password':field?'text':'search';
+  if(input.type!==type)input.type=type;
+  input.inputMode=field && ['email','url','tel','number'].includes(editor.type)?(editor.type==='number'?'numeric':editor.type):'text';
+  input.enterKeyHint=field?'go':'search';
+  $('#remote-input-send').textContent=field?'Enter':'Buscar';
+}
+async function refreshKeyboard(){
+  if(kiosk || !csrf || keyboardLoading || busy || document.hidden || !['remote','screen'].includes(panel))return;
+  if(document.activeElement===$('#remote-query') && $('#remote-query').value)return;
+  const app=state.app;keyboardLoading=true;
+  try{const context=await api('remote/keyboard');if(state.app===app){keyboardContext=context;renderKeyboard();}}
+  catch{if(state.app===app){keyboardContext={app,editor:null};renderKeyboard();}}
+  finally{keyboardLoading=false;}
+}
+function focusPhoneInput(search=false){
+  if(search){forceSearch=true;keyboardDraft=null;keyboardContext.editor=null;$('#remote-query').value='';}
+  else{forceSearch=false;keyboardDraft=null;$('#remote-query').blur();}
+  renderKeyboard();$('#remote-query').focus();
+}
 function render() {
   const online=Boolean(state.session);
+  if(composerApp!==state.app){composerApp=state.app;keyboardContext={app:state.app,editor:null};keyboardDraft=null;pendingFieldTap=false;forceSearch=false;$('#remote-query').value='';$('#remote-query').blur();$('#remote-input-message').textContent='';}
+
   const notice=state.resources?.notice;
   if(notice && notice.id!==resourceNotice){resourceNotice=notice.id;feedback(notice.message,true);}
   $('#connection-label').textContent=online ? 'Sala conectada' : 'Sala sin conexión';
@@ -133,10 +167,9 @@ function render() {
     if(art){const id=button.dataset.app;const url=(state.open || []).includes(id) && state.previews?.[id] ? `/api/previews/${encodeURIComponent(id)}?v=${state.previews[id]}` : assetUrl(`cards/${id}.webp`);if(art.getAttribute('src')!==url)art.src=url;}
   });
   $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='search' ? state.capabilities?.search : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && ['backspace','enter'].includes(key));button.disabled=!online || busy || !capability;});
-  $$('[data-home],[data-volume],[data-switcher],#url-form button,#load-videos').forEach(button=>button.disabled=!online || busy);
+  $$('[data-home],[data-volume],[data-switcher],#load-videos').forEach(button=>button.disabled=!online || busy);
   $('#open-screen').disabled=!online || busy || !state.capabilities?.pointer;
-  $('#search-form button[type=submit]').disabled=!online || busy || !state.capabilities?.search || state.app!==searchApp;
-  $('#text-form button[type=submit]').disabled=!online || busy || !state.capabilities?.text;
+  renderKeyboard();
   $('#close-app').hidden=!state.capabilities?.close;
   $('#close-app').disabled=busy;
   $('#control-note').textContent=state.app==='home' ? 'Usa las flechas para elegir en la pantalla de Jarq y OK para abrir.' : state.app==='airplay' ? 'La reproducción se controla desde el dispositivo que transmite.' : 'Las flechas seleccionan elementos; OK abre la selección. Buscar abre la búsqueda de esta aplicación.';
@@ -263,7 +296,7 @@ async function selectApp(id,button) {
   const result=await act(`apps/${id}/${(state.open || []).includes(id)?'switch':'activate'}`,{},kiosk?`Abriendo ${labels[id]}`:'');
   button.removeAttribute('aria-busy');
   if(result && !kiosk) {
-    if(id==='videos'){showPanel('typing');$('#load-videos').click();}
+    if(id==='videos'){showPanel('videos');$('#load-videos').click();}
     else showPanel(defaultPanel);
   }
 }
@@ -276,7 +309,11 @@ $$('[data-switcher]').forEach(button=>button.addEventListener('click',()=>{rende
 $('#switcher-close').addEventListener('click',()=>$('#app-switcher').close());
 $('#switcher-catalog').addEventListener('click',()=>{$('#app-switcher').close();showPanel('sources');});
 $$('[data-settings-view]').forEach(button=>button.addEventListener('click',()=>settingsView(button.dataset.settingsView)));
-$$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{if(await act('remote/key',{key:button.dataset.key}) && button.dataset.key==='search'){searchApp=state.app;render();$('#search-title').textContent=`Buscar en ${labels[searchApp] || 'la aplicación'}`;$('#search-text').value='';showPanel('search');$('#search-text').focus();}}));
+$$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{
+  if(button.dataset.key==='search'){focusPhoneInput(true);return;}
+  await act('remote/key',{key:button.dataset.key});
+}));
+$('#phone-keyboard').addEventListener('click',()=>focusPhoneInput());
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);if(kiosk)focusHome(true);else $('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
@@ -308,7 +345,7 @@ function endScreen(){
   clearTimeout(screenWheelTimer);screenWheelTimer=null;screenWheel=null;
   $('#screen-auto').checked=false;$('#screen-image').hidden=true;$('#screen-image').removeAttribute('src');
   if(screenFrame && csrf)api('remote/screen/close',{frame:screenFrame}).catch(()=>{});
-  screenFrame=null;screenCapturedAt=0;$('#screen-canvas').disabled=true;
+  screenFrame=null;screenCapturedAt=0;screenFields=[];$('#screen-canvas').disabled=true;
 }
 async function refreshScreen(){
   clearTimeout(screenTimer);
@@ -323,6 +360,8 @@ async function refreshScreen(){
     img.src=frame.image;await img.decode();
     if(!screenActive || epoch!==screenEpoch)return;
     previous.replaceWith(img);
+    screenFields=frame.keyboard?.fields || [];
+    if(frame.keyboard){keyboardContext=frame.keyboard;renderKeyboard();}
     screenFrame=frame.frame;screenCapturedAt=performance.now();$('#screen-canvas').disabled=false;
     $('#screen-message').textContent='Toca donde quieras hacer clic.';
   }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent=error.message;}
@@ -337,10 +376,12 @@ $('#screen-canvas').addEventListener('click',async event=>{
   const rect=$('#screen-image').getBoundingClientRect();
   const x=(event.clientX-rect.left)/rect.width,y=(event.clientY-rect.top)/rect.height;
   if(x<0||x>1||y<0||y>1)return;
+  const field=screenFields.find(f=>x>=f.x&&x<=f.x+f.width&&y>=f.y&&y<=f.y+f.height);
+  if(field){forceSearch=false;pendingFieldTap=true;keyboardDraft={kind:'pending',app:state.app};renderKeyboard();$('#remote-query').type=field.type==='password'?'password':'text';$('#remote-query').focus();}
   screenBusy=true;$('#screen-canvas').disabled=true;clearTimeout(screenTimer);
-  try{await api('remote/pointer',{frame:screenFrame,x,y});$('#screen-message').textContent='Clic enviado. Actualizando…';screenTimer=setTimeout(refreshScreen,800);}
-  catch(error){$('#screen-message').textContent=error.message;}
-  finally{screenBusy=false;}
+  try{const result=await api('remote/pointer',{frame:screenFrame,x,y});if(result.keyboard){keyboardContext=result.keyboard;forceSearch=false;if(keyboardContext.editor){keyboardDraft={kind:'field',app:keyboardContext.app,editor:keyboardContext.editor};renderKeyboard();$('#remote-query').focus();}else if(field){keyboardDraft=null;renderKeyboard();}}$('#screen-message').textContent='Clic enviado. Actualizando…';screenTimer=setTimeout(refreshScreen,800);}
+  catch(error){$('#screen-message').textContent=error.message;if(pendingFieldTap){keyboardDraft=null;$('#remote-query').value='';$('#remote-query').blur();$('#remote-input-message').textContent=error.message;}}
+  finally{screenBusy=false;pendingFieldTap=false;renderKeyboard();}
 });
 async function flushScreenWheel(){
   screenWheelTimer=null;
@@ -371,9 +412,30 @@ $('#screen').addEventListener('wheel',event=>{
 },{passive:false});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(screenTimer);clearTimeout(screenWheelTimer);screenWheelTimer=null;screenWheel=null;}else if(screenActive && $('#screen-auto').checked)refreshScreen();});
 window.addEventListener('pagehide',endScreen);
-$('#search-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/search',{app:searchApp,text:$('#search-text').value},'Búsqueda enviada'))showPanel(defaultPanel);});
-$('#text-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('remote/text',{text:$('#remote-text').value},'Texto enviado'))$('#remote-text').value='';});
-$('#url-form').addEventListener('submit',async event=>{event.preventDefault();if(await act('browser/open-url',{url:$('#web-url').value},'Página abierta'))showPanel(defaultPanel);});
+$('#remote-query').addEventListener('focus',async()=>{
+  if(forceSearch || keyboardDraft || pendingFieldTap)return;
+  const app=state.app;
+  keyboardDraft={kind:'pending',app};renderKeyboard();
+  try{
+    const context=await api('remote/keyboard');
+    if(state.app!==app || keyboardDraft?.kind!=='pending')return;
+    keyboardContext=context;
+    keyboardDraft=context.editor?{kind:'field',app,editor:context.editor}:{kind:'search',app};
+  }catch{if(state.app===app)keyboardDraft={kind:'search',app};}
+  finally{renderKeyboard();}
+});
+$('#remote-input').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(keyboardDraft?.kind==='pending')return;
+  const editor=keyboardDraft?.kind==='field'?keyboardDraft.editor:!keyboardDraft&&!forceSearch&&keyboardContext.app===state.app?keyboardContext.editor:null;
+  const value=$('#remote-query').value,app=keyboardDraft?.app || state.app;
+  if(!editor && !value.trim())return;
+  $('#remote-input-message').textContent=editor?'Escribiendo en la pantalla…':`Buscando en ${labels[app]||'la app'}…`;
+  const result=await act(editor?'remote/keyboard':'remote/search',editor?{editor:editor.token,text:value,submit:true}:{app,text:value});
+  if(result){$('#remote-query').value='';$('#remote-query').blur();$('#remote-input-message').textContent=editor?'Texto enviado con Enter.':'Búsqueda enviada.';forceSearch=false;keyboardDraft=null;keyboardContext={app,editor:null};if(screenActive){clearTimeout(screenTimer);screenTimer=setTimeout(refreshScreen,800);}}
+  else $('#remote-input-message').textContent='No se envió. Revisa el campo o la aplicación seleccionada.';
+  refreshKeyboard();
+});
 async function sendYoutube(url){
   $('#youtube-message').textContent='Enviando el contenido a Jarq…';
   let youtube=false;
@@ -478,7 +540,7 @@ if(kiosk){
 mobile.addEventListener('change',()=>showPanel(panel));
 function clock(){const now=new Date();$('#clock').textContent=now.toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit',hour12:false});$('#calendar').textContent=now.toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short'});}
 clock();setInterval(clock,30000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();if(!csrf)pairingStatus();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh().then(refreshKeyboard);if(!csrf)pairingStatus();}});
 async function start() {
   showPanel(defaultPanel);
   try {const token=fragment.get('pair'); const result=token ? await api('session',{token}) : await api('session');fragment.delete('pair');csrf=result.csrf;localSession=Boolean(result.local);$('#pairing').hidden=true;showPanel(defaultPanel);await refresh();if(kiosk)focusHome();}

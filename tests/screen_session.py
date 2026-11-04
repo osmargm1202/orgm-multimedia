@@ -13,11 +13,15 @@ import sys
 import tempfile
 import threading
 import time
+from unittest.mock import patch
 from playwright.async_api import async_playwright
 from PIL import Image
 from orgm_home.screen import ScreenControl
 from helpers.wayland_pointer import Pointer
 from orgm_home.agent import Controller
+from orgm_home.browser_control import BrowserControl
+from orgm_home.config import App
+from orgm_home.native_text import encode_text
 import orgm_home.agent as agent_module
 
 async def main():
@@ -37,7 +41,7 @@ async def main():
     env={k:v for k,v in os.environ.items() if k not in {'SWAYSOCK','WAYLAND_DISPLAY','WAYLAND_SOCKET','DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE','PYTHONPATH'}}
     env.update(HOME=str(home),XDG_RUNTIME_DIR=str(runtime),WLR_BACKENDS='headless',WLR_HEADLESS_OUTPUTS='1',WLR_RENDERER='pixman',WLR_LIBINPUT_NO_DEVICES='1',LIBGL_ALWAYS_SOFTWARE='1',XDG_SESSION_TYPE='wayland')
     os.environ['ORGM_PREVIEW_DIR']=str(root/'images')
-    processes=[];logs=[];pointer=None
+    processes=[];logs=[];pointer=None;keyboard_process=None;seed_keyboard=None
     def start(args,label):
         log=(root/(label+'.log')).open('wb');logs.append(log)
         proc=subprocess.Popen(args,env=env,stdout=log,stderr=log,start_new_session=True);processes.append(proc);return proc
@@ -66,6 +70,8 @@ async def main():
         env.update(SWAYSOCK=str(sock),WAYLAND_DISPLAY=display.name)
         # Headless has no physical mouse; register its pointer capability only.
         pointer=Pointer(display)
+        seed_keyboard=await asyncio.create_subprocess_exec(tool('orgm-osk-engine'),env=env,stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
+        ready=json.loads(await asyncio.wait_for(seed_keyboard.stdout.readline(),5));assert ready['event']=='ready'
         profile=home/'chrome'
         start([tool('google-chrome-stable'),'--no-sandbox','--test-type','--disable-gpu','--disable-dev-shm-usage','--ozone-platform=wayland','--remote-debugging-port=0','--no-first-run','--user-data-dir='+str(profile),'--app=http://127.0.0.1:'+str(server.server_port)],'chrome')
         portfile=profile/'DevToolsActivePort';await wait(portfile.exists)
@@ -101,10 +107,42 @@ async def main():
             down=await page.evaluate('scrollY')
             await screen.scroll(frame['frame'],.75,.75,0,-3)
             await page.wait_for_function('(before)=>scrollY<before',arg=down)
+            # A private native keyboard remains alive for the whole query.
+            await page.set_content('<input id=field autofocus><script>field.onkeydown=e=>{if(e.key==="Enter")document.body.dataset.sent=field.value}</script>')
+            await page.locator('#field').focus()
+            # Like the real QML bar, the seed keyboard already owns the fixed
+            # layout. The agent creates a second identical persistent keyboard.
+            keyboard_process=await asyncio.create_subprocess_exec(tool('orgm-osk-engine'),env=env,stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL)
+            ready=json.loads(await asyncio.wait_for(keyboard_process.stdout.readline(),5));assert ready['event']=='ready'
+            controller.keyboard=keyboard_process
+            query='Música áéíóú ñÑ üÜ 123 "cine" @#%&/¿?'
+            for code,modifiers in encode_text(query):await controller.native_key(code,modifiers)
+            await controller.native_key(28)
+            await page.wait_for_function('(text)=>document.body.dataset.sent===text',arg=query)
+            assert await page.locator('#field').input_value()==query
+            # Screenshot field detection and scoped typing use the real DOM/CDP.
+            focused=next(w for w in agent_module.windows(await tree()) if w.get('focused'))
+            await sway(f"[con_id={focused['id']}] mark --add orgm-home-browser")
+            controller.apps={'browser':App('browser','chrome','Browser','7')}
+            controller.remote_editor=None
+            port=int(portfile.read_text().splitlines()[0])
+            browser_control=BrowserControl('browser',port)
+            with patch('orgm_home.agent.BrowserControl',lambda *_:browser_control):
+                metadata=await controller.keyboard_context(include_fields=True)
+                assert metadata['editor'] and metadata['fields']
+                token=metadata['editor']['token']
+                await controller.keyboard_text({'editor':token,'text':'Texto del teléfono áñ','submit':True})
+                await page.wait_for_function('document.body.dataset.sent==="Texto del teléfono áñ"')
             screen.close(frame['frame']);assert not screen.path.exists()
-            print(json.dumps({'result':'PASS','capture_ms':capture_ms,'click_ms':click_ms,'jpeg_bytes':size,'evidence':str(root)}))
+            print(json.dumps({'result':'PASS','capture_ms':capture_ms,'click_ms':click_ms,'jpeg_bytes':size,'native_typing':'PASS','field_detection_and_enter':'PASS','evidence':str(root)}))
             await browser.close()
     finally:
+        if keyboard_process and keyboard_process.returncode is None:
+            keyboard_process.terminate()
+            await keyboard_process.wait()
+        if seed_keyboard and seed_keyboard.returncode is None:
+            seed_keyboard.terminate()
+            await seed_keyboard.wait()
         server.shutdown();server.server_close()
         if pointer:pointer.close()
         for process in reversed(processes):

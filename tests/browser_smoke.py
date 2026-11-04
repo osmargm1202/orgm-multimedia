@@ -23,6 +23,7 @@ class PreviewAgent:
         self.opened = {"home"}
         self.external_enabled = True
         self.touch_always_on = False
+        self.editor_available = False
 
     async def call(self, action, **data):
         self.calls.append((action, data))
@@ -35,8 +36,15 @@ class PreviewAgent:
         if action == "external-display":
             self.external_enabled=data["enabled"]
             return {"external_display":{"connected":True,"enabled":self.external_enabled}}
+        if action == "keyboard-context":
+            return {'app':self.active,'editor':{'token':'b'*32,'type':'text'} if self.editor_available else None,'fields':[]}
+        if action == "pointer":
+            self.editor_available=True
+            return {'clicked':True,'keyboard':{'app':self.active,'editor':{'token':'b'*32,'type':'text'}}}
+        if action == "keyboard-text":
+            return {'sent':True,'submitted':True}
         if action == "screen-capture":
-            return {'frame':f'{len(self.calls):032x}','width':960,'height':540,'expires_in':30}
+            return {'frame':f'{len(self.calls):032x}','width':960,'height':540,'expires_in':30,'keyboard':{'app':self.active,'editor':{'token':'b'*32,'type':'text'} if self.editor_available else None,'fields':[{'x':0,'y':0,'width':1,'height':1,'type':'text'}]}}
         if action == "activate":
             self.active = data["id"]
             self.opened.add(self.active)
@@ -324,7 +332,22 @@ with sync_playwright() as p:
     phone.unroute('**/api/remote/screen.jpg?*')
     phone.locator('#screen-auto').check()
     expect(phone.locator('#screen-refresh')).to_be_enabled()
+    pointer_pending=[]
+    phone.route('**/api/remote/pointer',lambda route:pointer_pending.append(route))
     phone.locator('#screen-image').click(position={'x':80,'y':45})
+    expect(phone.locator('#remote-query')).to_be_focused()
+    assert phone.locator('#screen #remote-input').is_visible()
+    expect(phone.locator('#remote-input-send')).to_be_disabled()
+    phone.fill('#remote-query','Campo desde la captura')
+    deadline=time.monotonic()+5
+    while not pointer_pending and time.monotonic()<deadline:phone.wait_for_timeout(50)
+    assert pointer_pending
+    pointer_pending.pop().continue_()
+    expect(phone.locator('#remote-input-send')).to_be_enabled()
+    phone.locator('#remote-query').press('Enter')
+    expect(phone.locator('#remote-input-message')).to_have_text('Texto enviado con Enter.')
+    assert ('keyboard-text',{'editor':'b'*32,'text':'Campo desde la captura','submit':True}) in agent.calls
+    phone.unroute('**/api/remote/pointer')
     expect(phone.locator('#screen-image')).to_be_visible()
     phone.wait_for_timeout(1000)
     assert any(action=='pointer' and len(data['frame'])==32 and 0<=data['x']<=1 and 0<=data['y']<=1 for action,data in agent.calls)
@@ -362,17 +385,12 @@ with sync_playwright() as p:
     assert not any(action in {'activate','switch-app'} for action,_ in agent.calls[checkpoint:])
     assert phone.locator('.service-shortcuts img').count()==6
     phone.locator('#remote [data-key=search]').click()
-    expect(phone.locator('#search')).to_be_visible()
-    assert phone.locator('#url-form').is_hidden() and phone.locator('.video-section').is_hidden()
-    phone.fill('#search-text','Música de prueba')
-    phone.locator('#search-text').press('Enter')
-    expect(phone.locator('#remote')).to_be_visible()
+    expect(phone.locator('#remote-query')).to_be_focused()
+    assert phone.locator('#search,#typing,#text-form').count()==0
+    phone.fill('#remote-query','Música de prueba')
+    phone.locator('#remote-query').press('Enter')
+    expect(phone.locator('#remote-input-message')).to_have_text('Búsqueda enviada.')
     assert ('search-text',{'app':'youtube','text':'Música de prueba'}) in agent.calls
-    phone.locator('#remote [data-panel=typing]').click()
-    phone.locator('#typing [data-key=enter]').click()
-    phone.wait_for_timeout(150)
-    assert ('key',{'key':'enter'}) in agent.calls
-    phone.locator('#typing [data-return]').click()
     for key in ['up','down','left','right','ok','tab','shift-tab','back']:
         phone.locator('#remote [data-key='+key+']').click()
         phone.wait_for_timeout(60)
@@ -415,13 +433,14 @@ with sync_playwright() as p:
     assert agent.active=='max'
     phone.keyboard.press('Escape')
     expect(phone.locator('#app-switcher')).not_to_be_visible()
-    phone.locator('#remote [data-panel=typing]').click()
-    phone.fill('#remote-text','Buscar desde el teléfono')
-    phone.locator('#text-form button[type=submit]').click()
-    phone.wait_for_timeout(100)
-    assert ('text',{'text':'Buscar desde el teléfono'}) in agent.calls
-    phone.locator('#typing [data-return].return-remote').click()
-    expect(phone.locator('#remote')).to_be_visible()
+    agent.editor_available=True
+    phone.locator('#phone-keyboard').click()
+    expect(phone.locator('#remote-input-send')).to_be_enabled()
+    phone.fill('#remote-query','Texto en el campo de Max')
+    phone.locator('#remote-query').press('Enter')
+    expect(phone.locator('#remote-input-message')).to_have_text('Texto enviado con Enter.')
+    assert ('keyboard-text',{'editor':'b'*32,'text':'Texto en el campo de Max','submit':True}) in agent.calls
+    agent.editor_available=False
     kiosk.locator('.side-nav [data-home]').click()
     assert kiosk.evaluate('location.hash')==''
     expect(kiosk.locator('.app-tile:not([hidden])')).to_have_count(len(apps)-1)
@@ -450,11 +469,7 @@ with sync_playwright() as p:
     expect(kiosk.locator('.home-selected')).to_have_attribute('data-app','netflix')
     kiosk.locator('.app-browser').click()
     expect(kiosk.locator('#current-label')).to_have_text('Navegador')
-    kiosk.locator('[data-panel=typing]').click()
-    kiosk.fill('#remote-text','Una búsqueda desde el sofá')
-    kiosk.locator('#text-form button[type=submit]').click()
-    page.wait_for_timeout(100)
-    assert ('text',{'text':'Una búsqueda desde el sofá'}) in agent.calls
+    assert kiosk.locator('#text-form,#typing').count()==0
     assert not errors,errors
     page.goto(f'http://127.0.0.1:{port}/airplay')
     expect(page.locator('.receiver-name')).to_have_text('ORGM Jarq')

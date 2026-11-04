@@ -749,12 +749,15 @@ def test_enter_does_not_activate_dom_selection(controller, monkeypatch):
     browser.assert_not_awaited()
 
 
-def test_search_submits_text_and_native_enter_atomically(controller):
+def test_search_submits_text_and_native_enter_atomically(controller,monkeypatch):
     controller.status=AsyncMock(return_value={'app':'youtube','capabilities':{'search':True}})
-    controller.enter_text=AsyncMock()
+    tool=AsyncMock(return_value='')
+    monkeypatch.setattr('orgm_home.agent.command',tool)
     run(controller.dispatch({'action':'search-text','app':'youtube','text':'Música'}))
-    controller.enter_text.assert_awaited_once_with('Música',replace=True)
-    controller.native_key.assert_awaited_once_with(28)
+    tool.assert_not_awaited()
+    codes=[c.args[0] for c in controller.native_key.await_args_list]
+    assert codes[:2]==[31,30] and codes[-1]==28 and 26 in codes
+    assert len(codes)==10
 
 
 def test_search_rejects_change_of_application(controller):
@@ -869,3 +872,49 @@ def test_touch_mode_failure_restores_saved_mode(controller,monkeypatch,previous)
     with pytest.raises(ControlError):
         run(controller.dispatch({'action':'touch-always-on','enabled':not previous}))
     assert read_touch_always_on(controller.state_dir) is previous
+
+
+def test_keyboard_text_is_bound_to_window_and_expiry(controller,monkeypatch):
+    import time
+    layout={'view':42,'output':'HEADLESS-1'}
+    controller.screen_context=AsyncMock(return_value=layout)
+    controller.remote_editor={'token':'b'*32,'layout':layout,'app':'browser','field':'dom-key','created':time.monotonic()}
+    keyboard=AsyncMock(return_value={'sent':True})
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.keyboard',keyboard)
+    request={'action':'keyboard-text','editor':'b'*32,'text':'Hola áñ','submit':True}
+    run(controller.dispatch(request));keyboard.assert_awaited_once_with('dom-key','Hola áñ',True)
+    controller.screen_context.return_value={'view':99,'output':'HEADLESS-1'}
+    with pytest.raises(ControlError,match='aplicación cambió'):run(controller.dispatch(request))
+    assert keyboard.await_count==1
+    controller.remote_editor={'token':'b'*32,'layout':layout,'app':'browser','field':'dom-key','created':time.monotonic()-301}
+    with pytest.raises(ControlError,match='campo cambió'):run(controller.dispatch(request))
+    assert keyboard.await_count==1
+
+
+def test_keyboard_metadata_uses_fullscreen_geometry_without_values(controller,monkeypatch):
+    focused={**window('browser'),'fullscreen_mode':1}
+    controller.tree=AsyncMock(return_value={'nodes':[focused]})
+    controller.screen_context=AsyncMock(return_value={'view':42,'output':'HEADLESS-1'})
+    field={'id':'dom-key','type':'password','x':200,'y':100,'width':400,'height':40,'value':'not-for-the-remote'}
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.keyboard',AsyncMock(return_value={'focused':field,'fields':[field],'viewport':{'width':1000,'height':500}}))
+    result=run(controller.keyboard_context(include_fields=True))
+    assert result['fields'][0]['x']==.2 and result['fields'][0]['width']==.4
+    assert result['editor']['type']=='password' and 'not-for-the-remote' not in json.dumps(result)
+    first=result['editor']['token']
+    assert run(controller.keyboard_context())['editor']['token']==first
+
+
+def test_native_search_rejects_untypable_text_before_touching_the_app(controller):
+    controller.status=AsyncMock(return_value={'app':'youtube','capabilities':{'search':True}})
+    with pytest.raises(ControlError,match='caracteres'):
+        run(controller.dispatch({'action':'search-text','app':'youtube','text':'漢字'}))
+    controller.native_key.assert_not_awaited()
+
+
+def test_keyboard_detection_does_not_cancel_pending_content(controller):
+    from unittest.mock import Mock
+    controller.autoplay_task=Mock()
+    controller.keyboard_context=AsyncMock(return_value={'app':'youtube','editor':None})
+    run(controller.dispatch({'action':'keyboard-context'}))
+    assert controller.autoplay_task is not None
+    controller.autoplay_task.cancel.assert_not_called()

@@ -293,7 +293,7 @@ Para comprobar la petición POST de un enlace sin enviarlo ni crear credenciales
 orgm-send-youtube --url 'https://youtu.be/pM9H2Pvr_-s' --dry-run
 ```
 
-## Navegación del mando por servicio (preparada, pendiente de desplegar)
+## Navegación del mando por servicio
 
 El mando incluye accesos permanentes a YouTube, Netflix, Disney+, HBO Max,
 Crunchyroll y Spotify, además de Buscar y Play/Pausa. Las webapps Chrome usan
@@ -312,7 +312,8 @@ canal, conservando su perfil y sesión.
 YouTube conserva la navegación TV de VacuumTube y su tecla S para buscar.
 Spotify conserva MPRIS para Play/Pausa y Ctrl+L para buscar; allí las flechas
 recorren controles nativos con Tab/Shift+Tab, sin selección geométrica del DOM.
-Buscar abre el panel de escritura del teléfono después de enviar la acción.
+Buscar enfoca la barra del propio mando; al enviar, se abre el buscador de la
+app actual y se introduce la consulta con Enter.
 Los controles Chrome comprueban selectores específicos y, para reproducción,
 un elemento multimedia cargado. Si no encuentran el control, muestran un error;
 no envían espacio a ciegas. Un reproductor en iframe externo requiere integración
@@ -322,9 +323,10 @@ Pendientes y aceptación: [docs/remote-navigation.md](docs/remote-navigation.md)
 
 Los seis accesos del mando usan logos. Tocar el servicio que ya está en pantalla
 no cambia el foco ni la reproducción; un servicio abierto se selecciona mediante
-Cambiar app. Buscar tiene una vista propia de un solo campo: su envío reemplaza
-la consulta y pulsa Enter, sin mezclar videos locales ni el navegador general.
-El botón Enter del teclado es independiente de OK de la cruceta. YouTube resuelve
+Cambiar app. La barra de entrada permanece en el mando y en Pantalla ligera:
+busca en la app o escribe en el campo web seleccionado. Sustituye la pantalla
+genérica de texto; videos locales mantiene su vista propia.
+Los detalles y límites del teclado móvil están en [docs/phone-keyboard.md](docs/phone-keyboard.md). YouTube resuelve
 su nombre MPRIS real por el proceso/cgroup de VacuumTube en vez de asumir que se
 llama VacuumTube.
 
