@@ -896,9 +896,10 @@ def test_keyboard_metadata_uses_fullscreen_geometry_without_values(controller,mo
     controller.tree=AsyncMock(return_value={'nodes':[focused]})
     controller.screen_context=AsyncMock(return_value={'view':42,'output':'HEADLESS-1'})
     field={'id':'dom-key','type':'password','x':200,'y':100,'width':400,'height':40,'value':'not-for-the-remote'}
-    monkeypatch.setattr('orgm_home.agent.BrowserControl.keyboard',AsyncMock(return_value={'focused':field,'fields':[field],'viewport':{'width':1000,'height':500}}))
+    monkeypatch.setattr('orgm_home.agent.BrowserControl.keyboard',AsyncMock(return_value={'focused':field,'fields':[field]*100,'viewport':{'width':1000,'height':500}}))
     result=run(controller.keyboard_context(include_fields=True))
     assert result['fields'][0]['x']==.2 and result['fields'][0]['width']==.4
+    assert len(result['fields'])==32 and len(json.dumps(result).encode())<16384
     assert result['editor']['type']=='password' and 'not-for-the-remote' not in json.dumps(result)
     first=result['editor']['token']
     assert run(controller.keyboard_context())['editor']['token']==first

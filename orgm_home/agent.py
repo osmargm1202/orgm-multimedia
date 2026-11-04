@@ -653,7 +653,7 @@ class Controller:
             viewport=info.get('viewport',{})
             width,height=viewport.get('width',0),viewport.get('height',0)
             if width>0 and height>0:
-                result['fields']=[{'x':f['x']/width,'y':f['y']/height,'width':f['width']/width,'height':f['height']/height,'type':f.get('type','text')} for f in info.get('fields',[])[:100]]
+                result['fields']=[{'x':f['x']/width,'y':f['y']/height,'width':f['width']/width,'height':f['height']/height,'type':f.get('type','text')} for f in info.get('fields',[])[:32]]
         return result
 
     async def keyboard_text(self,request):
