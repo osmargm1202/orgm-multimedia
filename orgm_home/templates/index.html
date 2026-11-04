@@ -87,7 +87,7 @@
       <div class="handset-controls">
       <div class="remote-display"><div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
       <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p></div>
-      <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button></div>
+      <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button><button id="touch-always-on" aria-label="Pantalla táctil siempre encendida" aria-pressed="false" disabled><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg><span id="touch-mode-label">Pantalla auto</span></button></div>
       <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
         <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
         <button class="left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>
@@ -155,7 +155,6 @@
       </div>
       </section>
       <section id="admin-view" class="admin-options" hidden><button class="text-button settings-back" data-settings-view="menu">Volver a opciones</button><h3>Administración</h3>
-        <button id="touch-always-on" aria-pressed="false" disabled><img src="{{ asset('icons/display.svg') }}" alt=""><span>Pantalla táctil siempre encendida: <strong id="touch-mode-label">No</strong></span></button>
         <p id="touch-mode-hint" class="field-hint">La pantalla baja al 20% a los 20 segundos y al 0% al minuto. Al tocar vuelve al 100%.</p>
         <button data-admin="rotate"><img src="{{ asset('icons/rotate.svg') }}" alt=""><span>Voltear la pantalla</span></button>
         <button data-admin="restart-launcher"><img src="{{ asset('icons/restart-launcher.svg') }}" alt=""><span>Reiniciar el launcher</span></button>

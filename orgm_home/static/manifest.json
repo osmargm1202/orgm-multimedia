@@ -1,5 +1,5 @@
 {
-  "version": "ee289f4e70e4",
+  "version": "3cc10904c442",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -32,7 +32,7 @@
     "home-night.webp": "8751eee24aed",
     "home-orbita.webp": "21a77cfb076a",
     "home.css": "01c58588dd83",
-    "home.js": "223ea7ceb2c0",
+    "home.js": "c247cee62f72",
     "icon.svg": "5d2b279b8aa2",
     "icons/airplay.svg": "3e68cdd31cb3",
     "icons/apps.svg": "922335ac9949",
@@ -68,6 +68,6 @@
     "icons/youtube.svg": "38ce446c89d1",
     "pump.css": "2b20b57ee868",
     "pump.js": "477d5ad88222",
-    "remote.css": "cd2c8a7bde6a"
+    "remote.css": "be6428f26fcc"
   }
 }

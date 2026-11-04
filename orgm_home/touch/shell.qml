@@ -28,6 +28,7 @@ Scope {
     property string background: "costa"
     property int volume: 0
     property bool muted: false
+    property bool touchAlwaysOn: false
     readonly property var backgrounds: [
         {id:"costa",name:"Costa nocturna",file:"home-night.webp"},
         {id:"bosque",name:"Bosque",file:"home-bosque.webp"},
@@ -103,7 +104,7 @@ Scope {
     }
     Process {
         id: control
-        stdout: SplitParser { onRead: data => { try { var message=JSON.parse(data); if (!message.ok) root.error=message.error; else root.error=""; } catch(e) {} } }
+        stdout: SplitParser { onRead: data => { try { var message=JSON.parse(data); if (!message.ok) root.error=message.error; else { root.error=""; if(message.data && typeof message.data.touch_always_on === "boolean") root.touchAlwaysOn=message.data.touch_always_on; } } catch(e) {} } }
     }
     Process {
         id: status
@@ -119,6 +120,7 @@ Scope {
                         root.background=result.data.background || "costa";
                         root.volume=result.data.volume || 0;
                         root.muted=!!result.data.muted;
+                        root.touchAlwaysOn=!!result.data.touch_always_on;
                         root.openedApps=result.data.open || [];
                         root.activeApp=result.data.app || "home";
                     }
@@ -140,7 +142,7 @@ Scope {
         function wifi(): void { root.powerOpened=false;root.appsOpened=false;root.optionsOpened=true;root.controlsOpened=true; }
         function apps(): void { root.toggleApps(); }
         function controls(): void { if (!root.controlsCollapsed) root.revealControls(); }
-        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,options:root.optionsOpened,apps:root.appsOpened,power:root.powerOpened,pairing:root.pairingRequests.length>0,panels:root.panels.map(p=>p.snapshot())}); }
+        function status(): string { return JSON.stringify({open:root.opened,ready:root.ready,online:root.online,error:root.error,output:root.sourceOutput,controls:root.controlsOpened,collapsed:root.controlsCollapsed,touchAlwaysOn:root.touchAlwaysOn,options:root.optionsOpened,apps:root.appsOpened,power:root.powerOpened,pairing:root.pairingRequests.length>0,panels:root.panels.map(p=>p.snapshot())}); }
     }
     Variants {
         model: Quickshell.screens.filter(s => s.name === root.sourceOutput)
@@ -149,7 +151,7 @@ Scope {
             required property var modelData
             function reset() { board.reset(); }
             function buttonRect(button) { var pos=button.mapToItem(controls.contentItem,0,0);return {x:pos.x,y:pos.y+controls.margins.top,width:button.width,height:button.height}; }
-            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),power:buttonRect(powerButton),hide:buttonRect(collapse)},pairing:{visible:pairingPicker.visible,x:(modelData.width-pairingView.width)/2,y:(modelData.height-pairingView.height)/2,buttons:pairingView.snapshot()},power:{visible:powerPicker.visible,x:(modelData.width-powerView.width)/2,y:100,buttons:powerView.snapshot()},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
+            function snapshot() { return {screen:modelData.name,handle:{visible:handle.visible,x:12,y:12,width:handle.width,height:handle.height},controls:{x:(modelData.width-controlsBackground.width)/2,y:12,width:controlsBackground.width,height:controls.height,close:buttonRect(closePage),apps:buttonRect(switchApps),power:buttonRect(powerButton),touchMode:buttonRect(touchMode),hide:buttonRect(collapse)},pairing:{visible:pairingPicker.visible,x:(modelData.width-pairingView.width)/2,y:(modelData.height-pairingView.height)/2,buttons:pairingView.snapshot()},power:{visible:powerPicker.visible,x:(modelData.width-powerView.width)/2,y:100,buttons:powerView.snapshot()},switcher:{visible:appPicker.visible,x:(modelData.width-appView.width)/2,y:100,apps:appView.snapshot()},keyboard:{visible:keyboard.visible,x:(modelData.width-keyboardBackground.width)/2+10,y:modelData.height-keyboard.height+10,width:board.width,height:board.height},keys:board.snapshot()}; }
             Component.onCompleted: root.panels=[...root.panels,surface]
             Component.onDestruction: root.panels=root.panels.filter(p=>p!==surface)
             PanelWindow {
@@ -205,19 +207,20 @@ Scope {
                 Rectangle {
                     id:controlsBackground
                     anchors.horizontalCenter:parent.horizontalCenter
-                    width:Math.min(parent.width-24,root.error?1000:680); height:parent.height; radius:16; color:"#f520293b"
+                    width:Math.min(parent.width-24,root.error?1060:740); height:parent.height; radius:16; color:"#f520293b"
                     Row {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:4
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
                         IconButton { id:switchApps;icon:"apps";label:"Cambiar de aplicación";available:root.online;onClicked:root.toggleApps() }
                         IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
                         IconButton { id:closePage;icon:"close";label:"Cerrar página";available:root.online && !!root.capabilities.close;onClicked:root.act("close") }
-                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-681); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
+                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-741); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
                         IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
                         IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
                         Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }
                         IconButton { icon:"volume-up";label:"Subir volumen";available:root.online;onClicked:root.act("volume-up") }
                         IconButton { icon:"keyboard";label:"Teclado";onClicked:root.toggle() }
+                        IconButton { id:touchMode;icon:"display";label:"Pantalla táctil siempre encendida";checkable:true;checked:root.touchAlwaysOn;available:root.online && !control.running;onClicked:root.act("touch-always-on",root.touchAlwaysOn?"off":"on") }
                         IconButton { id:powerButton;icon:"power";label:"Apagar o reiniciar";available:root.online;onClicked:root.togglePower() }
                         IconButton { id:collapse;icon:"hide";label:"Ocultar controles";onClicked:root.collapseControls() }
                     }

@@ -33,6 +33,17 @@ home = root / "home"
 home.mkdir()
 wrappers = root / "bin"
 wrappers.mkdir()
+# This isolated fixture has no user systemd manager. Accept only the idle
+# restart and log it; never forward a request into the real desktop manager.
+idle_control=wrappers/'systemctl'
+idle_control.write_text('''#!/bin/sh
+if [ "$*" = "--user restart orgm-home-idle" ]; then
+    printf '%s\\n' restart >> "$ORGM_TEST_IDLE_LOG"
+    exit 0
+fi
+exit 1
+''')
+idle_control.chmod(0o700)
 # Only this throwaway Chrome instance disables its sandbox/GPU for software rendering.
 chrome = wrappers / "google-chrome-stable"
 chrome.write_text(
@@ -117,6 +128,7 @@ env.update(
     ORGM_ORIGINS="http://127.0.0.1:8765,http://home.or-gm.com",
     ORGM_REQUIRE_ACCESS="false",
     ORGM_PORT="8765",
+    ORGM_TEST_IDLE_LOG=str(root/"idle-restarts"),
 )
 logs = []
 processes = []
@@ -453,6 +465,14 @@ try:
         client.post('/api/admin/devices/'+devices[0]['id']+'/revoke',json={}).raise_for_status()
         assert phone.get('/api/status').status_code==401
         phone.close()
+        # Real native toggle -> local helper -> session agent -> HTTP state.
+        for enabled in [True,False]:
+            subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
+            button=touch_status()['panels'][0]['controls']['touchMode']
+            click_at(button['x']+button['width']/2,button['y']+button['height']/2)
+            wait_for(lambda:touch_status()['touchAlwaysOn'] is enabled)
+            assert client.get('/api/status').json()['touch_always_on'] is enabled
+        assert (root/'idle-restarts').read_text().splitlines()==['restart','restart']
         # The native power button requires a second, explicit confirmation.
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','controls'],env=env,stdout=subprocess.DEVNULL)
         button=touch_status()['panels'][0]['controls']['power']

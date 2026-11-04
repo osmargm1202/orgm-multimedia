@@ -53,6 +53,10 @@ def control():
         "volume-up": ("volume", {"delta": 5}),
         "volume-down": ("volume", {"delta": -5}),
     }
+    if action == "touch-always-on":
+        if len(sys.argv) != 3 or sys.argv[2] not in {"on", "off"}:
+            raise SystemExit("Expected touch-always-on on or off")
+        actions[action] = (action, {"enabled": sys.argv[2] == "on"})
     if action == "wifi-connect":
         try:
             data = json.loads(sys.stdin.readline(8193))

@@ -212,15 +212,6 @@ with sync_playwright() as p:
     assert ('open-max',{'url':'https://play.max.com/video/fixture'}) in agent.calls
     page.locator('.side-nav [data-panel=settings]').click()
     page.locator('[data-settings-view=admin]').click()
-    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
-    page.locator('#touch-always-on').click()
-    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','true')
-    expect(page.locator('#touch-mode-hint')).to_contain_text('permanece al 100%')
-    assert ('touch-always-on',{'enabled':True}) in agent.calls
-    page.locator('#touch-always-on').click()
-    expect(page.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
-    expect(page.locator('#touch-mode-hint')).to_contain_text('20 segundos')
-    assert ('touch-always-on',{'enabled':False}) in agent.calls
     page.locator('[data-admin=reboot]').click()
     expect(page.locator('#reboot-confirm')).to_be_visible()
     page.locator('#reboot-cancel').click()
@@ -257,6 +248,16 @@ with sync_playwright() as p:
     # Native Quickshell owns the centered approval. Exercise the same local-only API here.
     kiosk.evaluate("""async()=>{const session=await (await fetch('/api/session')).json();const pending=await (await fetch('/api/admin/pairing')).json();await fetch('/api/admin/pairing/'+pending.requests[0].id,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({approve:true})});}""")
     expect(phone.locator('#remote')).to_be_visible()
+    expect(phone.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
+    phone.locator('#touch-always-on').click()
+    expect(phone.locator('#touch-always-on')).to_have_attribute('aria-pressed','true')
+    assert ('touch-always-on',{'enabled':True}) in agent.calls
+    phone.locator('#touch-always-on').click()
+    expect(phone.locator('#touch-always-on')).to_have_attribute('aria-pressed','false')
+    assert ('touch-always-on',{'enabled':False}) in agent.calls
+    assert phone.locator('.remote-shortcuts #touch-always-on').is_visible()
+    assert phone.locator('#touch-always-on').bounding_box()['height']>=44
+    assert phone.evaluate('document.documentElement.scrollWidth<=innerWidth')
     before_youtube=len([action for action,_ in agent.calls if action=='open-youtube'])
     phone.fill('#youtube-url','https://127.0.0.1/private')
     phone.locator('#youtube-form button').click()
