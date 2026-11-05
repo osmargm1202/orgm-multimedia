@@ -136,7 +136,7 @@ async def main():
                 token=metadata['editor']['token']
                 await controller.keyboard_text({'editor':token,'text':'Texto del teléfono áñ','submit':True})
                 await page.wait_for_function('document.body.dataset.sent==="Texto del teléfono áñ"')
-            screen.close(frame['frame']);assert not screen.path.exists()
+            screen.close(screen.frame);assert not screen.path.exists()
             print(json.dumps({'result':'PASS','capture_ms':capture_ms,'click_ms':click_ms,'jpeg_bytes':size,'native_typing':'PASS','field_detection_and_enter':'PASS','evidence':str(root)}))
             await browser.close()
     finally:
