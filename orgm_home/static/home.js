@@ -376,7 +376,7 @@ async function refreshScreen(){
   clearTimeout(screenTimer);
   if(!screenActive || screenBusy || document.hidden)return;
   const epoch=screenEpoch;screenBusy=true;$('#screen-refresh').disabled=true;$('#screen-canvas').disabled=true;
-  $('#screen-message').textContent='Actualizando…';
+  if(!liveMode())$('#screen-message').textContent='Actualizando…';
   try{
     const frame=await api(liveMode()?'remote/screen/context':'remote/screen',{});
     if(!screenActive || epoch!==screenEpoch){api('remote/screen/close',{frame:frame.frame}).catch(()=>{});return;}
@@ -394,6 +394,7 @@ async function refreshScreen(){
     if(frame.keyboard){keyboardContext=frame.keyboard;renderKeyboard();}
     screenFrame=frame.frame;screenCapturedAt=performance.now();$('#screen-canvas').disabled=liveMode()&&!liveConnected;
     if(!liveMode())$('#screen-message').textContent='Toca donde quieras hacer clic.';
+    else if(liveConnected)$('#screen-message').textContent='En directo. Toca para hacer clic; desliza para desplazar.';
   }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent=error.message;}
   finally{if(epoch===screenEpoch){screenBusy=false;$('#screen-refresh').disabled=false;if(screenActive && !document.hidden && (liveMode() || $('#screen-auto').checked))screenTimer=setTimeout(refreshScreen,liveMode()?20000:2000);}}
 }
