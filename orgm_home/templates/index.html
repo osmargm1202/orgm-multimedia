@@ -112,12 +112,12 @@
     </section>
 
     <section id="screen" class="screen-panel" aria-labelledby="screen-title" hidden>
-      <div class="settings-heading"><h2 id="screen-title">Pantalla ligera</h2><button id="screen-exit" class="secondary">Volver al mando</button></div>
+      <div class="settings-heading"><h2 id="screen-title">Pantalla en directo</h2><button id="screen-exit" class="secondary">Volver al mando</button></div>
       <div id="screen-input-slot" class="remote-input-slot"></div>
-      <p class="field-hint">Imagen fija, sin audio ni vídeo continuo. Toca la imagen para hacer clic o usa la rueda del mouse para desplazar; se actualiza después.</p>
-      <div class="screen-tools"><button id="screen-refresh" class="primary">Actualizar</button><label><input id="screen-auto" type="checkbox"> Auto cada 2 s</label></div>
+      <p class="field-hint">Toca para hacer clic y desliza para desplazar. Usa la barra de arriba para escribir. La transmisión se cierra al salir de esta vista.</p>
+      <div class="screen-tools"><label>Vista <select id="screen-mode"><option value="live">En directo</option><option value="capture">Captura ligera</option></select></label><button id="screen-refresh" class="secondary">Reconectar</button><label id="screen-auto-label" hidden><input id="screen-auto" type="checkbox"> Auto cada 2 s</label></div>
       <p id="screen-message" role="status" aria-live="polite"></p>
-      <button id="screen-canvas" class="screen-canvas" aria-label="Hacer clic en la pantalla de Jarq" disabled><img id="screen-image" alt="Pantalla actual de Jarq" draggable="false" hidden></button>
+      <button id="screen-canvas" class="screen-canvas" aria-label="Hacer clic en la pantalla de Jarq" disabled><span id="screen-live-view" hidden></span><img id="screen-image" alt="Pantalla actual de Jarq" draggable="false" hidden></button>
     </section>
     <section id="videos" class="typing" aria-labelledby="videos-title" hidden>
       <div class="section-heading"><h2 id="videos-title">Videos locales</h2></div><button class="secondary return-remote" data-return>Volver</button>

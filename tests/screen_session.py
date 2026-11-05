@@ -27,6 +27,7 @@ import orgm_home.agent as agent_module
 async def main():
     root=Path(tempfile.mkdtemp(prefix='orgm-screen-native-'))
     system=Path(sys.argv[1]);binary=system/'sw/bin'
+    (root/'system').symlink_to(system)
     requisites=subprocess.check_output(['nix-store','-qR',str(system)],text=True).splitlines()
     def tool(name):
         direct=binary/name
@@ -108,6 +109,8 @@ async def main():
             await screen.scroll(frame['frame'],.75,.75,0,-3)
             await page.wait_for_function('(before)=>scrollY<before',arg=down)
             # A private native keyboard remains alive for the whole query.
+            from live_fixture import verify
+            await verify(p,page,root,tool,env,start,screen)
             await page.set_content('<input id=field autofocus><script>field.onkeydown=e=>{if(e.key==="Enter")document.body.dataset.sent=field.value}</script>')
             await page.locator('#field').focus()
             # Like the real QML bar, the seed keyboard already owns the fixed

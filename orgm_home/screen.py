@@ -49,6 +49,14 @@ class ScreenControl:
         finally:
             temporary.unlink(missing_ok=True)
 
+    async def prepare(self):
+        """Authorize pointer geometry without capturing an image."""
+        self.layout = await self.context()
+        self.frame = secrets.token_hex(16)
+        self.captured = time.monotonic()
+        rect = self.layout['rect']
+        return {'frame': self.frame, 'width': rect['width'], 'height': rect['height'], 'expires_in': 30}
+
     async def click(self, frame, x, y):
         self.validate(frame)
         if any(type(value) not in {float,int} or not math.isfinite(value) or not 0<=value<=1 for value in (x,y)):

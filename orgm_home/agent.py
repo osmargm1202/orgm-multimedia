@@ -29,6 +29,8 @@ from .screen import ScreenControl
 from .display_power import target_output, set_enabled, power_status
 from .media_links import media_link, LABELS
 from .browser_control import BrowserControl, PROFILES
+from .browser_guard import BrowserGuard
+from .live_screen import LiveScreen
 from .native_text import encode_text
 from .playback import Playback
 from .resources import CpuMeter, PressureGuard, terminate_family
@@ -114,11 +116,13 @@ class Controller:
         self.keyboard = None
         self.autoplay_task = None
         self.known_windows = None
+        self.browser_guard = BrowserGuard(self.state_dir)
         self.known_airplay_audio = None
         self.spotify_interrupted = False
         self.audio_app = None
         self.resources = PressureGuard()
         self.screen = ScreenControl(command, self.sway, self.screen_context)
+        self.live = LiveScreen(lambda *args: command(*args))
         self.remote_editor = None
         self.preview_until = 0
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
@@ -395,6 +399,21 @@ class Controller:
         views = list(windows(await self.tree()))
         current_ids = {w["id"] for w in views}
         previous, self.known_windows = self.known_windows, current_ids
+        # The marked/oldest window is the application's central window.
+        # Close duplicates even in background apps and after an agent restart.
+        # Native receivers, Home and other applications are never targeted.
+        for app in self.apps.values():
+            if app.type != 'chrome':
+                continue
+            owned = [w for w in views if self.identify(w) == app]
+            if len(owned) < 2:
+                continue
+            main = min(owned, key=lambda w: (f'orgm-home-{app.id}' not in w.get('marks', []), w['id']))
+            extra = [w for w in owned if w['id'] != main['id']]
+            for popup in extra:
+                await self.sway(f"[con_id={int(popup['id'])}] kill")
+            if any(w.get('focused') for w in extra):
+                await self.sway(f"[con_id={int(main['id'])}] focus")
         if previous is None:
             return
         incoming = next((self.identify(w) for w in views
@@ -403,25 +422,13 @@ class Controller:
         if incoming:
             await self.activate(incoming.id)
             return
-        focused = next((w for w in views if w.get("focused")), None)
-        active = self.identify(focused) if focused else self.apps.get(self.active)
-        # Chromium popups can map behind a fullscreen opener. Show a new
-        # window only for the app currently in use; background ads cannot
-        # switch the household away from Home or a different application.
-        fresh = [
-            w for w in views
-            if w["id"] not in previous
-            and (owner := self.identify(w))
-            and owner.type in {"chrome", "airplay"} and owner == active
-        ]
-        if fresh:
-            popup = max(fresh, key=lambda w: w["id"])
-            con_id = int(popup["id"])
-            await self.sway(
-                f"[con_id={con_id}] move container to workspace number {active.workspace}"
-            )
-            await self.sway(f"[con_id={con_id}] fullscreen enable")
-            await self.sway(f"[con_id={con_id}] focus")
+
+    async def reconcile_browser_pages(self):
+        views = list(windows(await self.tree()))
+        opened = {app.id: app for w in views
+                  if (app := self.identify(w)) and app.type == 'chrome'}
+        await asyncio.gather(*(self.browser_guard.reconcile(app.id, 32000 + int(app.workspace))
+                               for app in opened.values()))
 
     async def close_keyboard(self):
         process, self.keyboard = self.keyboard, None
@@ -749,10 +756,21 @@ class Controller:
             return await self.wifi.reconnect()
         if action == "open-media":
             media_link(request.get("url"))  # Reject before cancelling an earlier launch.
-        if action not in {"status", "apps", "keyboard-context"} and self.autoplay_task:
+        if action not in {"status", "apps", "keyboard-context", "live-start", "live-renew", "live-close", "screen-prepare"} and self.autoplay_task:
             self.autoplay_task.cancel()
             self.autoplay_task = None
         async with self.lock:
+            if action == 'live-start':
+                return await self.live.start()
+            if action == 'live-renew':
+                return self.live.renew(request.get('viewer'))
+            if action == 'live-close':
+                return await self.live.close(request.get('viewer'))
+            if action == 'screen-prepare':
+                result = await self.screen.prepare()
+                with contextlib.suppress(ControlError, ValueError, OSError):
+                    result['keyboard'] = await self.keyboard_context(include_fields=True)
+                return result
             if action == "keyboard-context":
                 return await self.keyboard_context()
             if action == "keyboard-text":
@@ -1231,6 +1249,7 @@ async def serve():
             try:
                 async with controller.lock:
                     await controller.reconcile_windows()
+                    await controller.live.expire()
                     await controller.reconcile_playback()
                     await controller.reconcile_audio()
             except (ControlError, ValueError, OSError):
@@ -1266,6 +1285,13 @@ async def serve():
             await asyncio.sleep(2)
 
     media_task = asyncio.create_task(media_policy())
+    async def browser_policy():
+        while not stop.is_set():
+            with contextlib.suppress(ControlError, ValueError, OSError):
+                await controller.reconcile_browser_pages()
+            await asyncio.sleep(1)
+
+    browser_task = asyncio.create_task(browser_policy())
     music_task = asyncio.create_task(music_policy())
     resource_task = asyncio.create_task(resource_policy())
     async with server:
@@ -1274,7 +1300,8 @@ async def serve():
     media_task.cancel()
     music_task.cancel()
     resource_task.cancel()
-    await asyncio.gather(media_task, music_task, resource_task, return_exceptions=True)
+    browser_task.cancel()
+    await asyncio.gather(media_task, music_task, resource_task, browser_task, return_exceptions=True)
     with contextlib.suppress(asyncio.CancelledError):
         await audio_task
     if controller.autoplay_task:

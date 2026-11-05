@@ -519,7 +519,7 @@ try:
             subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'controls-collapsed.png')],env=env)
         click_at(38, 34)
         wait_for(lambda: touch_status()['controls'] and not touch_status()['collapsed'])
-        # A real app-mode popup must close without destroying its original window.
+        # A real app-mode popup closes automatically, preserving its original window.
         netflix_port_file = home / '.local/share/orgm-home/chrome/netflix/DevToolsActivePort'
         netflix_browser = playwright.chromium.connect_over_cdp('http://127.0.0.1:' + netflix_port_file.read_text().splitlines()[0])
         original_page = netflix_browser.contexts[0].pages[0]
@@ -534,20 +534,9 @@ try:
         with original_page.expect_popup() as opened_popup:
             original_page.locator('#extra').click()
         popup = opened_popup.value
-        popup.wait_for_load_state()
-        popup_window = wait_for(lambda: next((w for w in leaves(tree()) if w.get('focused') and w['id'] != app_mode['id']), None))
-        assert client.get('/api/status').json()['app'] == 'netflix'
-        wait_for(lambda: touch_status()['controls'])
-        time.sleep(1.6)
-        if shutil.which('grim'):
-            subprocess.check_call(['grim','-o','HEADLESS-1',str(root/'popup-close-control.png')],env=env)
-        panel = touch_status()['panels'][0]
-        with popup.expect_event('close'):
-            close_button=panel['controls']['close']
-            click_at(close_button['x']+close_button['width']/2, close_button['y']+close_button['height']/2)
-        wait_for(lambda: client.get('/api/status').json()['app'] == 'netflix' and any(w['id'] == app_mode['id'] and w.get('focused') for w in leaves(tree())))
+        wait_for(lambda: popup.is_closed())
+        wait_for(lambda: any(w['id'] == app_mode['id'] for w in leaves(tree())))
         assert not original_page.is_closed()
-        assert all(w['id'] != popup_window['id'] for w in leaves(tree()))
         client.post('/api/apps/browser/activate', json={}).raise_for_status()
         # Test Wi-Fi entry on the real QML surface; nmcli is a private fixture.
         subprocess.check_call([str(bin_dir/'qs'),'--path',str(ui),'ipc','call','--','touch','wifi'],env=env,stdout=subprocess.DEVNULL)

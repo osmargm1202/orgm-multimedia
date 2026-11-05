@@ -524,35 +524,38 @@ def test_chrome_popup_with_generic_app_id_belongs_to_its_profile(controller, mon
     assert controller.identify(popup).id == "browser"
 
 
-def test_new_chrome_popup_is_visible_over_its_fullscreen_opener(controller):
+def test_new_chrome_popup_closes_and_returns_to_original(controller):
     original, popup = window("browser", 50), window("browser", 51)
-    popup["focused"] = False
+    original["focused"] = False
     controller.known_windows = {50}
     controller.tree = AsyncMock(return_value={"nodes": [original, popup]})
     run(controller.reconcile_windows())
-    controller.sway.assert_any_await("[con_id=51] fullscreen enable")
-    controller.sway.assert_any_await("[con_id=51] focus")
-    controller.sway.reset_mock()
+    assert [call.args[0] for call in controller.sway.call_args_list] == [
+        "[con_id=51] kill", "[con_id=50] focus"]
+
+
+def test_background_popup_closes_without_switching_apps(controller):
+    active, original, popup = window("home", 1), window("browser", 50), window("browser", 51)
+    original["focused"] = popup["focused"] = False
+    controller.tree = AsyncMock(return_value={"nodes": [active, original, popup]})
+    run(controller.reconcile_windows())
+    controller.sway.assert_awaited_once_with("[con_id=51] kill")
+
+
+def test_restarting_agent_preserves_marked_main_even_if_newer(controller):
+    original, popup = window("browser", 60), window("browser", 51)
+    original["marks"] = ["orgm-home-browser"]
+    original["focused"] = popup["focused"] = False
+    controller.tree = AsyncMock(return_value={"nodes": [popup, original]})
+    run(controller.reconcile_windows())
+    controller.sway.assert_awaited_once_with("[con_id=51] kill")
+
+
+def test_guard_leaves_single_app_windows_and_unmanaged_windows_alone(controller):
+    controller.tree = AsyncMock(return_value={"nodes": [window('home', 1), window('browser', 2), window('netflix', 3), window('unknown', 4)]})
     run(controller.reconcile_windows())
     controller.sway.assert_not_called()
 
-
-@pytest.mark.parametrize("focused_app", ["home", "youtube"])
-def test_background_popup_cannot_steal_focus(controller, focused_app):
-    active, popup = window(focused_app, 50), window("browser", 51)
-    popup["focused"] = False
-    controller.known_windows = {50}
-    controller.tree = AsyncMock(return_value={"nodes": [active, popup]})
-    run(controller.reconcile_windows())
-    controller.sway.assert_not_called()
-
-
-def test_restarting_agent_does_not_focus_existing_popups(controller):
-    original, popup = window("browser", 50), window("browser", 51)
-    popup["focused"] = False
-    controller.tree = AsyncMock(return_value={"nodes": [original, popup]})
-    run(controller.reconcile_windows())
-    controller.sway.assert_not_called()
 
 
 def spotify_app(controller):

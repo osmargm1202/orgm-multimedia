@@ -10,6 +10,30 @@ let keyboardContext={editor:null},keyboardLoading=false,forceSearch=false,compos
 let screenFields=[],keyboardDraft=null,pendingFieldTap=false;
 let screenFrame=null,screenTimer=null,screenActive=false,screenBusy=false,screenEpoch=0;
 let screenWheel=null,screenWheelTimer=null,screenCapturedAt=0;
+let liveScreen=null,liveConnected=false,screenTouch=null,screenTouchScrolled=false;
+const liveMode=()=>$('#screen-mode').value==='live';
+const screenRect=()=>liveMode()?$('#screen-live-view canvas')?.getBoundingClientRect():$('#screen-image').getBoundingClientRect();
+function stopLive(){const previous=liveScreen;liveScreen=null;liveConnected=false;if(previous)previous.disconnect();$('#screen-live-view').replaceChildren();}
+async function startLive(){
+  if(!screenActive || !liveMode() || document.hidden || liveScreen)return;
+  const epoch=screenEpoch;
+  $('#screen-message').textContent='Conectando…';
+  try{
+    const {connectScreen}=await import(assetUrl('live.js'));
+    if(!screenActive || epoch!==screenEpoch || document.hidden || liveScreen)return;
+    $('#screen-live-view').hidden=false;
+    const connection=connectScreen($('#screen-live-view'),()=>{
+      if(liveScreen!==connection)return;
+      liveConnected=true;$('#screen-canvas').disabled=!screenFrame;
+      $('#screen-message').textContent='En directo. Toca para hacer clic; desliza para desplazar.';
+    },()=>{
+      if(liveScreen!==connection)return;
+      liveScreen=null;liveConnected=false;$('#screen-canvas').disabled=true;
+      if(screenActive && !document.hidden)$('#screen-message').textContent='Conexión cerrada. Pulsa Reconectar o elige Captura ligera.';
+    });
+    liveScreen=connection;
+  }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent='No se pudo conectar. Pulsa Reconectar o elige Captura ligera.';}
+}
 let sessionSignature = '';
 let switcherSignature = '';
 let feedbackTimer;
@@ -341,6 +365,7 @@ $$('[data-power-action]').forEach(button=>button.addEventListener('click',()=>{$
 $('#shutdown-cancel').addEventListener('click',()=>$('#shutdown-confirm').close());
 $('#shutdown-accept').addEventListener('click',()=>{$('#shutdown-confirm').close();act('admin/poweroff',{},'Apagando Jarq');});
 function endScreen(){
+  stopLive();
   screenActive=false;screenBusy=false;screenEpoch++;clearTimeout(screenTimer);screenTimer=null;
   clearTimeout(screenWheelTimer);screenWheelTimer=null;screenWheel=null;
   $('#screen-auto').checked=false;$('#screen-image').hidden=true;$('#screen-image').removeAttribute('src');
@@ -353,27 +378,34 @@ async function refreshScreen(){
   const epoch=screenEpoch;screenBusy=true;$('#screen-refresh').disabled=true;$('#screen-canvas').disabled=true;
   $('#screen-message').textContent='Actualizando…';
   try{
-    const frame=await api('remote/screen',{});
+    const frame=await api(liveMode()?'remote/screen/context':'remote/screen',{});
     if(!screenActive || epoch!==screenEpoch){api('remote/screen/close',{frame:frame.frame}).catch(()=>{});return;}
-    const previous=$('#screen-image'),img=new Image();
-    img.id=previous.id;img.alt=previous.alt;img.draggable=false;
-    img.src=frame.image;await img.decode();
+    if(liveMode()){
+      $('#screen-live-view').style.aspectRatio=`${frame.width} / ${frame.height}`;
+      $('#screen-image').hidden=true;
+    }else{
+      const previous=$('#screen-image'),img=new Image();
+      img.id=previous.id;img.alt=previous.alt;img.draggable=false;
+      img.src=frame.image;await img.decode();
+      previous.replaceWith(img);
+    }
     if(!screenActive || epoch!==screenEpoch)return;
-    previous.replaceWith(img);
     screenFields=frame.keyboard?.fields || [];
     if(frame.keyboard){keyboardContext=frame.keyboard;renderKeyboard();}
-    screenFrame=frame.frame;screenCapturedAt=performance.now();$('#screen-canvas').disabled=false;
-    $('#screen-message').textContent='Toca donde quieras hacer clic.';
+    screenFrame=frame.frame;screenCapturedAt=performance.now();$('#screen-canvas').disabled=liveMode()&&!liveConnected;
+    if(!liveMode())$('#screen-message').textContent='Toca donde quieras hacer clic.';
   }catch(error){if(screenActive && epoch===screenEpoch)$('#screen-message').textContent=error.message;}
-  finally{if(epoch===screenEpoch){screenBusy=false;$('#screen-refresh').disabled=false;if(screenActive && $('#screen-auto').checked && !document.hidden)screenTimer=setTimeout(refreshScreen,2000);}}
+  finally{if(epoch===screenEpoch){screenBusy=false;$('#screen-refresh').disabled=false;if(screenActive && !document.hidden && (liveMode() || $('#screen-auto').checked))screenTimer=setTimeout(refreshScreen,liveMode()?20000:2000);}}
 }
-$('#open-screen').addEventListener('click',()=>{screenActive=true;screenEpoch++;$('#screen-auto').checked=true;showPanel('screen');refreshScreen();});
+function openScreen(){screenActive=true;screenEpoch++;$('#screen-auto').checked=true;$('#screen-auto-label').hidden=liveMode();$('#screen-refresh').textContent=liveMode()?'Reconectar':'Actualizar';$('#screen-title').textContent=liveMode()?'Pantalla en directo':'Captura ligera';$('#screen-live-view').hidden=!liveMode();showPanel('screen');startLive();refreshScreen();}
+$('#open-screen').addEventListener('click',openScreen);
 $('#screen-exit').addEventListener('click',()=>showPanel(defaultPanel));
-$('#screen-refresh').addEventListener('click',refreshScreen);
+$('#screen-refresh').addEventListener('click',()=>{if(liveMode()){stopLive();startLive();}refreshScreen();});
+$('#screen-mode').addEventListener('change',()=>{endScreen();openScreen();});
 $('#screen-auto').addEventListener('change',()=>{clearTimeout(screenTimer);if($('#screen-auto').checked)refreshScreen();});
 $('#screen-canvas').addEventListener('click',async event=>{
-  if(!screenActive || screenBusy || !screenFrame)return;
-  const rect=$('#screen-image').getBoundingClientRect();
+  if(!screenActive || screenBusy || !screenFrame || screenTouchScrolled)return;
+  const rect=screenRect();if(!rect)return;
   const x=(event.clientX-rect.left)/rect.width,y=(event.clientY-rect.top)/rect.height;
   if(x<0||x>1||y<0||y>1)return;
   const field=screenFields.find(f=>x>=f.x&&x<=f.x+f.width&&y>=f.y&&y<=f.y+f.height);
@@ -402,15 +434,20 @@ $('#screen').addEventListener('wheel',event=>{
   if(!screenActive || !screenFrame || event.ctrlKey || event.metaKey || !$('#screen-canvas').contains(event.target))return;
   event.preventDefault();
   if(!event.deltaX && !event.deltaY)return;
-  const rect=$('#screen-image').getBoundingClientRect();
+  const rect=screenRect();if(!rect)return;
   const x=(event.clientX-rect.left)/rect.width,y=(event.clientY-rect.top)/rect.height;
   if(!(x>=0&&x<=1&&y>=0&&y<=1))return;
   const unit=event.deltaMode===1?16:event.deltaMode===2?rect.height:1;
   const previous=screenWheel||{dx:0,dy:0},horizontal=event.shiftKey && !event.deltaX;
   screenWheel={x,y,dx:Math.max(-600,Math.min(600,previous.dx+(horizontal?event.deltaY:event.deltaX)*unit)),dy:Math.max(-600,Math.min(600,previous.dy+(horizontal?0:event.deltaY)*unit))};
-  if(!screenWheelTimer)screenWheelTimer=setTimeout(flushScreenWheel,250);
+  if(!screenWheelTimer)screenWheelTimer=setTimeout(flushScreenWheel,liveMode()?60:250);
 },{passive:false});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(screenTimer);clearTimeout(screenWheelTimer);screenWheelTimer=null;screenWheel=null;}else if(screenActive && $('#screen-auto').checked)refreshScreen();});
+window.addEventListener('pagehide',stopLive);
+$('#screen-canvas').addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')screenTouchScrolled=false;});
+$('#screen-canvas').addEventListener('touchstart',event=>{if(event.touches.length!==1)return;const t=event.touches[0];screenTouch={x:t.clientX,y:t.clientY};screenTouchScrolled=false;},{passive:true});
+$('#screen-canvas').addEventListener('touchmove',event=>{if(!screenTouch || event.touches.length!==1)return;const t=event.touches[0],dx=screenTouch.x-t.clientX,dy=screenTouch.y-t.clientY;if(Math.hypot(dx,dy)<10)return;event.preventDefault();screenTouchScrolled=true;screenTouch={x:t.clientX,y:t.clientY};$('#screen-canvas').dispatchEvent(new WheelEvent('wheel',{bubbles:true,clientX:t.clientX,clientY:t.clientY,deltaX:dx,deltaY:dy}));},{passive:false});
+$('#screen-canvas').addEventListener('touchend',()=>{screenTouch=null;},{passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopLive();clearTimeout(screenTimer);clearTimeout(screenWheelTimer);screenWheelTimer=null;screenWheel=null;}else if(screenActive){startLive();refreshScreen();}});
 window.addEventListener('pagehide',endScreen);
 $('#remote-query').addEventListener('focus',async()=>{
   if(forceSearch || keyboardDraft || pendingFieldTap)return;

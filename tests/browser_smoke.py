@@ -311,6 +311,7 @@ with sync_playwright() as p:
     phone.locator('.app-youtube').click()
     expect(phone.locator('#remote-title')).to_have_text('YouTube')
     phone.locator('#open-screen').click()
+    phone.locator('#screen-mode').select_option('capture')
     expect(phone.locator('#screen-image')).to_be_visible()
     assert phone.locator('#screen-auto').is_checked()
     # A slow next JPEG must not replace or blank the visible frame.
@@ -371,6 +372,7 @@ with sync_playwright() as p:
     phone.mouse.wheel(0,200);phone.wait_for_timeout(300)
     assert len([a for a,_ in agent.calls if a=='scroll'])==scrolls
     phone.locator('#open-screen').click()
+    phone.locator('#screen-mode').select_option('capture')
     expect(phone.locator('#screen-image')).to_be_visible()
     assert phone.locator('#screen-auto').is_checked()
     phone.locator('#controller-nav [data-panel=settings]').click()

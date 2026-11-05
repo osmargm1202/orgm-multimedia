@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections import OrderedDict, deque
 import hmac
 import ipaddress
@@ -12,7 +13,7 @@ from pathlib import Path
 import time
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,6 +32,7 @@ from .youtube import canonical_url as youtube_url
 from .pairing import Devices, PairingRequests, Sessions, device_browser
 from .preferences import gallery
 from .previews import directory as preview_directory
+from .live_screen import SOCKET as LIVE_SOCKET
 
 ROOT = Path(__file__).parent
 LOG = logging.getLogger(__name__)
@@ -196,6 +198,9 @@ def create_app(settings=None, agent=None):
     app.state.sessions = sessions
     app.state.pairing_requests = PairingRequests(devices)
     app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=4)
+    vnc_client = os.getenv('ORGM_VNC_CLIENT')
+    if vnc_client:
+        app.mount('/vnc-client', StaticFiles(directory=vnc_client), name='vnc-client')
 
     @app.exception_handler(ControlError)
     async def control_error(request, exc):
@@ -536,6 +541,78 @@ def create_app(settings=None, agent=None):
     async def screen_capture():
         result = await client.call("screen-capture")
         return {**result,"image":"/api/remote/screen.jpg?frame="+result["frame"]}
+
+    @app.post('/api/remote/screen/context')
+    async def screen_context():
+        return await client.call('screen-prepare')
+
+    @app.websocket('/api/remote/live')
+    async def screen_live(socket: WebSocket):
+        # HTTP middleware does not run for upgrades. Repeat authorization and
+        # require the exact same Origin before touching the capture backend.
+        host = socket.headers.get('host', '')
+        origin = socket.headers.get('origin', '')
+        cookie = socket.cookies.get('orgm_session', '')
+        identity = sessions.identity(cookie)
+        if (host not in hosts or origin not in origins or urlsplit(origin).netloc != host
+                or not sessions.verify(cookie) or (identity == 'local' and not local_request(socket))):
+            await socket.close(code=1008)
+            return
+        if host.split(':')[0] == settings.public_host and settings.require_access:
+            try:
+                await access.verify(socket.headers.get('cf-access-jwt-assertion'))
+            except ControlError:
+                await socket.close(code=1008)
+                return
+        if not limits.allow((identity, 'live'), 10, 60):
+            await socket.close(code=1013)
+            return
+        viewer = None
+        writer = None
+        tasks = []
+        try:
+            viewer = (await client.call('live-start'))['viewer']
+            reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(LIVE_SOCKET), 3)
+            protocols = socket.headers.get('sec-websocket-protocol', '').split(',')
+            await socket.accept(subprotocol='binary' if 'binary' in [p.strip() for p in protocols] else None)
+
+            async def upstream():
+                while True:
+                    data = await socket.receive_bytes()
+                    if len(data) > 1024 * 1024:
+                        raise ValueError('Frame too large')
+                    writer.write(data)
+                    await writer.drain()
+
+            async def downstream():
+                while data := await reader.read(65536):
+                    await socket.send_bytes(data)
+
+            async def keepalive():
+                while True:
+                    await asyncio.sleep(8)
+                    # Revoking an authorized device also ends an open stream.
+                    if not sessions.verify(cookie):
+                        return
+                    await client.call('live-renew', viewer=viewer)
+
+            tasks = [asyncio.create_task(fn()) for fn in (upstream, downstream, keepalive)]
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        except (ControlError, OSError, TimeoutError, WebSocketDisconnect, KeyError):
+            pass
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if writer:
+                writer.close()
+                with contextlib.suppress(OSError):
+                    await writer.wait_closed()
+            if viewer:
+                with contextlib.suppress(ControlError, OSError):
+                    await client.call('live-close', viewer=viewer)
+            with contextlib.suppress(RuntimeError, WebSocketDisconnect):
+                await socket.close()
 
     @app.get("/api/remote/screen.jpg")
     async def screen_image(frame: str = Query(pattern=r"^[a-f0-9]{32}$")):

@@ -358,3 +358,5 @@ puerto. Ver [docs/screen-control.md](docs/screen-control.md).
 Dentro de Pantalla, la rueda sobre la imagen también se envía a Jarq. Shift+rueda
 desplaza horizontalmente; fuera de esta vista la rueda funciona normalmente en el
 navegador del mando. Salir cancela las capturas y los movimientos pendientes.
+
+La [pantalla en directo y el bloqueo de ventanas adicionales](docs/live-screen-and-popups.md) permiten controlar Jarq desde el mando con una imagen continua y conservar una sola página por webapp.
