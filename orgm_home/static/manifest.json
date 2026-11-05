@@ -1,5 +1,5 @@
 {
-  "version": "d60b10d99ad6",
+  "version": "c5f539a2d4fc",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -69,6 +69,6 @@
     "live.js": "2b8fe63497bc",
     "pump.css": "2b20b57ee868",
     "pump.js": "477d5ad88222",
-    "remote.css": "6dbf8014fee3"
+    "remote.css": "f10ebb02bcbf"
   }
 }

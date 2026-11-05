@@ -65,7 +65,7 @@ async def verify(p, page, root, tool, env, start, screen):
         after=await canvas.screenshot()
         assert before!=after, 'VNC framebuffer did not update'
         box=await canvas.bounding_box()
-        await canvas.click(position={'x':box['width']*400/1280,'y':box['height']*250/720})
+        await phone.touchscreen.tap(box['x']+box['width']*400/1280,box['y']+box['height']*250/720)
         await page.wait_for_function('document.title==="live-clicked"')
         await phone.screenshot(path=str(root/'live-phone.png'),full_page=True)
         await phone.locator('#screen-exit').click()
