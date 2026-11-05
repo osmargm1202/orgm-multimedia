@@ -3,6 +3,8 @@ import asyncio
 import contextlib
 import json
 import os
+import io
+from PIL import Image
 from pathlib import Path
 import socket
 import uvicorn
@@ -55,18 +57,25 @@ async def verify(p, page, root, tool, env, start, screen):
         assert response.ok
         await phone.goto(base)
         await phone.locator('#open-screen').wait_for(state='visible')
-        await phone.wait_for_function('!document.querySelector("#open-screen").disabled')
+        await phone.wait_for_function('() => !document.querySelector("#open-screen").disabled')
         await phone.locator('#open-screen').click()
-        await phone.wait_for_function('document.querySelector("#screen-message").textContent.startsWith("En directo.")',timeout=15000)
+        await phone.wait_for_function('() => document.querySelector("#screen-message").textContent.startsWith("En directo.")',timeout=15000)
         canvas=phone.locator('#screen-live-view canvas')
         before=await canvas.screenshot()
         await page.evaluate("document.body.style.background='#cc2200'")
         await asyncio.sleep(.4)
         after=await canvas.screenshot()
         assert before!=after, 'VNC framebuffer did not update'
+        await canvas.scroll_into_view_if_needed()
+        pixels=Image.open(io.BytesIO(await canvas.screenshot())).convert('RGB')
+        points=[(x,y) for y in range(pixels.height) for x in range(pixels.width) if (lambda c:c[1]>180 and c[0]<80 and c[2]<80)(pixels.getpixel((x,y)))]
+        assert points, 'Touch target missing from live framebuffer'
         box=await canvas.bounding_box()
-        await phone.touchscreen.tap(box['x']+box['width']*400/1280,box['y']+box['height']*250/720)
-        await page.wait_for_function('document.title==="live-clicked"')
+        x=sum(point[0] for point in points)/len(points)/pixels.width
+        y=sum(point[1] for point in points)/len(points)/pixels.height
+        await phone.touchscreen.tap(box['x']+box['width']*x,box['y']+box['height']*y)
+        await asyncio.sleep(.5)
+        await page.wait_for_function('document.title==="live-clicked"',timeout=5000)
         await phone.screenshot(path=str(root/'live-phone.png'),full_page=True)
         await phone.locator('#screen-exit').click()
         for _ in range(100):
