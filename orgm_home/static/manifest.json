@@ -1,5 +1,5 @@
 {
-  "version": "c5f539a2d4fc",
+  "version": "710737ebc7f4",
   "files": {
     "cards/airplay.webp": "9e4933be1b9f",
     "cards/browser.webp": "678561b87b99",
@@ -32,7 +32,7 @@
     "home-night.webp": "8751eee24aed",
     "home-orbita.webp": "21a77cfb076a",
     "home.css": "01c58588dd83",
-    "home.js": "e986a1a9b6aa",
+    "home.js": "b17ef691ef12",
     "icon.svg": "5d2b279b8aa2",
     "icons/airplay.svg": "3e68cdd31cb3",
     "icons/apps.svg": "922335ac9949",
@@ -54,6 +54,7 @@
     "icons/options.svg": "c3461925e314",
     "icons/poki.svg": "3f550a6ec11e",
     "icons/power.svg": "826ee42256dd",
+    "icons/previous-app.svg": "22cac2e5c720",
     "icons/reboot.svg": "9920361a343e",
     "icons/restart-launcher.svg": "8a58a6c38755",
     "icons/retroarch.svg": "7702bb31017e",
@@ -69,6 +70,6 @@
     "live.js": "2b8fe63497bc",
     "pump.css": "2b20b57ee868",
     "pump.js": "477d5ad88222",
-    "remote.css": "f10ebb02bcbf"
+    "remote.css": "9143f62cbe01"
   }
 }

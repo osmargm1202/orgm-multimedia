@@ -14,7 +14,7 @@
 .is-controller .remote{padding:18px 20px 20px;margin:0;max-width:none;background:#0e1c2c;border-color:#34465b}
 .is-controller .remote-heading h2{font-size:1.4rem;line-height:1.3}
 .remote-status{color:var(--secondary);font-size:.85rem;margin-top:8px;line-height:1.5;min-height:2.55em;max-height:3em;overflow:hidden;overflow-wrap:anywhere}
-.remote-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.remote-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
 .remote-shortcuts button,.focus-controls button{display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;font-size:.88rem;background:#21354c}
 .is-controller .dpad{width:252px;height:252px;max-width:100%;max-height:none;margin:20px auto;padding:6px;gap:5px;background:#1d3045;border-radius:50%}
 .is-controller .dpad button{display:grid;place-items:center;min-height:0;padding:0;background:#304760;border-radius:12px}

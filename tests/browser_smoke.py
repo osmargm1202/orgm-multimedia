@@ -16,6 +16,7 @@ from orgm_home.media_links import media_link
 class PreviewAgent:
     def __init__(self):
         self.active = "home"
+        self.history = []
         self.calls = []
         self.brightness = 35
         self.background = "costa"
@@ -27,6 +28,10 @@ class PreviewAgent:
 
     async def call(self, action, **data):
         self.calls.append((action, data))
+        if self.active != 'home':
+            self.history = [item for item in self.history if item != self.active] + [self.active]
+        if action == 'previous-app':
+            self.active = next(item for item in reversed(self.history) if item != self.active and item in self.opened)
         if action == "open-media":
             self.active=media_link(data["url"]).app
             self.opened.add(self.active)
@@ -81,6 +86,7 @@ class PreviewAgent:
                 "muted": False,
                 "spotify": {"available": True, "playing": self.playing, "title":"Sesión de prueba", "artist":"Spotify"},
                 "open": sorted(self.opened),
+                "previous_app": next((item for item in reversed(self.history) if item != self.active and item in self.opened), None),
                 "capabilities": {
                     "keys": True,
                     "pointer": True,
@@ -429,6 +435,13 @@ with sync_playwright() as p:
     expect(phone.locator('#remote-title')).to_have_text('Max')
     assert ('switch-app',{'id':'max'}) in agent.calls[checkpoint:]
     assert not any(action=='home' for action,_ in agent.calls[checkpoint:])
+    checkpoint=len(agent.calls)
+    phone.locator('[data-previous-app]').click()
+    expect(phone.locator('#remote-title')).to_have_text('YouTube')
+    assert ('previous-app',{}) in agent.calls[checkpoint:]
+    phone.locator('[data-previous-app]').click()
+    expect(phone.locator('#remote-title')).to_have_text('Max')
+    phone.screenshot(path=str(root/'previous-app-mobile.png'),full_page=True)
     phone.locator('#remote [data-switcher]').click()
     phone.locator('#switcher-list [aria-label="Cerrar YouTube"]').click()
     expect(phone.locator('[data-switch-app=youtube]')).to_have_count(0)

@@ -24,6 +24,7 @@ Scope {
     property var apps: []
     property var openedApps: []
     property string activeApp: "home"
+    property string previousApp: ""
     readonly property var openApps: apps.filter(app => app.id !== "home" && openedApps.includes(app.id))
     property string background: "costa"
     property int volume: 0
@@ -123,6 +124,7 @@ Scope {
                         root.touchAlwaysOn=!!result.data.touch_always_on;
                         root.openedApps=result.data.open || [];
                         root.activeApp=result.data.app || "home";
+                        root.previousApp=result.data.previous_app || "";
                     }
                 } catch(e) { root.online=false; }
             }
@@ -207,14 +209,15 @@ Scope {
                 Rectangle {
                     id:controlsBackground
                     anchors.horizontalCenter:parent.horizontalCenter
-                    width:Math.min(parent.width-24,root.error?1060:740); height:parent.height; radius:16; color:"#f520293b"
+                    width:Math.min(parent.width-24,root.error?1120:800); height:parent.height; radius:16; color:"#f520293b"
                     Row {
                         x:12; anchors.verticalCenter:parent.verticalCenter; spacing:4
                         IconButton { icon:"home";label:"Inicio";available:root.online;onClicked:root.act("home") }
+                        IconButton { icon:"previous-app";label:"Volver a la aplicación anterior";available:root.online && !!root.previousApp && !control.running;onClicked:root.act("previous-app") }
                         IconButton { id:switchApps;icon:"apps";label:"Cambiar de aplicación";available:root.online;onClicked:root.toggleApps() }
                         IconButton { icon:"back";label:"Atrás";available:root.online && !!root.capabilities.keys;onClicked:root.act("back") }
                         IconButton { id:closePage;icon:"close";label:"Cerrar página";available:root.online && !!root.capabilities.close;onClicked:root.act("close") }
-                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-741); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
+                        Text { visible:!!root.error;width:Math.max(90,controlsBackground.width-801); anchors.verticalCenter:parent.verticalCenter; text:root.error; elide:Text.ElideRight; color:"#ffc0b6"; font.pixelSize:14 }
                         IconButton { icon:"volume-down";label:"Bajar volumen";available:root.online;onClicked:root.act("volume-down") }
                         IconButton { icon:root.muted?"mute":"volume";label:root.muted?"Activar audio":"Silenciar";available:root.online;onClicked:root.act("mute") }
                         Text { width:44; anchors.verticalCenter:parent.verticalCenter; text:root.volume+"%"; color:"#f2f5fc"; font.pixelSize:14; horizontalAlignment:Text.AlignHCenter }

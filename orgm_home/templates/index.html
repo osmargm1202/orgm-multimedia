@@ -37,6 +37,7 @@
     <symbol id="i-remote" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="5"/><circle cx="12" cy="10" r="3"/><path d="M10 17h4"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 14 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2 6h8l2 3h10v11H2ZM2 6V3h7l3 3h8v3"/></symbol>
+    <symbol id="i-previous-app" viewBox="0 0 24 24"><path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4-4-4 4 4 4"/></symbol>
     <symbol id="i-apps" viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v11M7 11h6"/></symbol>
     <symbol id="i-tab" viewBox="0 0 24 24"><path d="M19 4v16M3 12h12m-5-5 5 5-5 5"/></symbol>
   </svg>
@@ -88,7 +89,7 @@
       <div class="remote-display"><div class="remote-heading"><h2 id="remote-title">Mando</h2></div>
       <p id="remote-status" class="remote-only remote-status" aria-live="polite">Conectando con la sala</p></div>
       <div id="remote-input-slot" class="remote-input-slot remote-only"><form id="remote-input" class="remote-input" autocomplete="off"><label id="remote-input-label" for="remote-query">Buscar en la app</label><div class="input-row"><input id="remote-query" type="search" maxlength="1000" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Abre una app para buscar" disabled><button id="remote-input-send" type="submit" disabled>Buscar</button></div><p id="remote-input-message" role="status"></p></form></div>
-      <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button><button id="touch-always-on" aria-label="Pantalla táctil siempre encendida" aria-pressed="false" disabled><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg><span id="touch-mode-label">Auto</span></button></div>
+      <div class="remote-shortcuts remote-only"><button data-home disabled><svg><use href="#i-home"/></svg><span>Inicio</span></button><button data-previous-app disabled aria-label="Volver a la aplicación anterior"><svg><use href="#i-previous-app"/></svg><span>Última app</span></button><button data-switcher aria-haspopup="dialog"><svg><use href="#i-apps"/></svg><span>Cambiar app</span></button><button id="touch-always-on" aria-label="Pantalla táctil siempre encendida" aria-pressed="false" disabled><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg><span id="touch-mode-label">Auto</span></button></div>
       <div class="dpad remote-only" role="group" aria-label="Navegar por la aplicación en la pantalla de Jarq">
         <button class="up" data-key="up" aria-label="Arriba" disabled><svg><use href="#i-up"/></svg></button>
         <button class="left" data-key="left" aria-label="Izquierda" disabled><svg><use href="#i-left"/></svg></button>

@@ -422,3 +422,13 @@ def test_phone_keyboard_requires_authorization_csrf_and_strict_payload(configure
     assert agent.calls[-1]==('keyboard-text',payload)
     for bad in [{'submit':'true'},{'editor':'invalid'},{'text':'bad\ntext'},{'text':'x'*1001}]:
         assert client.post('/api/remote/keyboard',json={**payload,**bad},headers=headers).status_code==422
+
+
+def test_previous_app_requires_pairing_and_csrf(configured, paired):
+    client, agent, headers = paired
+    endpoint = '/api/remote/previous-app'
+    assert client.post(endpoint, json={}, headers={'origin': 'http://127.0.0.1:8765'}).status_code == 403
+    assert client.post(endpoint, json={}, headers=headers).status_code == 200
+    assert agent.calls == [('previous-app', {})]
+    anonymous = TestClient(configured[2], base_url="http://127.0.0.1:8765")
+    assert anonymous.post(endpoint, json={}, headers=headers).status_code == 401

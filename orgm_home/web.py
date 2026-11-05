@@ -634,6 +634,10 @@ def create_app(settings=None, agent=None):
     async def pointer(payload: ScreenClick):
         return await client.call("pointer",frame=payload.frame,x=payload.x,y=payload.y)
 
+    @app.post("/api/remote/previous-app")
+    async def previous_app():
+        return await client.call("previous-app")
+
     @app.post("/api/remote/home")
     async def home():
         return await client.call("home")

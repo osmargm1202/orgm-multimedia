@@ -111,6 +111,7 @@ class Controller:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.children = set()
         self.active = "home"
+        self.app_history = []
         self.warning = None
         self.processes = {}
         self.keyboard = None
@@ -128,6 +129,16 @@ class Controller:
         self.wifi = Wifi(command, Path(os.getenv("XDG_RUNTIME_DIR", str(self.state_dir))) / "orgm-home-wifi")
         self.spotify = {"available": False, "playing": False, "title": "", "artist": ""}
         self.playback = Playback(self.state_dir, self.apps, lambda *a, **k: command(*a, **k), self.identify, self.ancestors, self.mpv)
+
+    def select_app(self, app_id):
+        self.active = app_id
+        if app_id != "home":
+            self.app_history = [item for item in self.app_history if item != app_id]
+            self.app_history.append(app_id)
+
+    def previous_app(self, opened):
+        return next((item for item in reversed(self.app_history)
+                     if item != self.active and item in opened), None)
 
     async def refresh_media(self):
         # Don't continuously redraw paused/hidden video sources while the user
@@ -360,7 +371,7 @@ class Controller:
         focused = next((w for w in views if w.get("focused")), None)
         active = self.identify(focused) if focused else self.apps.get(self.active)
         if active:
-            self.active = active.id
+            self.select_app(active.id)
         streams = await self.audio_streams()
         owned = [(stream, self.stream_app(stream, views)) for stream in streams]
         running_airplay = {str(stream['index']) for stream, owner in owned
@@ -372,7 +383,7 @@ class Controller:
         if incoming and incoming != active:
             await self.activate(incoming.id)
             active = incoming
-            self.active = incoming.id
+            self.select_app(incoming.id)
         interrupts_music = bool(
             active and active.id not in {"home", "spotify"}
             and any(owner == active and not stream.get("corked", True) for stream, owner in owned)
@@ -538,6 +549,7 @@ class Controller:
             await command("systemctl", "--user", "start", "orgm-home-airplay.service")
         window = await self.find(app)
         if window and window.get("focused") and url is None and app.id not in {"home", "airplay"}:
+            self.select_app(app.id)
             return {"app": app.id, "unchanged": True, "warning": self.warning}
         navigate_existing = window is not None and url is not None
         if url is not None and app.id not in {"browser", *LABELS}:
@@ -611,7 +623,7 @@ class Controller:
                 await BrowserControl(app.id, 32000 + int(app.workspace)).navigate(url)
             else:
                 await self.spawn(self.chrome_args(app, url, new_window=False))
-        self.active = app.id
+        self.select_app(app.id)
         self.resources.select(app.id)
         with contextlib.suppress(ControlError):
             await self.mute_application(app, False)
@@ -697,7 +709,7 @@ class Controller:
         focused = next((w for w in windows(tree) if w.get("focused")), None)
         app = self.identify(focused) if focused else None
         if app:
-            self.active = app.id
+            self.select_app(app.id)
         volume_raw = await command(
             "wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@", check=False
         )
@@ -729,6 +741,7 @@ class Controller:
             "previews": versions(opened),
             "spotify": self.spotify,
             "open": opened,
+            "previous_app": self.previous_app(opened),
             "warning": self.warning,
             "resources": {"cpu": self.resources.cpu, "notice": self.resources.notice},
             "capabilities": {
@@ -798,6 +811,14 @@ class Controller:
                 return {"apps": [app.public() for app in self.apps.values()]}
             if action == "activate":
                 return await self.activate(request.get("id"))
+            if action == "previous-app":
+                current = await self.status()
+                target = current["previous_app"]
+                if target is None:
+                    raise ControlError("No hay otra aplicación abierta para volver", 409)
+                if not await self.find(self.apps[target]):
+                    raise ControlError("La aplicación anterior ya está cerrada", 409)
+                return await self.activate(target)
             if action == "switch-app":
                 app = self.apps.get(request.get("id"))
                 if not app:

@@ -34,6 +34,7 @@ def control():
         "apps": ("apps", {}),
         "switch-app": ("switch-app", {"id": sys.argv[2] if len(sys.argv) == 3 else ""}),
         "home": ("home", {}),
+        "previous-app": ("previous-app", {}),
         "rotate": ("rotate", {}),
         "preferences": ("preferences", {}),
         "background": ("background", {"id": sys.argv[2] if len(sys.argv) == 3 else ""}),

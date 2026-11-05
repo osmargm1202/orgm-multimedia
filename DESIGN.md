@@ -89,3 +89,10 @@ conserva su proporción, ocupa el ancho disponible y recibe el toque en coordena
 normalizadas; su estado explica cuándo actualizar o reintentar. El ancho máximo
 en escritorio es 1100 px. Salir no cambia de aplicación en Jarq y elimina la
 imagen del navegador. No se mezclan archivos, enlaces ni ajustes con esta vista.
+
+## Volver a la última aplicación
+
+La barra nativa añade flechas opuestas junto a Inicio para recuperar directamente
+la última fuente abierta usada. El mando conserva su estilo y organiza Inicio,
+Última app, Cambiar app y Auto en dos columnas, con objetivos de al menos 44 px.
+Última app se deshabilita sin un destino abierto; el selector existente se conserva.

@@ -360,3 +360,9 @@ desplaza horizontalmente; fuera de esta vista la rueda funciona normalmente en e
 navegador del mando. Salir cancela las capturas y los movimientos pendientes.
 
 La [pantalla en directo y el bloqueo de ventanas adicionales](docs/live-screen-and-popups.md) permiten controlar Jarq desde el mando con una imagen continua y conservar una sola página por webapp.
+
+El botón «Última app» del mando y el botón de flechas opuestas de la barra táctil
+vuelven a la última aplicación usada que siga abierta. Pulsarlo de nuevo alterna
+entre ambas; desde Inicio recupera la más reciente. Omite aplicaciones cerradas y
+queda deshabilitado si no hay otra disponible. El historial pertenece a la sesión
+del agente y se reinicia al reiniciar ese servicio.

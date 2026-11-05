@@ -922,3 +922,49 @@ def test_keyboard_detection_does_not_cancel_pending_content(controller):
     run(controller.dispatch({'action':'keyboard-context'}))
     assert controller.autoplay_task is not None
     controller.autoplay_task.cancel.assert_not_called()
+
+
+def test_previous_app_toggles_open_sources_and_returns_from_home(controller, monkeypatch):
+    monkeypatch.setattr('orgm_home.agent.command', AsyncMock(return_value=''))
+    views = [window('home', 1), window('youtube', 2), window('browser', 7)]
+    controller.tree = AsyncMock(return_value={'nodes': views})
+    controller.spawn = AsyncMock()
+
+    def focus(app):
+        for view in views:
+            view['focused'] = view['name'] == app
+        return run(controller.status())
+
+    assert focus('home')['previous_app'] is None
+    assert focus('youtube')['previous_app'] is None
+    assert focus('browser')['previous_app'] == 'youtube'
+    assert run(controller.dispatch({'action': 'previous-app'}))['app'] == 'youtube'
+    focus('youtube')
+    assert run(controller.dispatch({'action': 'previous-app'}))['app'] == 'browser'
+    focus('browser')
+    assert focus('home')['previous_app'] == 'browser'
+    assert run(controller.dispatch({'action': 'previous-app'}))['app'] == 'browser'
+    controller.spawn.assert_not_called()
+    assert not any('kill' in call.args[0] for call in controller.sway.call_args_list)
+
+
+def test_previous_app_skips_closed_sources_and_repeated_focus(controller, monkeypatch):
+    monkeypatch.setattr('orgm_home.agent.command', AsyncMock(return_value=''))
+    for app in ['youtube', 'browser', 'browser']:
+        controller.select_app(app)
+    assert controller.app_history == ['youtube', 'browser']
+    controller.tree = AsyncMock(return_value={'nodes': [window('browser')]})
+    controller.spawn = AsyncMock()
+    assert run(controller.status())['previous_app'] is None
+    with pytest.raises(ControlError) as error:
+        run(controller.dispatch({'action': 'previous-app'}))
+    assert error.value.status == 409
+    controller.spawn.assert_not_called()
+    controller.sway.assert_not_called()
+
+
+def test_previous_app_records_successful_activation_without_status_poll(controller):
+    controller.tree = AsyncMock(return_value={'nodes': [{**window('browser', 7), 'focused': False}]})
+    controller.select_app('youtube')
+    run(controller.activate('browser'))
+    assert controller.previous_app(['youtube', 'browser']) == 'youtube'

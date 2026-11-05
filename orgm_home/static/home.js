@@ -192,6 +192,7 @@ function render() {
   });
   $$('[data-key]').forEach(button=>{const key=button.dataset.key; const capability=key==='mute' ? state.volume!==null : key==='search' ? state.capabilities?.search : key==='play' ? state.capabilities?.play : state.capabilities?.keys && !(state.app==='home' && ['backspace','enter'].includes(key));button.disabled=!online || busy || !capability;});
   $$('[data-home],[data-volume],[data-switcher],#load-videos').forEach(button=>button.disabled=!online || busy);
+  $$('[data-previous-app]').forEach(button=>{button.disabled=!online || busy || !state.previous_app;button.title=state.previous_app ? `Volver a ${labels[state.previous_app] || state.previous_app}` : 'No hay otra aplicación abierta';});
   $('#open-screen').disabled=!online || busy || !state.capabilities?.pointer;
   renderKeyboard();
   $('#close-app').hidden=!state.capabilities?.close;
@@ -338,6 +339,7 @@ $$('[data-key]').forEach(button=>button.addEventListener('click',async()=>{
   await act('remote/key',{key:button.dataset.key});
 }));
 $('#phone-keyboard').addEventListener('click',()=>focusPhoneInput());
+$$('[data-previous-app]').forEach(button=>button.addEventListener('click',()=>act('remote/previous-app')));
 $$('[data-home]').forEach(button=>button.addEventListener('click',async()=>{await act('remote/home');category='all';showPanel(defaultPanel);if(kiosk)focusHome(true);else $('.app-grid').scrollLeft=0;}));
 $$('[data-volume]').forEach(button=>button.addEventListener('click',()=>act('audio/volume',{delta:Number(button.dataset.volume)})));
 $('#close-app').addEventListener('click',()=>act('remote/close',{},'Página cerrada'));
